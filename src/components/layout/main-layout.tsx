@@ -1,4 +1,6 @@
 
+"use client"; // Add use client directive
+
 import type { ReactNode } from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav } from './sidebar-nav'; // Assuming sidebar-nav is in the same directory
