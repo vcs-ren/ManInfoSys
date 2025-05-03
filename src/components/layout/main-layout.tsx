@@ -12,16 +12,53 @@ interface NavItem {
   icon: IconName; // Change type to IconName (string)
 }
 
-interface MainLayoutProps {
-  children: ReactNode;
-  navItems: NavItem[];
-  userRole: string;
+interface NavItemGroup {
+    role: string;
+    items: NavItem[];
 }
 
-export function MainLayout({ children, navItems, userRole }: MainLayoutProps) {
+interface MainLayoutProps {
+  children: ReactNode;
+  userRole: string; // The role of the currently logged-in user
+}
+
+// Define all navigation items centrally
+const allNavItems: NavItemGroup[] = [
+    {
+        role: "Admin",
+        items: [
+            { href: '/admin/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
+            { href: '/admin/students', label: 'Manage Students', icon: 'Users' },
+            { href: '/admin/teachers', label: 'Manage Teachers', icon: 'UserCog' },
+            { href: '/admin/schedule', label: 'Class Scheduler', icon: 'CalendarDays' },
+        ]
+    },
+     {
+        role: "Teacher",
+        items: [
+            { href: '/teacher/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
+            { href: '/teacher/profile', label: 'Profile', icon: 'UserCircle' },
+            { href: '/teacher/grades', label: 'Submit Grades', icon: 'ClipboardCheck' },
+            { href: '/teacher/schedule', label: 'View Schedule', icon: 'CalendarClock' },
+        ]
+    },
+    {
+        role: "Student",
+        items: [
+            { href: '/student/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
+            { href: '/student/profile', label: 'Profile', icon: 'UserCircle' },
+            { href: '/student/grades', label: 'View Grades', icon: 'BookOpenCheck' },
+            { href: '/student/schedule', label: 'Class Schedule', icon: 'CalendarDays' },
+        ]
+    },
+];
+
+
+export function MainLayout({ children, userRole }: MainLayoutProps) {
   return (
     <SidebarProvider defaultOpen={true}>
-      <SidebarNav navItems={navItems} userRole={userRole} />
+      {/* Pass all navigation items grouped by role */}
+      <SidebarNav navItemGroups={allNavItems} currentUserRole={userRole} />
       <SidebarInset>
         <div className="p-4 pt-16 md:pt-4"> {/* Add padding top for mobile header */}
             {children}
