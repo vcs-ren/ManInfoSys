@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -124,32 +123,40 @@ export default function ManageStudentsPage() {
     const columns: ColumnDef<Student>[] = React.useMemo(() => [
          {
             accessorKey: "studentId",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Student ID" />, // Pass column object
+            header: ({ column }) => {
+               return <DataTableColumnHeader column={column} title="Student ID" />;
+            },
             cell: ({ row }) => <div>{row.getValue("studentId")}</div>,
         },
         {
             accessorKey: "firstName",
-             header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />, // Pass column object
+             header: ({ column }) => {
+               return <DataTableColumnHeader column={column} title="First Name" />;
+             },
             cell: ({ row }) => <div className="capitalize">{row.getValue("firstName")}</div>,
         },
         {
             accessorKey: "lastName",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />, // Pass column object
+            header: ({ column }) => {
+              return <DataTableColumnHeader column={column} title="Last Name" />;
+            },
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
         },
          {
             accessorKey: "course",
-            header: ({ column }) => (
-                <DataTableFilterableColumnHeader<Student>
-                    column={column} // Pass column object
-                    title="Course"
-                    options={[ // Example options - fetch dynamically if needed
-                        { label: "Computer Science", value: "Computer Science" },
-                        { label: "Information Technology", value: "Information Technology" },
-                        { label: "Business Administration", value: "Business Administration" },
-                    ]}
-                />
-            ),
+            header: ({ column }) => {
+              return (
+                  <DataTableFilterableColumnHeader
+                      column={column} // Pass column object
+                      title="Course"
+                      options={[ // Example options - fetch dynamically if needed
+                          { label: "Computer Science", value: "Computer Science" },
+                          { label: "Information Technology", value: "Information Technology" },
+                          { label: "Business Administration", value: "Business Administration" },
+                      ]}
+                  />
+              );
+            },
             cell: ({ row }) => <div>{row.getValue("course")}</div>,
              filterFn: (row, id, value) => {
                  return value.includes(row.getValue(id))
@@ -157,19 +164,21 @@ export default function ManageStudentsPage() {
         },
         {
             accessorKey: "year",
-            header: ({ column }) => (
-                 <DataTableFilterableColumnHeader<Student>
-                    column={column} // Pass column object
-                    title="Year"
-                    options={[
-                        { label: "1", value: "1" },
-                        { label: "2", value: "2" },
-                        { label: "3", value: "3" },
-                        { label: "4", value: "4" },
-                        // Add more years if applicable
-                    ].map(o => ({ label: o.label, value: String(o.value) })) // Ensure values are strings
-                />
-            ),
+            header: ({ column }) => {
+              return (
+                   <DataTableFilterableColumnHeader
+                      column={column} // Pass column object
+                      title="Year"
+                      options={[
+                          { label: "1", value: "1" },
+                          { label: "2", value: "2" },
+                          { label: "3", value: "3" },
+                          { label: "4", value: "4" },
+                          // Add more years if applicable
+                      ].map(o => ({ label: o.label, value: String(o.value) })) // Ensure values are strings
+                  />
+              );
+            },
             cell: ({ row }) => <div className="text-center">{row.getValue("year")}</div>,
             filterFn: (row, id, value) => {
                  // Ensure comparison happens correctly (value is array, cell is number)
@@ -179,17 +188,19 @@ export default function ManageStudentsPage() {
         },
         {
             accessorKey: "section",
-            header: ({ column }) => (
-                 <DataTableFilterableColumnHeader<Student>
-                    column={column} // Pass column object
-                    title="Section"
-                    options={[ // Should be dynamic based on available sections
-                        { label: "A", value: "A" },
-                        { label: "B", value: "B" },
-                        { label: "C", value: "C" },
-                    ]}
-                />
-            ),
+            header: ({ column }) => {
+              return (
+                   <DataTableFilterableColumnHeader
+                      column={column} // Pass column object
+                      title="Section"
+                      options={[ // Should be dynamic based on available sections
+                          { label: "A", value: "A" },
+                          { label: "B", value: "B" },
+                          { label: "C", value: "C" },
+                      ]}
+                  />
+              );
+            },
             cell: ({ row }) => <div className="text-center">{row.getValue("section")}</div>,
             filterFn: (row, id, value) => {
                 return value.includes(row.getValue(id))
@@ -294,4 +305,3 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-

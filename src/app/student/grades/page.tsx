@@ -51,12 +51,16 @@ export default function ViewGradesPage() {
   const columns: ColumnDef<Grade>[] = React.useMemo(() => [
     {
         accessorKey: "subject",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Subject" />, // Pass column object
+        header: ({ column }) => {
+          return <DataTableColumnHeader column={column} title="Subject" />;
+        },
         cell: ({ row }) => <div className="font-medium">{row.getValue("subject")}</div>,
     },
     {
         accessorKey: "grade",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Grade" />, // Pass column object
+        header: ({ column }) => {
+          return <DataTableColumnHeader column={column} title="Grade" />;
+        },
         cell: ({ row }) => <div className="text-center font-semibold">{String(row.getValue("grade"))}</div>, // Ensure grade is string for display
     },
     {
@@ -111,4 +115,3 @@ export default function ViewGradesPage() {
     </div>
   );
 }
-

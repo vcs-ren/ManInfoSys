@@ -121,7 +121,9 @@ export default function SubmitGradesPage() {
   const columns: ColumnDef<Student>[] = React.useMemo(() => [
     {
         accessorKey: "studentId",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Student ID" />, // Pass column object
+        header: ({ column }) => {
+          return <DataTableColumnHeader column={column} title="Student ID" />;
+        },
     },
     {
         accessorKey: "firstName",
@@ -215,4 +217,3 @@ export default function SubmitGradesPage() {
     </div>
   );
 }
-

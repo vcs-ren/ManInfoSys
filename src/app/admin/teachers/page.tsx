@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -118,23 +117,30 @@ export default function ManageTeachersPage() {
     const columns: ColumnDef<Teacher>[] = React.useMemo(() => [
          {
             accessorKey: "teacherId",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Teacher ID" />, // Pass column object
+            header: ({ column }) => {
+              return <DataTableColumnHeader column={column} title="Teacher ID" />;
+            },
             cell: ({ row }) => <div>{row.getValue("teacherId")}</div>,
         },
         {
             accessorKey: "firstName",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />, // Pass column object
+            header: ({ column }) => {
+              return <DataTableColumnHeader column={column} title="First Name" />;
+            },
             cell: ({ row }) => <div className="capitalize">{row.getValue("firstName")}</div>,
         },
         {
             accessorKey: "lastName",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />, // Pass column object
+            header: ({ column }) => {
+              return <DataTableColumnHeader column={column} title="Last Name" />;
+            },
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
         },
          {
             accessorKey: "department",
-            header: ({ column }) => (
-                <DataTableFilterableColumnHeader<Teacher>
+            header: ({ column }) => {
+              return (
+                <DataTableFilterableColumnHeader
                 column={column} // Pass column object
                 title="Department"
                 options={[ // Example options - fetch dynamically if needed
@@ -143,7 +149,8 @@ export default function ManageTeachersPage() {
                     { label: "English", value: "English" },
                 ]}
                 />
-            ),
+              );
+            },
             cell: ({ row }) => <div>{row.getValue("department")}</div>,
              filterFn: (row, id, value) => {
                  return value.includes(row.getValue(id))
@@ -246,4 +253,3 @@ export default function ManageTeachersPage() {
     </div>
   );
 }
-
