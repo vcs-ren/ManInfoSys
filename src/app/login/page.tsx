@@ -25,17 +25,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn } from 'lucide-react';
 
-// Define the schema for the login form using Zod
+// Define the schema for the login form using Zod (removed role)
 const loginSchema = z.object({
   username: z.string().min(1, { message: "Username is required" }),
+  // Password is required for the form, but logic might bypass it for test users
   password: z.string().min(1, { message: "Password is required" }),
-  role: z.enum(["admin", "teacher", "student"], {
-    required_error: "You need to select a role.",
-  }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -48,8 +45,7 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
-      password: "",
-      role: undefined, // Ensure no default role is selected
+      password: "", // Keep password field, but logic handles test users
     },
   });
 
@@ -57,31 +53,35 @@ export default function LoginPage() {
   const onSubmit = (data: LoginFormValues) => {
     console.log("Login attempt:", data);
 
-    // --- Mock Login Logic ---
-    // In a real app, replace this with API call to PHP backend
-    // For now, we'll use simple mock logic based on username prefix
+    // --- Simplified Mock Login Logic (No Password Check for test users) ---
     let redirectPath = '';
-    if (data.role === 'admin' && data.username === 'admin' && data.password === 'adminpass') {
+    let role = '';
+
+    if (data.username === 'admin') {
       redirectPath = '/admin/dashboard';
-    } else if (data.role === 'teacher' && data.username.startsWith('t') && data.password === 'teacherpass') {
-       // Extract potential ID if needed: const teacherId = data.username.substring(1);
-      redirectPath = '/teacher/dashboard';
-    } else if (data.role === 'student' && data.username.startsWith('s') && data.password === 'studentpass') {
-       // Extract potential ID if needed: const studentId = data.username.substring(1);
+      role = 'Admin';
+    } else if (data.username === 's1001') {
       redirectPath = '/student/dashboard';
-    } else {
+      role = 'Student';
+    } else if (data.username === 't1001') {
+      redirectPath = '/teacher/dashboard';
+      role = 'Teacher';
+    }
+    // Add more specific user checks or a generic failure case here if needed
+    // For now, any other username/password combination will fail.
+     else {
        toast({
          variant: "destructive",
          title: "Login Failed",
-         description: "Invalid username, password, or role.",
+         description: "Invalid username or password. Use 'admin', 's1001', or 't1001' for testing.",
        });
        return; // Stop execution if login fails
     }
-    // --- End Mock Login Logic ---
+    // --- End Simplified Mock Login Logic ---
 
     toast({
       title: "Login Successful",
-      description: `Redirecting to ${data.role} dashboard...`,
+      description: `Redirecting to ${role} dashboard...`,
     });
 
     // Redirect based on role after a short delay
@@ -95,49 +95,11 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-primary">CampusConnect</CardTitle>
-          <CardDescription>Sign in to your account</CardDescription>
+          <CardDescription>Sign in with your username. (Use 'admin', 's1001', or 't1001' for testing - password field required but not checked for test users).</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Role Selection */}
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel>Select Your Role</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-4"
-                      >
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="admin" />
-                          </FormControl>
-                          <FormLabel className="font-normal">Admin</FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="teacher" />
-                          </FormControl>
-                          <FormLabel className="font-normal">Teacher</FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="student" />
-                          </FormControl>
-                          <FormLabel className="font-normal">Student</FormLabel>
-                        </FormItem>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               {/* Username */}
               <FormField
                 control={form.control}
@@ -146,7 +108,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., admin, t1001, s1001" {...field} />
+                      <Input placeholder="Enter username (e.g., admin, s1001, t1001)" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -161,7 +123,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Enter your password" {...field} />
+                      <Input type="password" placeholder="Enter any password for test users" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -175,7 +137,7 @@ export default function LoginPage() {
           </Form>
         </CardContent>
          <CardFooter className="text-center text-xs text-muted-foreground">
-          <p>Forgot password? Contact administrator.</p>
+          <p>This is a test login. Authentication is simplified.</p>
         </CardFooter>
       </Card>
     </div>
