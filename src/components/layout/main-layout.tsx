@@ -4,12 +4,12 @@
 import type { ReactNode } from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav } from './sidebar-nav'; // Assuming sidebar-nav is in the same directory
-import type { LucideIcon } from 'lucide-react';
+import type { IconName } from 'lucide-react'; // Import IconName type
 
 interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: IconName; // Change type to IconName (string)
 }
 
 interface MainLayoutProps {

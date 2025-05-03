@@ -16,21 +16,29 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import type { LucideIcon } from 'lucide-react';
-import { LogOut, User } from 'lucide-react';
+import type { IconName } from 'lucide-react'; // Import IconName type
+import dynamic from 'next/dynamic'; // Import dynamic for icon loading
+import { LogOut, User } from 'lucide-react'; // Keep static icons
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 
 interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: IconName; // Expect icon name (string)
 }
 
 interface SidebarNavProps {
   navItems: NavItem[];
   userRole: string; // e.g., "Admin", "Teacher", "Student"
 }
+
+// Helper to dynamically load icons
+const Icon = ({ name, ...props }: { name: IconName } & React.ComponentProps<any>) => {
+  const LucideIcon = dynamic(() => import('lucide-react').then((mod) => mod[name]));
+  return <LucideIcon {...props} />;
+};
+
 
 export function SidebarNav({ navItems, userRole }: SidebarNavProps) {
   const pathname = usePathname();
@@ -68,7 +76,8 @@ export function SidebarNav({ navItems, userRole }: SidebarNavProps) {
                       className="justify-start"
                     >
                       <a>
-                        <item.icon className="size-4 mr-2" />
+                        {/* Dynamically render icon */}
+                        <Icon name={item.icon} className="size-4 mr-2" />
                         <span>{item.label}</span>
                       </a>
                     </SidebarMenuButton>
