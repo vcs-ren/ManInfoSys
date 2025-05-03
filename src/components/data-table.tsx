@@ -13,10 +13,11 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+   Column, // Import Column type
 } from "@tanstack/react-table";
 import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -36,6 +37,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils"; // Import cn utility
+
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -77,23 +80,13 @@ export function DataTable<TData, TValue>({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                {actionMenuItems(row.original)}
-              {/* Example Default Item - remove if not needed */}
-              {/* <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row.original))}>
-                Copy Data
-              </DropdownMenuItem> */}
-              <DropdownMenuSeparator />
-               {onRowClick && (
-                <DropdownMenuItem onClick={() => onRowClick(row.original)}>
-                  View Details
-                </DropdownMenuItem>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
         ),
       });
     }
     return cols;
-  }, [columns, actionMenuItems, onRowClick]);
+  }, [columns, actionMenuItems]); // Removed onRowClick from dependency array as it's not used here
 
 
   const table = useReactTable({
@@ -128,6 +121,7 @@ export function DataTable<TData, TValue>({
             className="max-w-sm"
           />
         )}
+        {/* Filter components rendered within headers now */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
@@ -181,7 +175,14 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={() => onRowClick && onRowClick(row.original)}
+                  onClick={(e) => {
+                        // Prevent triggering row click if the click is inside an action button/menu
+                        const target = e.target as HTMLElement;
+                        if (target.closest('[data-radix-dropdown-menu-content]') || target.closest('button')) {
+                            return;
+                        }
+                        onRowClick && onRowClick(row.original);
+                   }}
                   className={onRowClick ? "cursor-pointer" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -210,8 +211,9 @@ export function DataTable<TData, TValue>({
        </ScrollArea>
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
+          {/* Row selection display removed for simplicity, enable if needed */}
+          {/* {table.getFilteredSelectedRowModel().rows.length} of{" "} */}
+          Total {table.getFilteredRowModel().rows.length} row(s).
         </div>
         <div className="space-x-2">
           <Button
@@ -238,63 +240,71 @@ export function DataTable<TData, TValue>({
 
 
 // Helper function for creating sortable table headers
+// The `column` prop here is the TanStack Table Column object,
+// which contains methods like `toggleSorting`, `getIsSorted`, etc.
+// Usage: header: ({ column }) => <DataTableColumnHeader column={column} title="Column Title" />
 export const DataTableColumnHeader = <TData, TValue>({
   column,
   title,
   className,
 }: {
-  column: ColumnDef<TData, TValue>['id'];
+  column: Column<TData, TValue>; // Accept the full Column object
   title: string;
   className?: string;
 }) => {
-    const tableColumn = useReactTable().getColumn(column as string); // Cast needed due to ColumnDef complexity
+  if (!column.getCanSort()) {
+    return <div className={cn(className)}>{title}</div>;
+  }
 
-    if (!tableColumn?.getCanSort()) {
-        return <div className={cn(className)}>{title}</div>
-    }
+  return (
+    <div className={cn("flex items-center space-x-2", className)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-3 h-8 data-[state=open]:bg-accent"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        <span>{title}</span>
+        {column.getIsSorted() === "desc" ? (
+          <ArrowUpDown className="ml-2 h-4 w-4" /> // Could use ArrowDownIcon
+        ) : column.getIsSorted() === "asc" ? (
+          <ArrowUpDown className="ml-2 h-4 w-4" /> // Could use ArrowUpIcon
+        ) : (
+          <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
+        )}
+      </Button>
+    </div>
+  );
+};
 
-    return (
-        <div className={cn("flex items-center space-x-2", className)}>
-        <Button
-            variant="ghost"
-            onClick={() => tableColumn.toggleSorting(tableColumn.getIsSorted() === "asc")}
-        >
-            {title}
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-        </div>
-    )
-}
 
 // Helper for filterable dropdown header
-export const DataTableFilterableColumnHeader = <TData, TValue>({
-  columnId,
+// Usage: header: ({ column }) => <DataTableFilterableColumnHeader column={column} title="Status" options={...} />
+export function DataTableFilterableColumnHeader<TData>({
+  column, // Expect the column object directly
   title,
   options,
   className,
 }: {
-  columnId: keyof TData;
+  column: Column<TData, unknown>; // Use the column object
   title: string;
   options: { label: string; value: string }[];
   className?: string;
-}) => {
-  const table = useReactTable<TData>();
-  const column = table.getColumn(columnId as string); // Assuming columnId is a string key
-
+}) {
   const selectedValues = new Set(column?.getFilterValue() as string[]);
 
   return (
     <div className={cn("flex items-center space-x-2", className)}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost">
-            {title}
+          <Button variant="ghost" size="sm" className="-ml-3 h-8 data-[state=open]:bg-accent">
+            <span>{title}</span>
             {selectedValues?.size > 0 && (
-                <span className="ml-2 rounded-md bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">
+              <span className="ml-2 rounded-md bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">
                 {selectedValues.size}
-                </span>
+              </span>
             )}
-             <ChevronDown className="ml-2 h-4 w-4" />
+            <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
@@ -305,12 +315,13 @@ export const DataTableFilterableColumnHeader = <TData, TValue>({
                 key={option.value}
                 checked={isSelected}
                 onCheckedChange={() => {
+                  const newSelectedValues = new Set(selectedValues); // Clone the set
                   if (isSelected) {
-                    selectedValues.delete(option.value);
+                    newSelectedValues.delete(option.value);
                   } else {
-                    selectedValues.add(option.value);
+                    newSelectedValues.add(option.value);
                   }
-                  const filterValues = Array.from(selectedValues);
+                  const filterValues = Array.from(newSelectedValues);
                   column?.setFilterValue(
                     filterValues.length ? filterValues : undefined
                   );
@@ -335,4 +346,5 @@ export const DataTableFilterableColumnHeader = <TData, TValue>({
       </DropdownMenu>
     </div>
   );
-};
+}
+

@@ -5,11 +5,11 @@ import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PlusCircle, Edit, Trash2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm } from "@/components/user-form";
 import { studentSchema } from "@/lib/schemas";
-import type { Student } from "@/types";
+import type { Student, Teacher } from "@/types"; // Import Teacher type
 import {
     AlertDialog,
     AlertDialogAction,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils"; // Import cn utility if needed
 
 
 // Mock Data - Replace with API call
@@ -123,42 +124,42 @@ export default function ManageStudentsPage() {
     const columns: ColumnDef<Student>[] = React.useMemo(() => [
          {
             accessorKey: "studentId",
-            header: ({ column }) => <DataTableColumnHeader column={column.id} title="Student ID" />,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Student ID" />, // Pass column object
             cell: ({ row }) => <div>{row.getValue("studentId")}</div>,
         },
         {
             accessorKey: "firstName",
-            header: ({ column }) => <DataTableColumnHeader column={column.id} title="First Name" />,
+             header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />, // Pass column object
             cell: ({ row }) => <div className="capitalize">{row.getValue("firstName")}</div>,
         },
         {
             accessorKey: "lastName",
-            header: ({ column }) => <DataTableColumnHeader column={column.id} title="Last Name" />,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />, // Pass column object
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
         },
          {
             accessorKey: "course",
             header: ({ column }) => (
-                <DataTableFilterableColumnHeader
-                columnId="course"
-                title="Course"
-                options={[ // Example options - fetch dynamically if needed
-                    { label: "Computer Science", value: "Computer Science" },
-                    { label: "Information Technology", value: "Information Technology" },
-                    { label: "Business Administration", value: "Business Administration" },
-                ]}
+                <DataTableFilterableColumnHeader<Student>
+                    column={column} // Pass column object
+                    title="Course"
+                    options={[ // Example options - fetch dynamically if needed
+                        { label: "Computer Science", value: "Computer Science" },
+                        { label: "Information Technology", value: "Information Technology" },
+                        { label: "Business Administration", value: "Business Administration" },
+                    ]}
                 />
             ),
             cell: ({ row }) => <div>{row.getValue("course")}</div>,
              filterFn: (row, id, value) => {
-                return value.includes(row.getValue(id))
-            },
+                 return value.includes(row.getValue(id))
+             },
         },
         {
             accessorKey: "year",
             header: ({ column }) => (
-                 <DataTableFilterableColumnHeader
-                    columnId="year"
+                 <DataTableFilterableColumnHeader<Student>
+                    column={column} // Pass column object
                     title="Year"
                     options={[
                         { label: "1", value: "1" },
@@ -166,7 +167,7 @@ export default function ManageStudentsPage() {
                         { label: "3", value: "3" },
                         { label: "4", value: "4" },
                         // Add more years if applicable
-                    ]}
+                    ].map(o => ({ label: o.label, value: String(o.value) })) // Ensure values are strings
                 />
             ),
             cell: ({ row }) => <div className="text-center">{row.getValue("year")}</div>,
@@ -179,8 +180,8 @@ export default function ManageStudentsPage() {
         {
             accessorKey: "section",
             header: ({ column }) => (
-                 <DataTableFilterableColumnHeader
-                    columnId="section"
+                 <DataTableFilterableColumnHeader<Student>
+                    column={column} // Pass column object
                     title="Section"
                     options={[ // Should be dynamic based on available sections
                         { label: "A", value: "A" },
@@ -214,11 +215,9 @@ export default function ManageStudentsPage() {
          <AlertDialog>
                 <AlertDialogTrigger asChild>
                      {/* Prevent dialog trigger from triggering row click */}
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                         <span className="text-destructive hover:text-destructive flex items-center w-full">
-                             <Trash2 className="mr-2 h-4 w-4" />
-                             Delete
-                         </span>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                         <Trash2 className="mr-2 h-4 w-4" />
+                         Delete
                     </DropdownMenuItem>
                 </AlertDialogTrigger>
                 <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -233,7 +232,7 @@ export default function ManageStudentsPage() {
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={() => handleDeleteStudent(student.id)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        className={buttonVariants({ variant: "destructive" })} // Use buttonVariants
                         >
                         Yes, delete student
                     </AlertDialogAction>
@@ -248,7 +247,8 @@ export default function ManageStudentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Manage Students</h1>
-        <UserForm
+        {/* Add Student Form - Trigger controls its visibility */}
+        <UserForm<Student>
           trigger={
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Student
@@ -276,13 +276,12 @@ export default function ManageStudentsPage() {
         )}
 
 
-      {/* Edit Modal */}
+      {/* Edit Modal - Controlled externally */}
       {selectedStudent && (
-           <UserForm
+           <UserForm<Student>
               // Use React state to control the dialog's open state
-              trigger={<></>} // No visible trigger, controlled by state
               isOpen={isEditModalOpen}
-              onOpenChange={setIsEditModalOpen}
+              onOpenChange={setIsEditModalOpen} // Pass the state setter
               formSchema={studentSchema}
               onSubmit={handleEditStudent}
               title={`Edit Student: ${selectedStudent.firstName} ${selectedStudent.lastName}`}
@@ -295,49 +294,4 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-
-// Helper component for Edit modal trigger within dropdown - If needed later
-const EditModalTrigger = React.forwardRef<HTMLButtonElement, React.ComponentProps<typeof Button>>((props, ref) => (
-    <Button ref={ref} variant="ghost" size="sm" {...props} className="w-full justify-start">
-         <Edit className="mr-2 h-4 w-4" /> Edit / View Details
-    </Button>
-));
-EditModalTrigger.displayName = "EditModalTrigger";
-
-
-// Helper to make UserForm controllable externally
-type ControllableUserFormProps<T extends Student | Teacher> = Omit<React.ComponentProps<typeof UserForm<T>>, 'trigger' | 'isOpen' | 'onOpenChange'> & {
-    isOpen: boolean;
-    onOpenChange: (open: boolean) => void;
-    trigger?: React.ReactNode; // Make trigger optional
-};
-
-const ControllableUserForm = <T extends Student | Teacher>({ isOpen, onOpenChange, trigger, ...props }: ControllableUserFormProps<T>) => {
-     const [internalOpen, setInternalOpen] = React.useState(isOpen);
-
-    React.useEffect(() => {
-        setInternalOpen(isOpen);
-    }, [isOpen]);
-
-    const handleOpenChange = (open: boolean) => {
-        setInternalOpen(open);
-        onOpenChange(open); // Notify parent about the change
-    };
-
-
-     // Need to re-render the UserForm with internal state for Dialog
-     const ActualUserForm = UserForm as React.FC<any>; // Type assertion
-
-    return (
-        <ActualUserForm
-            {...props}
-            trigger={trigger || <span />} // Use provided trigger or an empty span
-            isOpen={internalOpen} // Control dialog internally
-            onOpenChange={handleOpenChange}
-        />
-    );
-};
-
-// Make UserForm controllable:
-UserForm = ControllableUserForm as any; // Re-assign with the controllable version
 

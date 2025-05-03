@@ -5,11 +5,11 @@ import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PlusCircle, Edit, Trash2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm } from "@/components/user-form";
 import { teacherSchema } from "@/lib/schemas";
-import type { Teacher } from "@/types";
+import type { Student, Teacher } from "@/types"; // Import Student type
 import {
     AlertDialog,
     AlertDialogAction,
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-
+import { cn } from "@/lib/utils"; // Import cn utility if needed
 
 // Mock Data - Replace with API call
 const getTeachers = async (): Promise<Teacher[]> => {
@@ -118,24 +118,24 @@ export default function ManageTeachersPage() {
     const columns: ColumnDef<Teacher>[] = React.useMemo(() => [
          {
             accessorKey: "teacherId",
-            header: ({ column }) => <DataTableColumnHeader column={column.id} title="Teacher ID" />,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Teacher ID" />, // Pass column object
             cell: ({ row }) => <div>{row.getValue("teacherId")}</div>,
         },
         {
             accessorKey: "firstName",
-            header: ({ column }) => <DataTableColumnHeader column={column.id} title="First Name" />,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />, // Pass column object
             cell: ({ row }) => <div className="capitalize">{row.getValue("firstName")}</div>,
         },
         {
             accessorKey: "lastName",
-            header: ({ column }) => <DataTableColumnHeader column={column.id} title="Last Name" />,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />, // Pass column object
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
         },
          {
             accessorKey: "department",
             header: ({ column }) => (
-                <DataTableFilterableColumnHeader
-                columnId="department"
+                <DataTableFilterableColumnHeader<Teacher>
+                column={column} // Pass column object
                 title="Department"
                 options={[ // Example options - fetch dynamically if needed
                     { label: "Mathematics", value: "Mathematics" },
@@ -146,8 +146,8 @@ export default function ManageTeachersPage() {
             ),
             cell: ({ row }) => <div>{row.getValue("department")}</div>,
              filterFn: (row, id, value) => {
-                return value.includes(row.getValue(id))
-            },
+                 return value.includes(row.getValue(id))
+             },
         },
          {
             accessorKey: "email",
@@ -168,11 +168,9 @@ export default function ManageTeachersPage() {
         <DropdownMenuSeparator />
          <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                         <span className="text-destructive hover:text-destructive flex items-center w-full">
-                             <Trash2 className="mr-2 h-4 w-4" />
-                             Delete
-                         </span>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
                     </DropdownMenuItem>
                 </AlertDialogTrigger>
                 <AlertDialogContent onClick={(e) => e.stopPropagation()}>
@@ -187,7 +185,7 @@ export default function ManageTeachersPage() {
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={() => handleDeleteTeacher(teacher.id)}
-                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                         className={buttonVariants({ variant: "destructive" })} // Use buttonVariants
                         >
                         Yes, delete teacher
                     </AlertDialogAction>
@@ -202,7 +200,8 @@ export default function ManageTeachersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Manage Teachers</h1>
-        <UserForm
+        {/* Add Teacher Form - Trigger controls visibility */}
+        <UserForm<Teacher>
           trigger={
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Teacher
@@ -230,12 +229,11 @@ export default function ManageTeachersPage() {
         )}
 
 
-      {/* Edit Modal */}
+      {/* Edit Modal - Controlled externally */}
        {selectedTeacher && (
-           <UserForm
-              trigger={<></>} // Controlled externally
-              isOpen={isEditModalOpen}
-              onOpenChange={setIsEditModalOpen}
+           <UserForm<Teacher>
+              isOpen={isEditModalOpen} // Control dialog via state
+              onOpenChange={setIsEditModalOpen} // Pass the state setter
               formSchema={teacherSchema}
               onSubmit={handleEditTeacher}
               title={`Edit Teacher: ${selectedTeacher.firstName} ${selectedTeacher.lastName}`}
@@ -249,35 +247,3 @@ export default function ManageTeachersPage() {
   );
 }
 
-// Make UserForm controllable: (Copy from students page if needed, ensures consistency)
-type ControllableUserFormProps<T extends Teacher | Student> = Omit<React.ComponentProps<typeof UserForm<T>>, 'trigger' | 'isOpen' | 'onOpenChange'> & {
-    isOpen: boolean;
-    onOpenChange: (open: boolean) => void;
-    trigger?: React.ReactNode; // Make trigger optional
-};
-
-const ControllableUserForm = <T extends Teacher | Student>({ isOpen, onOpenChange, trigger, ...props }: ControllableUserFormProps<T>) => {
-     const [internalOpen, setInternalOpen] = React.useState(isOpen);
-
-    React.useEffect(() => {
-        setInternalOpen(isOpen);
-    }, [isOpen]);
-
-    const handleOpenChange = (open: boolean) => {
-        setInternalOpen(open);
-        onOpenChange(open); // Notify parent about the change
-    };
-
-     const ActualUserForm = UserForm as React.FC<any>; // Type assertion needed
-
-    return (
-        <ActualUserForm
-            {...props}
-            trigger={trigger || <span />} // Use provided trigger or an empty span
-            isOpen={internalOpen} // Control dialog internally
-            onOpenChange={handleOpenChange}
-        />
-    );
-};
-
-UserForm = ControllableUserForm as any;

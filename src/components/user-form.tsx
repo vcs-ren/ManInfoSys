@@ -30,7 +30,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Student, Teacher } from "@/types";
 
 interface UserFormProps<T extends Student | Teacher> {
-  trigger: React.ReactNode;
+  trigger?: React.ReactNode; // Trigger is now optional
+  isOpen?: boolean; // Optional prop to control dialog state externally
+  onOpenChange?: (open: boolean) => void; // Optional handler for external control
   formSchema: z.ZodSchema<T>;
   defaultValues?: Partial<T>; // For editing
   onSubmit: (values: T) => Promise<void> | void; // Make onSubmit flexible
@@ -53,6 +55,8 @@ type FormFieldConfig<T> = {
 
 export function UserForm<T extends Student | Teacher>({
   trigger,
+  isOpen: isOpenProp, // Rename prop to avoid conflict with internal state
+  onOpenChange: onOpenChangeProp, // Rename prop
   formSchema,
   defaultValues,
   onSubmit,
@@ -62,8 +66,16 @@ export function UserForm<T extends Student | Teacher>({
   isEditMode = false,
   initialData
 }: UserFormProps<T>) {
-  const [isOpen, setIsOpen] = React.useState(false);
+  // Internal state for dialog visibility, used if not controlled externally
+  const [internalOpen, setInternalOpen] = React.useState(false);
   const { toast } = useToast();
+
+  // Determine if the dialog is controlled externally
+  const isControlled = isOpenProp !== undefined && onOpenChangeProp !== undefined;
+
+  // Use external state if controlled, otherwise use internal state
+  const isOpen = isControlled ? isOpenProp : internalOpen;
+  const setIsOpen = isControlled ? onOpenChangeProp : setInternalOpen;
 
    // Initialize the form with default values or initial data for editing
     const form = useForm<T>({
@@ -102,7 +114,8 @@ export function UserForm<T extends Student | Teacher>({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {/* Render DialogTrigger only if trigger is provided and not controlled externally */}
+      {!isControlled && trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -127,7 +140,7 @@ export function UserForm<T extends Student | Teacher>({
                             disabled={fieldConfig.disabled || form.formState.isSubmitting}
                             {...field}
                             // Handle number input type properly
-                            value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value || '')}
+                            value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value ?? '')} // Use nullish coalescing
                              onChange={(e) => {
                                 if (fieldConfig.type === 'number') {
                                 const numericValue = e.target.value === '' ? '' : Number(e.target.value);
