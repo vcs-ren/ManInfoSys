@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -8,7 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button"; // Import butto
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm } from "@/components/user-form";
 import { studentSchema } from "@/lib/schemas";
-import type { Student, Teacher } from "@/types"; // Import Teacher type
+import type { Student } from "@/types"; // Import Student type
 import {
     AlertDialog,
     AlertDialogAction,
@@ -123,40 +124,34 @@ export default function ManageStudentsPage() {
     const columns: ColumnDef<Student>[] = React.useMemo(() => [
          {
             accessorKey: "studentId",
-            header: ({ column }) => {
-               return <DataTableColumnHeader column={column} title="Student ID" />;
-            },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Student ID" />,
             cell: ({ row }) => <div>{row.getValue("studentId")}</div>,
         },
         {
             accessorKey: "firstName",
-             header: ({ column }) => {
-               return <DataTableColumnHeader column={column} title="First Name" />;
-             },
+             header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("firstName")}</div>,
         },
         {
             accessorKey: "lastName",
-            header: ({ column }) => {
-              return <DataTableColumnHeader column={column} title="Last Name" />;
-            },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
         },
          {
             accessorKey: "course",
-            header: ({ column }) => {
-              return (
-                  <DataTableFilterableColumnHeader
-                      column={column} // Pass column object
-                      title="Course"
-                      options={[ // Example options - fetch dynamically if needed
-                          { label: "Computer Science", value: "Computer Science" },
-                          { label: "Information Technology", value: "Information Technology" },
-                          { label: "Business Administration", value: "Business Administration" },
-                      ]}
-                  />
-              );
-            },
+             header: ({ column }) => {
+               return ( // Explicit return for JSX
+                 <DataTableFilterableColumnHeader
+                     column={column} // Pass column object
+                     title="Course"
+                     options={[ // Example options - fetch dynamically if needed
+                         { label: "Computer Science", value: "Computer Science" },
+                         { label: "Information Technology", value: "Information Technology" },
+                         { label: "Business Administration", value: "Business Administration" },
+                     ]}
+                 />
+                );
+             },
             cell: ({ row }) => <div>{row.getValue("course")}</div>,
              filterFn: (row, id, value) => {
                  return value.includes(row.getValue(id))
@@ -165,19 +160,19 @@ export default function ManageStudentsPage() {
         {
             accessorKey: "year",
             header: ({ column }) => {
-              return (
-                   <DataTableFilterableColumnHeader
-                      column={column} // Pass column object
-                      title="Year"
-                      options={[
-                          { label: "1", value: "1" },
-                          { label: "2", value: "2" },
-                          { label: "3", value: "3" },
-                          { label: "4", value: "4" },
-                          // Add more years if applicable
-                      ].map(o => ({ label: o.label, value: String(o.value) })) // Ensure values are strings
-                  />
-              );
+                return ( // Explicit return for JSX
+                    <DataTableFilterableColumnHeader
+                        column={column} // Pass column object
+                        title="Year"
+                        options={[
+                            { label: "1", value: "1" },
+                            { label: "2", value: "2" },
+                            { label: "3", value: "3" },
+                            { label: "4", value: "4" },
+                            // Add more years if applicable
+                        ].map(o => ({ label: o.label, value: String(o.value) })) // Ensure values are strings
+                    />
+                );
             },
             cell: ({ row }) => <div className="text-center">{row.getValue("year")}</div>,
             filterFn: (row, id, value) => {
@@ -189,17 +184,17 @@ export default function ManageStudentsPage() {
         {
             accessorKey: "section",
             header: ({ column }) => {
-              return (
-                   <DataTableFilterableColumnHeader
-                      column={column} // Pass column object
-                      title="Section"
-                      options={[ // Should be dynamic based on available sections
-                          { label: "A", value: "A" },
-                          { label: "B", value: "B" },
-                          { label: "C", value: "C" },
-                      ]}
-                  />
-              );
+                return ( // Explicit return for JSX
+                    <DataTableFilterableColumnHeader
+                        column={column} // Pass column object
+                        title="Section"
+                        options={[ // Should be dynamic based on available sections
+                            { label: "A", value: "A" },
+                            { label: "B", value: "B" },
+                            { label: "C", value: "C" },
+                        ]}
+                    />
+                );
             },
             cell: ({ row }) => <div className="text-center">{row.getValue("section")}</div>,
             filterFn: (row, id, value) => {

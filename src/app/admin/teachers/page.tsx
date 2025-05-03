@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -8,7 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button"; // Import butto
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm } from "@/components/user-form";
 import { teacherSchema } from "@/lib/schemas";
-import type { Student, Teacher } from "@/types"; // Import Student type
+import type { Teacher } from "@/types"; // Import Teacher type
 import {
     AlertDialog,
     AlertDialogAction,
@@ -117,40 +118,34 @@ export default function ManageTeachersPage() {
     const columns: ColumnDef<Teacher>[] = React.useMemo(() => [
          {
             accessorKey: "teacherId",
-            header: ({ column }) => {
-              return <DataTableColumnHeader column={column} title="Teacher ID" />;
-            },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Teacher ID" />,
             cell: ({ row }) => <div>{row.getValue("teacherId")}</div>,
         },
         {
             accessorKey: "firstName",
-            header: ({ column }) => {
-              return <DataTableColumnHeader column={column} title="First Name" />;
-            },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("firstName")}</div>,
         },
         {
             accessorKey: "lastName",
-            header: ({ column }) => {
-              return <DataTableColumnHeader column={column} title="Last Name" />;
-            },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
         },
          {
             accessorKey: "department",
-            header: ({ column }) => {
-              return (
-                <DataTableFilterableColumnHeader
-                column={column} // Pass column object
-                title="Department"
-                options={[ // Example options - fetch dynamically if needed
-                    { label: "Mathematics", value: "Mathematics" },
-                    { label: "Science", value: "Science" },
-                    { label: "English", value: "English" },
-                ]}
-                />
-              );
-            },
+             header: ({ column }) => {
+               return ( // Explicit return for JSX
+                 <DataTableFilterableColumnHeader
+                     column={column} // Pass column object
+                     title="Department"
+                     options={[ // Example options - fetch dynamically if needed
+                         { label: "Mathematics", value: "Mathematics" },
+                         { label: "Science", value: "Science" },
+                         { label: "English", value: "English" },
+                     ]}
+                 />
+                );
+             },
             cell: ({ row }) => <div>{row.getValue("department")}</div>,
              filterFn: (row, id, value) => {
                  return value.includes(row.getValue(id))
