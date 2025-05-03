@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, Column } from "@tanstack/react-table"; // Import Column type
 import { PlusCircle, Edit, Trash2 } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
@@ -139,18 +139,18 @@ export default function ManageStudentsPage() {
         },
          {
             accessorKey: "course",
-             header: ({ column }) => {
-               return ( // Explicit return for JSX
-                 <DataTableFilterableColumnHeader
-                     column={column} // Pass column object
-                     title="Course"
-                     options={[ // Example options - fetch dynamically if needed
-                         { label: "Computer Science", value: "Computer Science" },
-                         { label: "Information Technology", value: "Information Technology" },
-                         { label: "Business Administration", value: "Business Administration" },
-                     ]}
-                 />
-                );
+             header: ({ column }) => { // Use explicit return
+                 return (
+                     <DataTableFilterableColumnHeader
+                         column={column} // Pass column object
+                         title="Course"
+                         options={[ // Example options - fetch dynamically if needed
+                             { label: "Computer Science", value: "Computer Science" },
+                             { label: "Information Technology", value: "Information Technology" },
+                             { label: "Business Administration", value: "Business Administration" },
+                         ]}
+                     />
+                 );
              },
             cell: ({ row }) => <div>{row.getValue("course")}</div>,
              filterFn: (row, id, value) => {
@@ -159,8 +159,7 @@ export default function ManageStudentsPage() {
         },
         {
             accessorKey: "year",
-            header: ({ column }) => {
-                return ( // Explicit return for JSX
+            header: ({ column }) => ( // Use implicit return with parentheses
                     <DataTableFilterableColumnHeader
                         column={column} // Pass column object
                         title="Year"
@@ -172,8 +171,7 @@ export default function ManageStudentsPage() {
                             // Add more years if applicable
                         ].map(o => ({ label: o.label, value: String(o.value) })) // Ensure values are strings
                     />
-                );
-            },
+            ),
             cell: ({ row }) => <div className="text-center">{row.getValue("year")}</div>,
             filterFn: (row, id, value) => {
                  // Ensure comparison happens correctly (value is array, cell is number)
@@ -183,8 +181,8 @@ export default function ManageStudentsPage() {
         },
         {
             accessorKey: "section",
-            header: ({ column }) => {
-                return ( // Explicit return for JSX
+            header: ({ column }) => { // Use explicit return
+                 return (
                     <DataTableFilterableColumnHeader
                         column={column} // Pass column object
                         title="Section"
@@ -194,7 +192,7 @@ export default function ManageStudentsPage() {
                             { label: "C", value: "C" },
                         ]}
                     />
-                );
+                 );
             },
             cell: ({ row }) => <div className="text-center">{row.getValue("section")}</div>,
             filterFn: (row, id, value) => {

@@ -133,8 +133,7 @@ export default function ManageTeachersPage() {
         },
          {
             accessorKey: "department",
-             header: ({ column }) => {
-               return ( // Explicit return for JSX
+             header: ({ column }) => ( // Use implicit return
                  <DataTableFilterableColumnHeader
                      column={column} // Pass column object
                      title="Department"
@@ -144,8 +143,7 @@ export default function ManageTeachersPage() {
                          { label: "English", value: "English" },
                      ]}
                  />
-                );
-             },
+             ),
             cell: ({ row }) => <div>{row.getValue("department")}</div>,
              filterFn: (row, id, value) => {
                  return value.includes(row.getValue(id))
