@@ -81,20 +81,13 @@ export default function LoginPage() {
         }
     } catch (error: any) {
         console.error("Login API error:", error);
-         // Provide more specific feedback for fetch errors
-        if (error instanceof Error && error.message.includes('Network error')) {
-             toast({
-                variant: "destructive",
-                title: "Network Error",
-                description: error.message, // Display the specific network error message
-             });
-        } else {
-            toast({
-                variant: "destructive",
-                title: "Login Error",
-                description: error.message || "An error occurred during login. Please try again.",
-            });
-        }
+         // Display the refined error message from the API helper
+         toast({
+             variant: "destructive",
+             title: "Login Error",
+             // Use the error message directly, as it should be more descriptive now
+             description: error.message || "An unexpected error occurred during login. Please try again.",
+         });
     } finally {
         setIsLoading(false);
     }

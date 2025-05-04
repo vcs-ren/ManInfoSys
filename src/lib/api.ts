@@ -21,6 +21,22 @@ const getApiUrl = (path: string): string => {
     return `${baseUrl}${cleanedPath}`;
 };
 
+// Generic error handler for fetch requests
+const handleFetchError = (error: any, url: string): never => {
+    console.error(`Fetch error accessing ${url}:`, error);
+    let errorMessage = `Failed to fetch data from the API.`;
+
+    if (error instanceof TypeError) {
+        // Network errors (server down, DNS issues, CORS blocks) often manifest as TypeErrors
+        errorMessage = `Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL (${url}) is correct, and check CORS configuration on the server.`;
+    } else if (error instanceof Error) {
+        // Use the message from standard Error objects
+        errorMessage = error.message;
+    }
+
+    // Re-throw a new error with the processed message
+    throw new Error(errorMessage);
+};
 
 /**
  * Fetches data from the API using GET method.
@@ -34,32 +50,28 @@ export const fetchData = async <T>(path: string): Promise<T> => {
     console.log(`Fetching data from: ${cacheBustingUrl}`); // Log the URL being fetched
     try {
         const response = await fetch(cacheBustingUrl, { cache: 'no-store' }); // Prevent caching
+
         if (!response.ok) {
              let errorData;
-             let errorMessage = `HTTP error! Status: ${response.status}`;
+             let errorMessage = `API Error! Status: ${response.status}`;
              try {
-                  errorData = await response.json();
-                  errorMessage = errorData?.message || errorMessage;
+                  const text = await response.text(); // Try reading text first
+                   try {
+                        errorData = JSON.parse(text);
+                        errorMessage = errorData?.message || errorMessage;
+                   } catch (jsonError) {
+                        // If parsing JSON fails, use the raw text (if not empty)
+                        errorMessage = text || errorMessage;
+                   }
              } catch (e) {
-                  // If response is not JSON, get text
-                  try {
-                       const text = await response.text();
-                       errorMessage = text || errorMessage;
-                  } catch (textError){
-                       console.error("Failed to parse response text", textError);
-                  }
+                   console.error("Failed to parse error response", e);
              }
-             console.error(`HTTP error fetching from ${url}! Status: ${response.status}`, errorData);
+             console.error(`HTTP error fetching from ${url}! Status: ${response.status}`, errorData || `Raw response: ${errorMessage}`);
              throw new Error(errorMessage);
         }
         return response.json();
     } catch (error) {
-        console.error(`Network or fetch error when fetching from ${url}:`, error);
-        // Re-throw a more specific error message if possible
-        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-             throw new Error(`Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL is correct, and check CORS configuration.`);
-        }
-        throw error;
+        handleFetchError(error, url);
     }
 };
 
@@ -79,37 +91,36 @@ export const postData = async <T, R>(path: string, data: T): Promise<R> => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
-        // Attempt to parse JSON regardless of status code to get potential error messages
+
         let responseData;
-        let responseText = ''; // Store raw text response for debugging
+        let responseText = '';
         try {
              responseText = await response.text();
-             responseData = JSON.parse(responseText);
-        } catch (e) {
-             // Handle cases where response is not JSON (e.g., 204 No Content or text error)
-             if (!response.ok) {
-                 let errorMessage = `HTTP error! Status: ${response.status}. Response not JSON.`;
-                 errorMessage = responseText || errorMessage; // Use raw text if available
-                 console.error(`HTTP error posting to ${url}! Status: ${response.status}. Response: ${responseText}`);
-                 throw new Error(errorMessage);
-
+             // Attempt to parse only if there's content
+             if (responseText) {
+                 responseData = JSON.parse(responseText);
+             } else if (response.ok) {
+                // Handle cases like 204 No Content or empty successful response
+                return null as R; // Or adjust based on expected return for success
              }
-             // If response is OK but not JSON (e.g., 204), return null or handle as needed
-             return null as R; // Adjust based on expected return type for non-JSON success
+        } catch (e) {
+             if (!response.ok) {
+                 const errorMessage = `API Error! Status: ${response.status}. Response not valid JSON: ${responseText}`;
+                 console.error(`HTTP error posting to ${url}! Status: ${response.status}. Raw Response: ${responseText}`);
+                 throw new Error(errorMessage);
+             }
+             // If OK but not JSON, might be unexpected, but treat as success for now
+             console.warn(`POST to ${url} successful but response was not JSON.`);
+             return null as R;
         }
 
         if (!response.ok) {
-            console.error(`HTTP error posting to ${url}! Status: ${response.status}`, responseData);
-            throw new Error(responseData?.message || `HTTP error! Status: ${response.status}`);
+            console.error(`HTTP error posting to ${url}! Status: ${response.status}`, responseData || `Raw response: ${responseText}`);
+            throw new Error(responseData?.message || `API error! Status: ${response.status}`);
         }
         return responseData;
      } catch (error) {
-        console.error(`Network or fetch error when posting to ${url}:`, error);
-         // Re-throw a more specific error message if possible
-        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-             throw new Error(`Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL (${url}) is correct, and check CORS configuration.`);
-        }
-        throw error;
+        handleFetchError(error, url);
     }
 };
 
@@ -133,20 +144,28 @@ export const putData = async <T, R>(path: string, data: T): Promise<R> => {
          let responseText = '';
          try {
             responseText = await response.text();
-            responseData = JSON.parse(responseText);
-         } catch (e) {}
+             if (responseText) {
+                responseData = JSON.parse(responseText);
+             } else if (response.ok) {
+                 return null as R;
+             }
+         } catch (e) {
+              if (!response.ok) {
+                 const errorMessage = `API Error! Status: ${response.status}. Response not valid JSON: ${responseText}`;
+                 console.error(`HTTP error putting to ${url}! Status: ${response.status}. Raw Response: ${responseText}`);
+                 throw new Error(errorMessage);
+             }
+              console.warn(`PUT to ${url} successful but response was not JSON.`);
+              return null as R;
+         }
 
         if (!response.ok) {
-             console.error(`HTTP error putting to ${url}! Status: ${response.status}`, responseData || responseText);
-            throw new Error(responseData?.message || `HTTP error! Status: ${response.status}`);
+             console.error(`HTTP error putting to ${url}! Status: ${response.status}`, responseData || `Raw response: ${responseText}`);
+            throw new Error(responseData?.message || `API error! Status: ${response.status}`);
         }
         return responseData;
      } catch (error) {
-        console.error(`Network or fetch error when putting to ${url}:`, error);
-         if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-             throw new Error(`Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL (${url}) is correct, and check CORS configuration.`);
-        }
-        throw error;
+        handleFetchError(error, url);
     }
 };
 
@@ -163,24 +182,24 @@ export const deleteData = async (path: string): Promise<void> => {
         const response = await fetch(url, { method: 'DELETE' });
         if (!response.ok && response.status !== 204) { // Allow 204 No Content
             let errorData;
-             let errorMessage = `HTTP error! Status: ${response.status}`;
+             let errorMessage = `API Error! Status: ${response.status}`;
              let responseText = '';
              try {
                   responseText = await response.text();
-                  errorData = JSON.parse(responseText);
-                  errorMessage = errorData?.message || errorMessage;
+                   try {
+                        errorData = JSON.parse(responseText);
+                        errorMessage = errorData?.message || errorMessage;
+                   } catch (jsonError) {
+                        errorMessage = responseText || errorMessage;
+                   }
              } catch (e) {
-                  errorMessage = responseText || errorMessage;
+                    console.error("Failed to parse error response", e);
              }
-             console.error(`HTTP error deleting at ${url}! Status: ${response.status}`, errorData || responseText);
+             console.error(`HTTP error deleting at ${url}! Status: ${response.status}`, errorData || `Raw response: ${responseText}`);
             throw new Error(errorMessage);
         }
         // No need to parse response body for successful DELETE (often 204 No Content)
     } catch (error) {
-        console.error(`Network or fetch error when deleting at ${url}:`, error);
-        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-             throw new Error(`Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL (${url}) is correct, and check CORS configuration.`);
-        }
-        throw error;
+        handleFetchError(error, url);
     }
 };
