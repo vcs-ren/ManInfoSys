@@ -30,7 +30,7 @@ const allNavItems: NavItemGroup[] = [
             { href: '/admin/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
             { href: '/admin/students', label: 'Manage Students', icon: 'Users' },
             { href: '/admin/teachers', label: 'Manage Teachers', icon: 'UserCog' },
-            { href: '/admin/schedule', label: 'Class Scheduler', icon: 'CalendarDays' },
+            { href: '/admin/assignments', label: 'Assignments & Announcements', icon: 'ClipboardList' }, // Updated label and href, changed icon
             { href: '/admin/settings', label: 'Settings', icon: 'Settings' }, // Added Settings
         ]
     },

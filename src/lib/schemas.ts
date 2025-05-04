@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 import type { StudentStatus } from "@/types"; // Import the status type
 
@@ -78,7 +77,7 @@ export const profileSchema = z.object({
    // Password change might need a separate form/process
 });
 
-// Schema for Class Schedule Entry
+// Schema for Class Schedule Entry (No longer used directly, kept for reference)
 export const scheduleEntrySchema = z.object({
     id: z.string().optional(), // Optional for new entries
     title: z.string().min(1, "Title is required"),
@@ -91,6 +90,21 @@ export const scheduleEntrySchema = z.object({
     message: "End date cannot be before start date",
     path: ["end"], // Point error to 'end' field
 });
+
+// Schema for Assigning a Teacher to a Section
+export const assignTeacherSchema = z.object({
+  teacherId: z.coerce.number({ invalid_type_error: "Please select a teacher."}).min(1, "Please select a teacher."), // Ensure a teacher ID is selected
+});
+
+// Schema for Creating an Announcement
+export const announcementSchema = z.object({
+  title: z.string().min(1, "Announcement title is required"),
+  content: z.string().min(10, "Announcement content must be at least 10 characters"),
+  targetCourse: z.string().optional(), // Allow 'all' or specific course value
+  targetYearLevel: z.string().optional(), // Allow 'all' or specific year level value
+  targetSection: z.string().optional(), // Allow 'all' or specific section value
+});
+
 
 // Schema for Password Change
 export const passwordChangeSchema = z.object({

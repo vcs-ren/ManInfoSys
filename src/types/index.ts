@@ -1,4 +1,3 @@
-
 // Shared types for the application
 
 export type StudentStatus = 'New' | 'Transferee' | 'Continuing' | 'Returnee';
@@ -11,7 +10,7 @@ export interface Student {
   course: string;
   status: StudentStatus; // Replaces year level
   year?: string; // Optional year level (e.g., '1st Year', '2nd Year')
-  section: string;
+  section: string; // e.g., "10A", "20B"
   email?: string; // Optional fields
   phone?: string;
   // Detailed emergency contact info
@@ -30,6 +29,7 @@ export interface Teacher {
   department: string;
   email?: string; // Optional fields
   phone?: string;
+  assignedSections?: string[]; // Optional: List of section codes the teacher is assigned to
   // Add other relevant teacher fields
 }
 
@@ -38,6 +38,32 @@ export interface Grade {
     grade: number | string; // Can be numeric or letter grade
     remarks?: string;
 }
+
+// Represents a specific class section
+export interface Section {
+    id: string; // Unique identifier for the section (e.g., "CS-10A")
+    sectionCode: string; // e.g., "10A"
+    course: string; // e.g., "Computer Science"
+    yearLevel: string; // e.g., "1st Year"
+    teacherId?: number; // ID of the assigned teacher
+    teacherName?: string; // Optional: Denormalized teacher name for display
+    studentCount?: number; // Optional: Number of students in the section
+}
+
+// Represents an announcement
+export interface Announcement {
+    id: string; // Unique identifier
+    title: string;
+    content: string;
+    date: Date;
+    target: {
+        course?: string | 'all'; // Specific course or 'all'
+        yearLevel?: string | 'all'; // Specific year level or 'all'
+        section?: string | 'all'; // Specific section or 'all'
+    };
+    author?: string; // Optional: Name of the admin/teacher who posted
+}
+
 
 export interface ScheduleEntry {
     id: string; // Unique identifier for the schedule entry
@@ -51,5 +77,3 @@ export interface ScheduleEntry {
 }
 
 // Define more types as needed (e.g., Course, Section, Announcement)
-
-
