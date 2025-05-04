@@ -35,9 +35,21 @@ export const fetchData = async <T>(path: string): Promise<T> => {
         const response = await fetch(cacheBustingUrl, { cache: 'no-store' }); // Prevent caching
         if (!response.ok) {
              let errorData;
-             try { errorData = await response.json(); } catch (e) {}
+             let errorMessage = `HTTP error! Status: ${response.status}`;
+             try {
+                  errorData = await response.json();
+                  errorMessage = errorData?.message || errorMessage;
+             } catch (e) {
+                  // If response is not JSON, get text
+                  try {
+                       const text = await response.text();
+                       errorMessage = text || errorMessage;
+                  } catch (textError){
+                       console.error("Failed to parse response text", textError);
+                  }
+             }
              console.error(`HTTP error! Status: ${response.status}`, errorData);
-             throw new Error(errorData?.message || `HTTP error! Status: ${response.status}`);
+             throw new Error(errorMessage);
         }
         return response.json();
     } catch (error) {
@@ -69,8 +81,16 @@ export const postData = async <T, R>(path: string, data: T): Promise<R> => {
         } catch (e) {
              // Handle cases where response is not JSON (e.g., 204 No Content or text error)
              if (!response.ok) {
-                 console.error(`HTTP error! Status: ${response.status}. Response not JSON.`);
-                 throw new Error(`HTTP error! Status: ${response.status}`);
+                 let errorMessage = `HTTP error! Status: ${response.status}. Response not JSON.`;
+                 try {
+                      const text = await response.text();
+                      errorMessage = text || errorMessage;
+                 } catch (textError) {
+                      console.error("Failed to parse response text", textError);
+                 }
+                 console.error(`HTTP error! Status: ${response.status}`);
+                 throw new Error(errorMessage);
+
              }
              // If response is OK but not JSON (e.g., 204), return null or handle as needed
              return null as R; // Adjust based on expected return type for non-JSON success
@@ -130,9 +150,21 @@ export const deleteData = async (path: string): Promise<void> => {
         const response = await fetch(url, { method: 'DELETE' });
         if (!response.ok && response.status !== 204) { // Allow 204 No Content
             let errorData;
-             try { errorData = await response.json(); } catch (e) {}
+             let errorMessage = `HTTP error! Status: ${response.status}`;
+             try {
+                  errorData = await response.json();
+                  errorMessage = errorData?.message || errorMessage;
+             } catch (e) {
+                  // If response is not JSON, get text
+                  try {
+                       const text = await response.text();
+                       errorMessage = text || errorMessage;
+                  } catch (textError) {
+                       console.error("Failed to parse response text", textError);
+                  }
+             }
              console.error(`HTTP error! Status: ${response.status}`, errorData);
-            throw new Error(errorData?.message || `HTTP error! Status: ${response.status}`);
+            throw new Error(errorMessage);
         }
         // No need to parse response body for successful DELETE (often 204 No Content)
     } catch (error) {
@@ -140,3 +172,4 @@ export const deleteData = async (path: string): Promise<void> => {
         throw error; // Re-throw the error after logging
     }
 };
+
