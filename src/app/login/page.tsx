@@ -67,6 +67,13 @@ export default function LoginPage() {
       redirectPath = '/teacher/dashboard';
       role = 'Teacher';
     }
+    else if (data.username === 'student') {
+      redirectPath = '/student/dashboard';
+      role = 'Student';
+    } else if (data.username === 'teacher') {
+      redirectPath = '/teacher/dashboard';
+      role = 'Teacher';
+    }
     // Add more specific user checks or a generic failure case here if needed
     // For now, any other username/password combination will fail.
      else {
@@ -143,3 +150,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

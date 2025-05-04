@@ -160,17 +160,18 @@ export default function ManageStudentsPage() {
         {
             accessorKey: "year",
             header: ({ column }) => ( // Use implicit return with parentheses
-                    <DataTableFilterableColumnHeader
-                        column={column} // Pass column object
-                        title="Year"
-                        options={[
-                            { label: "1", value: "1" },
-                            { label: "2", value: "2" },
-                            { label: "3", value: "3" },
-                            { label: "4", value: "4" },
-                            // Add more years if applicable
-                        ].map(o => ({ label: o.label, value: String(o.value) })) // Ensure values are strings
-                    />
+                     <DataTableFilterableColumnHeader
+                         column={column} // Pass column object
+                         title="Year"
+                         options={[
+                             { label: "1", value: "1" },
+                             { label: "2", value: "2" },
+                             { label: "3", value: "3" },
+                             { label: "4", value: "4" },
+                             // Add more years if applicable
+                         ].map(o => ({ label: o.label, value: String(o.value) })) // Ensure values are strings
+                     }
+                     />
             ),
             cell: ({ row }) => <div className="text-center">{row.getValue("year")}</div>,
             filterFn: (row, id, value) => {
@@ -298,3 +299,4 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
+
