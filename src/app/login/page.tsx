@@ -27,6 +27,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, Loader2 } from 'lucide-react';
 import { loginSchema } from "@/lib/schemas"; // Import the updated schema
+import Link from "next/link"; // Import Link
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
@@ -154,8 +155,10 @@ export default function LoginPage() {
             </form>
           </Form>
         </CardContent>
-         <CardFooter className="text-center text-xs text-muted-foreground">
-             Enter your assigned username and password.
+         <CardFooter className="text-center justify-center text-sm"> {/* Updated footer */}
+             <Link href="/forgot-password" className="text-primary hover:underline">
+                 Forgot password?
+             </Link>
          </CardFooter>
       </Card>
     </div>
