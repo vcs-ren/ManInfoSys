@@ -59,10 +59,12 @@ export interface Subject {
 
 // Represents the assignment of a teacher to a subject within a specific section
 export interface SectionSubjectAssignment {
+    id: string; // Unique ID for the assignment itself
     sectionId: string;
     subjectId: string;
+    subjectName?: string; // Denormalized subject name
     teacherId: number;
-    teacherName?: string; // Optional denormalized name
+    teacherName?: string; // Denormalized teacher name
 }
 
 

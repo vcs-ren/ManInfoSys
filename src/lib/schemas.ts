@@ -93,8 +93,10 @@ export const scheduleEntrySchema = z.object({
 
 // Schema for Assigning an Adviser to a Section
 export const assignAdviserSchema = z.object({
-  // teacherId changed to adviserId
-  adviserId: z.coerce.number({ invalid_type_error: "Please select an adviser."}).min(1, "Please select an adviser."), // Ensure an adviser ID is selected (value 0 means unassign)
+  // adviserId can be 0 (for unassigning) or a positive number
+  adviserId: z.coerce.number({ invalid_type_error: "Please select an adviser." })
+    .int()
+    .nonnegative("Adviser selection cannot be negative."), // Allow 0
 });
 
 // Schema for Creating an Announcement
@@ -115,4 +117,10 @@ export const passwordChangeSchema = z.object({
 }).refine((data) => data.newPassword === data.confirmPassword, {
     message: "New passwords do not match",
     path: ["confirmPassword"], // Point error to the confirmation field
+});
+
+// Schema for Assigning a Subject and Teacher in the Manage Subjects Modal
+export const assignSubjectSchema = z.object({
+  subjectId: z.string().min(1, "Please select a subject."),
+  teacherId: z.coerce.number({ invalid_type_error: "Please select a teacher." }).min(1, "Please select a teacher."),
 });
