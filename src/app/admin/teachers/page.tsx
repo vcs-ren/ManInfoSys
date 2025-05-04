@@ -27,10 +27,11 @@ import { cn } from "@/lib/utils";
 
 // --- API Helper Functions (Implement based on your backend) ---
 const fetchData = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url);
+    // Append a cache-busting query parameter
+    const cacheBustingUrl = `${url}${url.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
+    const response = await fetch(cacheBustingUrl, { cache: 'no-store' }); // Prevent caching
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    const data = await response.json();
-    return data.records || data; // Adjust based on specific endpoint needs
+    return response.json();
 };
 
 const postData = async <T, R>(url: string, data: T): Promise<R> => {
@@ -62,7 +63,7 @@ const putData = async <T, R>(url: string, data: T): Promise<R> => {
 
 const deleteData = async (url: string): Promise<void> => {
     const response = await fetch(url, { method: 'DELETE' });
-     if (!response.ok && response.status !== 204) { // Check for 204 No Content
+     if (!response.ok) {
          let errorData; try { errorData = await response.json(); } catch (e) {}
          throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
     }
@@ -93,9 +94,8 @@ export default function ManageTeachersPage() {
     const fetchTeachers = async () => {
       setIsLoading(true);
        try {
-        // Use the correct API endpoint
-        const data = await fetchData<Teacher[]>('/api/teachers/read.php');
-        setTeachers(data || []);
+        const data = await fetchData<{ records: Teacher[] }>('/api/teachers/read.php'); // Update to PHP endpoint
+        setTeachers(data.records || []);
       } catch (error) {
         console.error("Failed to fetch teachers:", error);
         toast({ variant: "destructive", title: "Error", description: "Failed to load teacher data." });
@@ -110,7 +110,7 @@ export default function ManageTeachersPage() {
   const handleAddTeacher = async (values: Omit<Teacher, 'id' | 'teacherId'>) => {
      console.log("Attempting to add teacher:", values);
      try {
-         const newTeacher = await postData<typeof values, Teacher>('/api/teachers/create.php', values);
+         const newTeacher = await postData<typeof values, Teacher>('/api/teachers/create.php', values); // Update to PHP endpoint
          setTeachers(prev => [...prev, newTeacher]);
          toast({ title: "Teacher Added", description: `${newTeacher.firstName} ${newTeacher.lastName} has been added.` });
      } catch (error: any) {
@@ -124,12 +124,11 @@ export default function ManageTeachersPage() {
   const handleEditTeacher = async (values: Teacher) => {
      if (!selectedTeacher) return;
 
-     const payload = { ...values, id: selectedTeacher.id }; // Ensure ID is included
+     const payload = { ...values, id: selectedTeacher.id };
      console.log("Attempting to edit teacher:", payload);
 
      try {
-         // Use the correct API endpoint including the ID
-         const updatedTeacher = await putData<typeof payload, Teacher>(`/api/teachers/update.php/${selectedTeacher.id}`, payload);
+         const updatedTeacher = await putData<typeof payload, Teacher>(`/api/teachers/update.php/${selectedTeacher.id}`, payload); // Update to PHP endpoint
          setTeachers(prev => prev.map(t => t.id === updatedTeacher.id ? updatedTeacher : t));
          toast({ title: "Teacher Updated", description: `${updatedTeacher.firstName} ${updatedTeacher.lastName} has been updated.` });
          closeEditModal();
@@ -144,8 +143,7 @@ export default function ManageTeachersPage() {
   const handleDeleteTeacher = async (teacherId: number) => {
       setIsSubmitting(true);
       try {
-          // Use the correct API endpoint including the ID
-          await deleteData(`/api/teachers/delete.php/${teacherId}`);
+          await deleteData(`/api/teachers/delete.php/${teacherId}`); // Update to PHP endpoint
           setTeachers(prev => prev.filter(t => t.id !== teacherId));
           toast({ title: "Teacher Deleted", description: `Teacher record has been removed.` });
       } catch (error: any) {
@@ -157,15 +155,15 @@ export default function ManageTeachersPage() {
   };
 
     // --- Reset Password Function ---
-    const handleResetPassword = async (userId: number, firstName: string, lastName: string) => {
+    const handleResetPassword = async (userId: number, lastName: string) => {
         setIsSubmitting(true);
         try {
              // Call the generic reset password endpoint
-             await postData('/api/admin/reset_password.php', { userId, userType: 'teacher' });
+             await postData('/api/admin/reset_password.php', { userId, userType: 'teacher' }); // Update to PHP endpoint
              const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
              toast({
                   title: "Password Reset Successful",
-                  description: `Password for ${firstName} ${lastName} has been reset to the default: ${defaultPassword}`,
+                  description: `Password for teacher ID ${userId} has been reset. Default password: ${defaultPassword}`, // Mention default format
              });
         } catch (error: any) {
              console.error("Failed to reset password:", error);
@@ -268,9 +266,9 @@ export default function ManageTeachersPage() {
                      <AlertDialogAction
                           onClick={async (e) => {
                               e.stopPropagation();
-                              await handleResetPassword(teacher.id, teacher.firstName, teacher.lastName);
+                              await handleResetPassword(teacher.id, teacher.lastName);
                          }}
-                          className={buttonVariants({ variant: "destructive" })} // Use destructive style for reset confirmation
+                          className={cn(buttonVariants({ variant: "destructive" }))} // Use destructive style for reset confirmation
                           disabled={isSubmitting}
                      >
                           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -302,7 +300,7 @@ export default function ManageTeachersPage() {
                           e.stopPropagation();
                           await handleDeleteTeacher(teacher.id);
                      }}
-                      className={buttonVariants({ variant: "destructive" })}
+                      className={cn(buttonVariants({ variant: "destructive" }))}
                       disabled={isSubmitting}
                      >
                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -367,3 +365,5 @@ export default function ManageTeachersPage() {
     </div>
   );
 }
+
+    

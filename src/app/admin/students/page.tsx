@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, RotateCcw } from "lucide-react"; // Added RotateCcw for Reset Password
+import { PlusCircle, Edit, Trash2, Loader2, RotateCcw } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -27,12 +27,13 @@ import { cn } from "@/lib/utils";
 
 // --- API Helper Functions (Implement based on your backend) ---
 const fetchData = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url);
+    // Append a cache-busting query parameter
+    const cacheBustingUrl = `${url}${url.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
+    const response = await fetch(cacheBustingUrl, { cache: 'no-store' }); // Prevent caching
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    const data = await response.json();
-    // The PHP backend wraps results in a "records" array for reads
-    return data.records || data; // Adjust based on specific endpoint needs
+    return response.json();
 };
+
 
 const postData = async <T, R>(url: string, data: T): Promise<R> => {
     const response = await fetch(url, {
@@ -63,7 +64,7 @@ const putData = async <T, R>(url: string, data: T): Promise<R> => {
 
 const deleteData = async (url: string): Promise<void> => {
     const response = await fetch(url, { method: 'DELETE' });
-     if (!response.ok && response.status !== 204) { // Check for 204 No Content
+     if (!response.ok) {
          let errorData; try { errorData = await response.json(); } catch (e) {}
          throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
     }
@@ -131,9 +132,8 @@ export default function ManageStudentsPage() {
     const fetchStudents = async () => {
       setIsLoading(true);
       try {
-        // Use the correct API endpoint (ensure your backend serves this)
-        const data = await fetchData<Student[]>('/api/students/read.php');
-        setStudents(data || []); // Assuming the PHP script returns the array directly or under "records"
+        const data = await fetchData<{ records: Student[] }>('/api/students/read.php'); // Update to PHP endpoint
+        setStudents(data.records || []);
       } catch (error) {
         console.error("Failed to fetch students:", error);
          toast({ variant: "destructive", title: "Error", description: "Failed to load student data." });
@@ -160,7 +160,7 @@ export default function ManageStudentsPage() {
 
     console.log("Attempting to add student:", payload);
     try {
-        const newStudent = await postData<typeof payload, Student>('/api/students/create.php', payload);
+        const newStudent = await postData<typeof payload, Student>('/api/students/create.php', payload); // Update to PHP endpoint
         setStudents(prev => [...prev, newStudent]);
         toast({ title: "Student Added", description: `${newStudent.firstName} ${newStudent.lastName} (${newStudent.year || newStudent.status}, Section ${newStudent.section}) has been added.` });
     } catch (error: any) {
@@ -176,14 +176,13 @@ export default function ManageStudentsPage() {
 
      const payload = {
          ...values,
-         id: selectedStudent.id, // Ensure ID is included
+         id: selectedStudent.id,
          year: values.status === 'New' ? '1st Year' : values.year,
      };
       console.log("Attempting to edit student:", payload);
 
      try {
-         // Make sure the URL includes the student ID
-         const updatedStudent = await putData<typeof payload, Student>(`/api/students/update.php/${selectedStudent.id}`, payload);
+         const updatedStudent = await putData<typeof payload, Student>(`/api/students/update.php/${selectedStudent.id}`, payload); // Update to PHP endpoint and pass ID in URL
          setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
          toast({ title: "Student Updated", description: `${updatedStudent.firstName} ${updatedStudent.lastName} has been updated.` });
          closeEditModal();
@@ -198,7 +197,7 @@ export default function ManageStudentsPage() {
   const handleDeleteStudent = async (studentId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`/api/students/delete.php/${studentId}`);
+          await deleteData(`/api/students/delete.php/${studentId}`); // Update to PHP endpoint and pass ID in URL
           setStudents(prev => prev.filter(s => s.id !== studentId));
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
       } catch (error: any) {
@@ -210,16 +209,15 @@ export default function ManageStudentsPage() {
   };
 
   // --- Reset Password Function ---
-  const handleResetPassword = async (userId: number, firstName: string, lastName: string) => {
+  const handleResetPassword = async (userId: number, lastName: string) => {
       setIsSubmitting(true);
       try {
            // Call the generic reset password endpoint
-           // The payload for this endpoint only needs userId and userType
-           await postData('/api/admin/reset_password.php', { userId, userType: 'student' });
+           await postData('/api/admin/reset_password.php', { userId, userType: 'student' }); // Update to PHP endpoint
            const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
            toast({
                 title: "Password Reset Successful",
-                description: `Password for ${firstName} ${lastName} has been reset to the default: ${defaultPassword}`,
+                description: `Password for student ID ${userId} has been reset. Default password: ${defaultPassword}`, // Mention default format
            });
       } catch (error: any) {
            console.error("Failed to reset password:", error);
@@ -244,6 +242,11 @@ export default function ManageStudentsPage() {
     setIsEditModalOpen(false);
   };
 
+    // Memoize section options calculation
+    const sectionOptions = React.useMemo(() => {
+        const distinctSections = [...new Set(students.map(s => s.section).filter(Boolean))].sort();
+        return distinctSections.map(sec => ({ label: sec, value: sec }));
+    }, [students]);
 
     // Define columns for the DataTable
     const columns: ColumnDef<Student>[] = React.useMemo(() => [
@@ -307,10 +310,7 @@ export default function ManageStudentsPage() {
                  <DataTableFilterableColumnHeader
                     column={column}
                     title="Section"
-                    options={React.useMemo(() => {
-                         const distinctSections = [...new Set(students.map(s => s.section).filter(Boolean))].sort();
-                         return distinctSections.map(sec => ({ label: sec, value: sec }));
-                     }, [students])}
+                    options={sectionOptions} // Use pre-calculated options
                  />
             ),
             cell: ({ row }) => <div className="text-center">{row.getValue("section")}</div>,
@@ -353,7 +353,7 @@ export default function ManageStudentsPage() {
             enableHiding: true,
         },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [students]); // Add students dependency
+    ], [sectionOptions]); // Dependency on calculated options
 
 
       // Function to generate dropdown menu items for each row
@@ -384,9 +384,9 @@ export default function ManageStudentsPage() {
                      <AlertDialogAction
                           onClick={async (e) => {
                               e.stopPropagation();
-                              await handleResetPassword(student.id, student.firstName, student.lastName);
+                              await handleResetPassword(student.id, student.lastName);
                          }}
-                          className={buttonVariants({ variant: "destructive" })} // Use destructive style for reset confirmation
+                          className={cn(buttonVariants({ variant: "destructive" }))} // Use destructive style for reset confirmation
                           disabled={isSubmitting}
                      >
                           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -417,7 +417,7 @@ export default function ManageStudentsPage() {
                               e.stopPropagation();
                               await handleDeleteStudent(student.id);
                          }}
-                          className={buttonVariants({ variant: "destructive" })}
+                          className={cn(buttonVariants({ variant: "destructive" }))}
                           disabled={isSubmitting}
                      >
                           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -484,3 +484,5 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
+
+    
