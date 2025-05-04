@@ -8,7 +8,7 @@ export const studentSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   course: z.string().min(1, "Course is required"),
   year: z.coerce.number().min(1, "Year is required").max(6, "Year seems too high"), // Use coerce for string-to-number conversion from input
-  section: z.string().min(1, "Section is required"),
+  section: z.string().optional(), // Section is now optional in the form, will be auto-assigned
   email: z.string().email("Invalid email address").optional().or(z.literal('')), // Optional email
   phone: z.string().optional().or(z.literal('')), // Optional phone
   // Generated fields - not part of the form input, but part of the type

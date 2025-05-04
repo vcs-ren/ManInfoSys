@@ -2,12 +2,12 @@
 "use client";
 
 import * as React from "react";
-import type { ColumnDef, Column } from "@tanstack/react-table"; // Import Column type
+import type { ColumnDef } from "@tanstack/react-table";
 import { PlusCircle, Edit, Trash2 } from "lucide-react";
 
-import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
+import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
-import { UserForm } from "@/components/user-form";
+import { UserForm, type FormFieldConfig } from "@/components/user-form"; // Import FormFieldConfig type
 import { studentSchema } from "@/lib/schemas";
 import type { Student } from "@/types"; // Import Student type
 import {
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils"; // Import cn utility if needed
+import { cn } from "@/lib/utils";
 
 
 // Mock Data - Replace with API call
@@ -39,15 +39,24 @@ const getStudents = async (): Promise<Student[]> => {
   ];
 };
 
+// Define course options for dropdown
+const courseOptions = [
+  { value: "Computer Science", label: "Computer Science" },
+  { value: "Information Technology", label: "Information Technology" },
+  { value: "Business Administration", label: "Business Administration" },
+  // Add more courses as needed
+];
+
+
 // Define form fields for the UserForm component
-const studentFormFields = [
-  { name: "firstName" as const, label: "First Name", placeholder: "Enter first name", required: true },
-  { name: "lastName" as const, label: "Last Name", placeholder: "Enter last name", required: true },
-  { name: "course" as const, label: "Course", placeholder: "Enter course", required: true },
-  { name: "year" as const, label: "Year Level", placeholder: "e.g., 3", type: "number", required: true },
-  { name: "section" as const, label: "Section", placeholder: "Enter section", required: true },
-  { name: "email" as const, label: "Email", placeholder: "Enter email (optional)", type: "email" },
-  { name: "phone" as const, label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
+const studentFormFields: FormFieldConfig<Student>[] = [
+  { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true },
+  { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true },
+  { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true }, // Use select type
+  { name: "year", label: "Year Level", placeholder: "e.g., 3", type: "number", required: true },
+  // Section field removed - will be assigned randomly
+  { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
+  { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
 ];
 
 
@@ -76,16 +85,23 @@ export default function ManageStudentsPage() {
   }, [toast]); // Add toast as dependency
 
   // Mock Add Student Function
-  const handleAddStudent = async (values: Student) => {
+  const handleAddStudent = async (values: Omit<Student, 'id' | 'studentId' | 'section'>) => {
     console.log("Adding student:", values);
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
     const newId = Math.max(0, ...students.map(s => s.id)) + 1;
     const newStudentId = `s100${newId}`; // Simulate ID generation
-    const newStudent: Student = { ...values, id: newId, studentId: newStudentId };
+    const randomSection = ['A', 'B', 'C'][Math.floor(Math.random() * 3)]; // Assign random section
+    const newStudent: Student = {
+        ...values,
+        id: newId,
+        studentId: newStudentId,
+        section: randomSection, // Add the generated section
+        year: Number(values.year) // Ensure year is number
+    };
     setStudents(prev => [...prev, newStudent]);
-    // In real app: POST to PHP backend, get back the full student object with ID/studentId
-     toast({ title: "Student Added", description: `${values.firstName} ${values.lastName} has been added.` });
+    // In real app: POST to PHP backend, get back the full student object with ID/studentId/section
+     toast({ title: "Student Added", description: `${values.firstName} ${values.lastName} (Section ${randomSection}) has been added.` });
   };
 
    // Mock Edit Student Function
@@ -94,7 +110,15 @@ export default function ManageStudentsPage() {
      if (!selectedStudent) return;
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
-    setStudents(prev => prev.map(s => s.id === selectedStudent.id ? { ...s, ...values } : s));
+     // Note: In this mock, we don't re-assign section on edit, keeping the original.
+     // If section *should* change on edit based on some logic, implement here.
+     const updatedStudent = {
+         ...selectedStudent, // Start with original data
+         ...values, // Apply form changes
+         year: Number(values.year), // Ensure year is number
+         // section: selectedStudent.section // Keep original section (or re-assign if needed)
+     }
+    setStudents(prev => prev.map(s => s.id === selectedStudent.id ? updatedStudent : s));
      toast({ title: "Student Updated", description: `${values.firstName} ${values.lastName} has been updated.` });
     closeEditModal(); // Close modal after successful edit
   };
@@ -144,11 +168,7 @@ export default function ManageStudentsPage() {
                      <DataTableFilterableColumnHeader
                          column={column} // Pass column object
                          title="Course"
-                         options={[ // Example options - fetch dynamically if needed
-                             { label: "Computer Science", value: "Computer Science" },
-                             { label: "Information Technology", value: "Information Technology" },
-                             { label: "Business Administration", value: "Business Administration" },
-                         ]}
+                         options={courseOptions} // Use defined course options
                      />
                  );
              },
@@ -206,6 +226,7 @@ export default function ManageStudentsPage() {
             cell: ({ row }) => <div className="lowercase">{row.getValue("email") || '-'}</div>, // Handle missing email
         },
         // Actions column is added dynamically in the DataTable component
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     ], []); // Empty dependency array as columns don't depend on component state here
 
 
@@ -260,10 +281,11 @@ export default function ManageStudentsPage() {
             </Button>
           }
           formSchema={studentSchema}
-          onSubmit={handleAddStudent}
+          // Adjust onSubmit type to match the form values (without section)
+          onSubmit={handleAddStudent as any}
           title="Add New Student"
-          description="Fill in the details below to add a new student."
-          formFields={studentFormFields} // Pass the defined fields
+          description="Fill in the details below to add a new student. Section will be assigned automatically."
+          formFields={studentFormFields} // Pass the updated fields
         />
       </div>
 
@@ -290,7 +312,7 @@ export default function ManageStudentsPage() {
               formSchema={studentSchema}
               onSubmit={handleEditStudent}
               title={`Edit Student: ${selectedStudent.firstName} ${selectedStudent.lastName}`}
-              description="Update the student's information below. Username and password are auto-generated and cannot be changed here."
+              description="Update the student's information below. Username, password, and section are managed by the system."
               formFields={studentFormFields.map(f => ({...f, disabled: false }))} // Ensure fields are initially enabled
               isEditMode={true}
               initialData={selectedStudent} // Pass current data

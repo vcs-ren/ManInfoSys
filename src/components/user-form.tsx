@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -24,10 +25,18 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"; // Import Select components
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Student, Teacher } from "@/types";
-import { Label } from "@/components/ui/label"; // Import Label
+import { Label } from "@/components/ui/label";
+
 interface UserFormProps<T extends Student | Teacher> {
   trigger?: React.ReactNode; // Trigger is now optional
   isOpen?: boolean; // Optional prop to control dialog state externally
@@ -43,13 +52,14 @@ interface UserFormProps<T extends Student | Teacher> {
 }
 
 // Define a type for form field configuration
-type FormFieldConfig<T> = {
+export type FormFieldConfig<T> = {
   name: keyof T;
   label: string;
   placeholder?: string;
-  type?: React.HTMLInputTypeAttribute; // "text", "email", "number", etc.
+  type?: React.HTMLInputTypeAttribute | "select"; // "text", "email", "number", "select" etc.
   required?: boolean; // For frontend indication, validation is via schema
   disabled?: boolean; // Make field read-only
+  options?: { value: string | number; label: string }[]; // Options for select dropdown
 };
 
 export function UserForm<T extends Student | Teacher>({
@@ -133,29 +143,49 @@ export function UserForm<T extends Student | Teacher>({
                       <FormItem className="grid grid-cols-4 items-center gap-4">
                         <FormLabel className="text-right">{fieldConfig.label}{fieldConfig.required ? '*' : ''}</FormLabel>
                         <FormControl className="col-span-3">
-                          <Input
-                            placeholder={fieldConfig.placeholder}
-                            type={fieldConfig.type || "text"}
-                            disabled={fieldConfig.disabled || form.formState.isSubmitting}
-                            {...field}
-                            // Handle number input type properly
-                            value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value ?? '')} // Use nullish coalescing
-                             onChange={(e) => {
-                                if (fieldConfig.type === 'number') {
-                                const numericValue = e.target.value === '' ? '' : Number(e.target.value);
-                                field.onChange(isNaN(numericValue as number) ? '' : numericValue); // Handle NaN
-                                } else {
-                                field.onChange(e.target.value);
-                                }
-                            }}
-                          />
+                            {fieldConfig.type === 'select' ? (
+                                 <Select
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value as string}
+                                    disabled={fieldConfig.disabled || form.formState.isSubmitting}
+                                >
+                                    <SelectTrigger>
+                                    <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                    {(fieldConfig.options || []).map((option) => (
+                                        <SelectItem key={option.value} value={String(option.value)}>
+                                        {option.label}
+                                        </SelectItem>
+                                    ))}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <Input
+                                    placeholder={fieldConfig.placeholder}
+                                    type={fieldConfig.type || "text"}
+                                    disabled={fieldConfig.disabled || form.formState.isSubmitting}
+                                    {...field}
+                                    // Handle number input type properly
+                                    value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value ?? '')} // Use nullish coalescing
+                                     onChange={(e) => {
+                                        if (fieldConfig.type === 'number') {
+                                        const numericValue = e.target.value === '' ? '' : Number(e.target.value);
+                                        field.onChange(isNaN(numericValue as number) ? '' : numericValue); // Handle NaN
+                                        } else {
+                                        field.onChange(e.target.value);
+                                        }
+                                    }}
+                                />
+                            )}
+
                         </FormControl>
                         <FormMessage className="col-span-3 col-start-2" />
                       </FormItem>
                     )}
                   />
                 ))}
-                 {/* Display generated username/password only in edit mode */}
+                 {/* Display generated username/password/section only in edit mode */}
                   {isEditMode && initialData && (
                       <>
                         <div className="grid grid-cols-4 items-center gap-4">
@@ -167,6 +197,18 @@ export function UserForm<T extends Student | Teacher>({
                             disabled
                             />
                         </div>
+                         {/* Display Section for Students in Edit Mode */}
+                        {'section' in initialData && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right font-semibold">Section</Label>
+                                <Input
+                                    className="col-span-3 bg-muted"
+                                    value={(initialData as Student).section || 'N/A'}
+                                    readOnly
+                                    disabled
+                                />
+                            </div>
+                        )}
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label className="text-right font-semibold">Password</Label>
                             <Input
@@ -197,4 +239,3 @@ export function UserForm<T extends Student | Teacher>({
     </Dialog>
   );
 }
-
