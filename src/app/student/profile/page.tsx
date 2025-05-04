@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Student } from "@/types";
 import { profileSchema } from "@/lib/schemas"; // Using a generic profile schema
 import { Loader2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator"; // Import Separator
 
 // Mock function to get student data (replace with actual API call)
 // Assume it fetches data for the currently logged-in student
@@ -42,7 +43,11 @@ const getStudentProfile = async (): Promise<Student> => {
         section: "A",
         email: "john.doe@example.com",
         phone: "123-456-7890",
-        emergencyContact: "987-654-3210", // Added emergency contact
+        // Example detailed emergency contact
+        emergencyContactName: "Jane Doe",
+        emergencyContactRelationship: "Mother",
+        emergencyContactPhone: "987-654-3210",
+        emergencyContactAddress: "123 Main St, Anytown, USA",
     };
 };
 
@@ -64,7 +69,10 @@ export default function StudentProfilePage() {
         lastName: "",
         email: "",
         phone: "",
-        emergencyContact: "", // Add emergency contact
+        emergencyContactName: "",
+        emergencyContactRelationship: "",
+        emergencyContactPhone: "",
+        emergencyContactAddress: "",
     },
   });
 
@@ -81,7 +89,10 @@ export default function StudentProfilePage() {
             lastName: data.lastName,
             email: data.email || "", // Handle potentially undefined optional fields
             phone: data.phone || "",
-            emergencyContact: data.emergencyContact || "", // Add emergency contact
+            emergencyContactName: data.emergencyContactName || "",
+            emergencyContactRelationship: data.emergencyContactRelationship || "",
+            emergencyContactPhone: data.emergencyContactPhone || "",
+            emergencyContactAddress: data.emergencyContactAddress || "",
         });
       } catch (error) {
         console.error("Failed to fetch profile:", error);
@@ -126,56 +137,90 @@ export default function StudentProfilePage() {
        <Card>
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
-            <CardDescription>View and update your contact details. Academic information (Course, Status, Section) and Username ({studentData.studentId}) are managed by the admin.</CardDescription>
+            <CardDescription>View and update your personal and contact details. Academic information and Username ({studentData.studentId}) are managed by the admin.</CardDescription>
           </CardHeader>
           <CardContent>
              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                    {/* Display Only Fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                         <FormItem>
-                            <FormLabel>Course</FormLabel>
-                            <FormControl>
-                                <Input value={studentData.course} disabled readOnly className="bg-muted"/>
-                            </FormControl>
-                        </FormItem>
-                         <FormItem>
-                            <FormLabel>Status</FormLabel>
-                            <FormControl>
-                                <Input value={studentData.status} disabled readOnly className="bg-muted"/>
-                            </FormControl>
-                        </FormItem>
-                         <FormItem>
-                            <FormLabel>Section</FormLabel>
-                            <FormControl>
-                                <Input value={studentData.section} disabled readOnly className="bg-muted"/>
-                            </FormControl>
-                        </FormItem>
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-medium text-muted-foreground">Academic Information</h3>
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                             <FormItem>
+                                <FormLabel>Course</FormLabel>
+                                <FormControl>
+                                    <Input value={studentData.course} disabled readOnly className="bg-muted"/>
+                                </FormControl>
+                            </FormItem>
+                             <FormItem>
+                                <FormLabel>Status</FormLabel>
+                                <FormControl>
+                                    <Input value={studentData.status} disabled readOnly className="bg-muted"/>
+                                </FormControl>
+                            </FormItem>
+                             <FormItem>
+                                <FormLabel>Section</FormLabel>
+                                <FormControl>
+                                    <Input value={studentData.section} disabled readOnly className="bg-muted"/>
+                                </FormControl>
+                            </FormItem>
+                        </div>
                     </div>
 
-                    {/* Editable Fields */}
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
+                     <Separator className="my-6" />
+
+                    {/* Editable Personal Fields */}
+                     <div className="space-y-4">
+                          <h3 className="text-lg font-medium text-foreground">Personal Details</h3>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="firstName"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>First Name</FormLabel>
+                                    <FormControl>
+                                    <Input placeholder="Your first name" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="lastName"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Last Name</FormLabel>
+                                    <FormControl>
+                                    <Input placeholder="Your last name" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
+                         <FormField
                             control={form.control}
-                            name="firstName"
+                            name="email"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>First Name</FormLabel>
+                                <FormLabel>Email Address</FormLabel>
                                 <FormControl>
-                                <Input placeholder="Your first name" {...field} />
+                                <Input type="email" placeholder="your.email@example.com" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
                             )}
                         />
-                        <FormField
+                         <FormField
                             control={form.control}
-                            name="lastName"
+                            name="phone"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Last Name</FormLabel>
+                                <FormLabel>Phone Number</FormLabel>
                                 <FormControl>
-                                <Input placeholder="Your last name" {...field} />
+                                <Input type="tel" placeholder="Your phone number" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -183,48 +228,67 @@ export default function StudentProfilePage() {
                         />
                     </div>
 
-                     <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Email Address</FormLabel>
-                            <FormControl>
-                            <Input type="email" placeholder="your.email@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
-                            <FormControl>
-                            <Input type="tel" placeholder="Your phone number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="emergencyContact"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Emergency Contact</FormLabel>
-                            <FormControl>
-                                <Input type="tel" placeholder="Emergency contact phone" {...field} />
-                            </FormControl>
-                             <FormMessage />
-                             <p className="text-xs text-muted-foreground">Contact person in case of emergency.</p>
-                        </FormItem>
-                        )}
-                    />
+                    <Separator className="my-6" />
 
-                     <Button type="submit" disabled={form.formState.isSubmitting}>
+                    {/* Emergency Contact Section */}
+                     <div className="space-y-4">
+                         <h3 className="text-lg font-medium text-foreground">Emergency Contact Information</h3>
+                        <FormField
+                            control={form.control}
+                            name="emergencyContactName"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Contact Name</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Parent/Guardian Name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="emergencyContactRelationship"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Relationship</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="e.g., Mother, Father, Guardian" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="emergencyContactPhone"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Contact Phone</FormLabel>
+                                <FormControl>
+                                    <Input type="tel" placeholder="Emergency contact phone number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="emergencyContactAddress"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Contact Address</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Full Address" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                    </div>
+
+
+                     <Button type="submit" disabled={form.formState.isSubmitting} className="mt-6">
                          {form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
                      </Button>
                 </form>
@@ -246,3 +310,4 @@ export default function StudentProfilePage() {
     </div>
   );
 }
+

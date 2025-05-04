@@ -15,7 +15,11 @@ export const studentSchema = z.object({
   section: z.string().optional(), // Section is now optional in the form, will be auto-assigned
   email: z.string().email("Invalid email address").optional().or(z.literal('')), // Optional email
   phone: z.string().optional().or(z.literal('')), // Optional phone
-  emergencyContact: z.string().optional().or(z.literal('')), // Optional emergency contact
+  // Detailed Emergency Contact - all optional
+  emergencyContactName: z.string().optional().or(z.literal('')),
+  emergencyContactRelationship: z.string().optional().or(z.literal('')),
+  emergencyContactPhone: z.string().optional().or(z.literal('')),
+  emergencyContactAddress: z.string().optional().or(z.literal('')),
   // Generated fields - not part of the form input, but part of the type
   studentId: z.string().optional(),
 });
@@ -51,7 +55,11 @@ export const profileSchema = z.object({
    lastName: z.string().min(1, "Last name is required"),
    email: z.string().email("Invalid email address").optional().or(z.literal('')),
    phone: z.string().optional().or(z.literal('')),
-   emergencyContact: z.string().optional().or(z.literal('')), // Allow viewing on profile, potentially editable by admin only
+   // Detailed Emergency Contact - all optional and editable by student
+   emergencyContactName: z.string().optional().or(z.literal('')),
+   emergencyContactRelationship: z.string().optional().or(z.literal('')),
+   emergencyContactPhone: z.string().optional().or(z.literal('')),
+   emergencyContactAddress: z.string().optional().or(z.literal('')),
    // Add other editable fields specific to the role if needed
    // Password change might need a separate form/process
 });
@@ -69,3 +77,4 @@ export const scheduleEntrySchema = z.object({
     message: "End date cannot be before start date",
     path: ["end"], // Point error to 'end' field
 });
+
