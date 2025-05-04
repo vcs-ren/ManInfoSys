@@ -31,6 +31,7 @@ const allNavItems: NavItemGroup[] = [
             { href: '/admin/students', label: 'Manage Students', icon: 'Users' },
             { href: '/admin/teachers', label: 'Manage Teachers', icon: 'UserCog' },
             { href: '/admin/schedule', label: 'Class Scheduler', icon: 'CalendarDays' },
+            { href: '/admin/settings', label: 'Settings', icon: 'Settings' }, // Added Settings
         ]
     },
      {
@@ -40,6 +41,7 @@ const allNavItems: NavItemGroup[] = [
             { href: '/teacher/profile', label: 'Profile', icon: 'UserCircle' },
             { href: '/teacher/grades', label: 'Submit Grades', icon: 'ClipboardCheck' },
             { href: '/teacher/schedule', label: 'View Schedule', icon: 'CalendarClock' },
+            { href: '/teacher/settings', label: 'Settings', icon: 'Settings' }, // Added Settings
         ]
     },
     {
@@ -49,6 +51,7 @@ const allNavItems: NavItemGroup[] = [
             { href: '/student/profile', label: 'Profile', icon: 'UserCircle' },
             { href: '/student/grades', label: 'View Grades', icon: 'BookOpenCheck' },
             { href: '/student/schedule', label: 'Class Schedule', icon: 'CalendarDays' },
+            { href: '/student/settings', label: 'Settings', icon: 'Settings' }, // Added Settings
         ]
     },
 ];
