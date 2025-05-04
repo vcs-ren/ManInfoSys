@@ -22,13 +22,21 @@ const getApiUrl = (path: string): string => {
 };
 
 // Generic error handler for fetch requests
-const handleFetchError = (error: any, url: string): never => {
-    console.error(`Fetch error accessing ${url}:`, error);
-    let errorMessage = `Failed to fetch data from the API.`;
+const handleFetchError = (error: any, url: string, method: string): never => {
+    console.error(`Fetch error during ${method} request to ${url}:`, error);
 
-    if (error instanceof TypeError) {
-        // Network errors (server down, DNS issues, CORS blocks) often manifest as TypeErrors
-        errorMessage = `Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL (${url}) is correct, and check CORS configuration on the server.`;
+    let errorMessage = `Failed to fetch data from the API. Please check the browser console for more details.`;
+
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        // This is often a network error (server down, DNS) OR a CORS issue.
+        errorMessage = `Network error or CORS issue accessing API at ${url}. ` +
+                       `Potential causes:\n` +
+                       `1. PHP backend server is not running at ${API_BASE_URL}.\n` +
+                       `2. Incorrect API path requested: ${url.replace(API_BASE_URL, '')}\n` +
+                       `3. CORS policy on the PHP server is blocking the request from origin ${window.location.origin}. Check server headers (Access-Control-Allow-Origin).\n` +
+                       `4. Browser blocking mixed content (HTTPS frontend accessing HTTP backend).\n` +
+                       `Check the browser's Network tab and Console for more specific errors.`;
+        console.error("Detailed check: Is the PHP server running? Is the URL correct? Check CORS headers in PHP and any server configuration (Apache/Nginx).");
     } else if (error instanceof Error) {
         // Use the message from standard Error objects
         errorMessage = error.message;
@@ -71,7 +79,7 @@ export const fetchData = async <T>(path: string): Promise<T> => {
         }
         return response.json();
     } catch (error) {
-        handleFetchError(error, url);
+        handleFetchError(error, url, 'GET');
     }
 };
 
@@ -120,7 +128,7 @@ export const postData = async <T, R>(path: string, data: T): Promise<R> => {
         }
         return responseData;
      } catch (error) {
-        handleFetchError(error, url);
+        handleFetchError(error, url, 'POST');
     }
 };
 
@@ -165,7 +173,7 @@ export const putData = async <T, R>(path: string, data: T): Promise<R> => {
         }
         return responseData;
      } catch (error) {
-        handleFetchError(error, url);
+        handleFetchError(error, url, 'PUT');
     }
 };
 
@@ -200,6 +208,6 @@ export const deleteData = async (path: string): Promise<void> => {
         }
         // No need to parse response body for successful DELETE (often 204 No Content)
     } catch (error) {
-        handleFetchError(error, url);
+        handleFetchError(error, url, 'DELETE');
     }
 };
