@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -30,6 +29,7 @@ const getTeacherStudentAssignments = async (): Promise<StudentSubjectAssignmentW
 
   // In real app, fetch from backend: /api/teacher/assignments/grades
   // Data should include student info, subject info, and potentially existing grades
+  // Update grades to be numbers or null
   return [
     // Student 1 - Subject A
     { assignmentId: "ssa-1-CS101", studentId: 1, studentName: "John Doe", subjectId: "CS101", subjectName: "Intro to Programming", section: "10A", year: "1st Year", prelimGrade: 85, midtermGrade: 88, finalGrade: 90, status: "Complete" },
@@ -40,8 +40,8 @@ const getTeacherStudentAssignments = async (): Promise<StudentSubjectAssignmentW
     // Student 3 - Subject C (Different Year/Section)
     { assignmentId: "ssa-3-IT202", studentId: 5, studentName: "David Wilson", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "20B", year: "2nd Year", prelimGrade: null, midtermGrade: null, finalGrade: null, status: "Not Submitted" }, // No grades submitted
      // Student 4 - Subject C
-    { assignmentId: "ssa-4-IT202", studentId: 2, studentName: "Jane Smith", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "20B", year: "2nd Year", prelimGrade: "A-", midtermGrade: "B+", finalGrade: "B", status: "Complete" }, // Letter grades
-    { assignmentId: "ssa-5-BA301", studentId: 4, studentName: "Mary Brown", subjectId: "BA301", subjectName: "Marketing Principles", section: "30C", year: "3rd Year", prelimGrade: "INC", midtermGrade: 80, finalGrade: null, status: "Incomplete", prelimRemarks: "Missing Prelim Paper" }, // INC grade
+    { assignmentId: "ssa-4-IT202", studentId: 2, studentName: "Jane Smith", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "20B", year: "2nd Year", prelimGrade: 90, midtermGrade: 85, finalGrade: 88, status: "Complete" }, // Numeric grades
+    { assignmentId: "ssa-5-BA301", studentId: 4, studentName: "Mary Brown", subjectId: "BA301", subjectName: "Marketing Principles", section: "30C", year: "3rd Year", prelimGrade: 70, midtermGrade: 80, finalGrade: null, status: "Incomplete", prelimRemarks: "Missing Prelim Paper" }, // Incomplete grade
     { assignmentId: "ssa-6-CS101", studentId: 10, studentName: "Alice Wonder", subjectId: "CS101", subjectName: "Intro to Programming", section: "10A", year: "1st Year", prelimGrade: 70, midtermGrade: 65, finalGrade: 72, status: "Complete" }, // Example Failed
   ];
 };
@@ -160,9 +160,9 @@ export default function SubmitGradesPage() {
                 finalGrade: values.finalGrade,
                 finalRemarks: values.finalRemarks,
                 // Recalculate status based on submitted grades
-                status: (values.prelimGrade !== null && values.prelimGrade !== "" && values.midtermGrade !== null && values.midtermGrade !== "" && values.finalGrade !== null && values.finalGrade !== "")
+                status: (values.prelimGrade !== null && values.midtermGrade !== null && values.finalGrade !== null)
                         ? 'Complete'
-                        : (values.prelimGrade !== null && values.prelimGrade !== "" || values.midtermGrade !== null && values.midtermGrade !== "" || values.finalGrade !== null && values.finalGrade !== "")
+                        : (values.prelimGrade !== null || values.midtermGrade !== null || values.finalGrade !== null)
                             ? 'Incomplete'
                             : 'Not Submitted' as 'Complete' | 'Incomplete' | 'Not Submitted'
               }
@@ -220,39 +220,24 @@ export default function SubmitGradesPage() {
             const status = assignment.status;
             const finalGrade = assignment.finalGrade;
 
-            // Only show remarks if status is 'Complete'
-            if (status === 'Complete' && finalGrade !== null && finalGrade !== undefined && finalGrade !== "") {
-                let numericGrade: number | null = null;
-                let isLetterPassed = false;
-                let isLetterFailed = false;
+            // Only show remarks if status is 'Complete' and finalGrade is a number
+            if (status === 'Complete' && typeof finalGrade === 'number') {
 
-                if (typeof finalGrade === 'number') {
-                    numericGrade = finalGrade;
-                } else if (typeof finalGrade === 'string') {
-                    const upperGrade = finalGrade.toUpperCase();
-                    // Define passing letter grades
-                    if (['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'P'].includes(upperGrade)) {
-                        isLetterPassed = true;
-                    }
-                     // Define failing letter grades explicitly
-                    else if (['F', 'INC', 'DRP', 'W'].includes(upperGrade)) { // Added 'W' for Withdraw
-                         isLetterFailed = true;
-                    }
-                    // Handle other potential string grades if necessary
-                }
+                // Define passing criteria (numeric >= 75)
+                const isPassed = finalGrade >= 75;
 
-                // Define passing criteria (numeric >= 75 OR passing letter grade)
-                const isPassed = (numericGrade !== null && numericGrade >= 75) || isLetterPassed;
+                return (
+                     <Badge variant={isPassed ? "default" : "destructive"}>
+                        {isPassed ? "Passed" : "Failed"}
+                    </Badge>
+                );
 
-                if (isPassed) {
-                    return <Badge variant="default">Passed</Badge>;
-                } else {
-                    // Includes numeric fail, F, INC, DRP, or unhandled letter grades
-                    return <Badge variant="destructive">Failed</Badge>;
-                }
-
+            } else if (status === 'Incomplete') {
+                 return <Badge variant="secondary">In Progress</Badge>;
+            } else if (status === 'Not Submitted') {
+                 return <Badge variant="outline">Not Submitted</Badge>;
             } else {
-                // If status is not 'Complete' or final grade is missing, show nothing or a placeholder
+                // If status is not 'Complete' or final grade is missing/not a number, show nothing or a placeholder
                  return <span className="text-muted-foreground">-</span>; // Or return null to show nothing
             }
          },
@@ -348,7 +333,7 @@ export default function SubmitGradesPage() {
             <CardHeader>
                 <CardTitle>Student Grades Overview</CardTitle>
                  <CardDescription>
-                     View student list based on filters. Click 'Input Grades' to enter Prelim, Midterm, and Final grades.
+                     View student list based on filters. Click 'Input Grades' to enter Prelim, Midterm, and Final grades (0-100).
                      {selectedSubjectId !== 'all' && ` Currently showing: ${subjects.find(s => s.id === selectedSubjectId)?.name}`}
                      {selectedYearLevel !== 'all' && ` | ${selectedYearLevel}`}
                      {selectedSection !== 'all' && ` | Section ${selectedSection}`}
@@ -382,4 +367,3 @@ export default function SubmitGradesPage() {
     </div>
   );
 }
-

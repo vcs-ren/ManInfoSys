@@ -44,7 +44,7 @@ export interface StudentGradeEntry {
     studentId: number;
     subjectId: string;
     term: Term;
-    grade: number | string | null; // Can be numeric or letter grade, or null
+    grade: number | null; // Only numeric or null
     remarks?: string;
 }
 
@@ -117,11 +117,11 @@ export interface StudentSubjectAssignmentWithGrades {
     subjectName: string;
     section: string;
     year: string; // Add year level for filtering
-    prelimGrade?: number | string | null; // Grade for the term, null or empty string if not submitted
+    prelimGrade?: number | null; // Numeric grade only (or null/undefined)
     prelimRemarks?: string;
-    midtermGrade?: number | string | null;
+    midtermGrade?: number | null; // Numeric grade only (or null/undefined)
     midtermRemarks?: string;
-    finalGrade?: number | string | null;
+    finalGrade?: number | null; // Numeric grade only (or null/undefined)
     finalRemarks?: string;
     // Status calculated based on term grades, used for internal logic
     status: 'Not Submitted' | 'Incomplete' | 'Complete';
@@ -132,9 +132,9 @@ export interface StudentSubjectAssignmentWithGrades {
 export interface StudentTermGrade {
     id: string; // Can be subjectId or a unique identifier for the row
     subjectName: string;
-    prelimGrade?: number | string | null;
-    midtermGrade?: number | string | null;
-    finalGrade?: number | string | null;
+    prelimGrade?: number | null; // Numeric grade only
+    midtermGrade?: number | null; // Numeric grade only
+    finalGrade?: number | null; // Numeric grade only
     finalRemarks?: string; // Optional final remark from teacher
     status: 'Not Submitted' | 'Incomplete' | 'Complete'; // Derived status
 }

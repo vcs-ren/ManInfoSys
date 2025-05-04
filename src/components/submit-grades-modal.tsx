@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -55,11 +54,11 @@ export function SubmitGradesModal({
       assignmentId: assignment.assignmentId,
       studentId: assignment.studentId,
       subjectId: assignment.subjectId,
-      prelimGrade: assignment.prelimGrade ?? "",
+      prelimGrade: assignment.prelimGrade ?? "", // Initialize with empty string if null
       prelimRemarks: assignment.prelimRemarks ?? "",
-      midtermGrade: assignment.midtermGrade ?? "",
+      midtermGrade: assignment.midtermGrade ?? "", // Initialize with empty string if null
       midtermRemarks: assignment.midtermRemarks ?? "",
-      finalGrade: assignment.finalGrade ?? "",
+      finalGrade: assignment.finalGrade ?? "", // Initialize with empty string if null
       finalRemarks: assignment.finalRemarks ?? "",
     },
   });
@@ -71,11 +70,11 @@ export function SubmitGradesModal({
                 assignmentId: assignment.assignmentId,
                 studentId: assignment.studentId,
                 subjectId: assignment.subjectId,
-                prelimGrade: assignment.prelimGrade ?? "",
+                prelimGrade: assignment.prelimGrade ?? "", // Initialize with empty string if null
                 prelimRemarks: assignment.prelimRemarks ?? "",
-                midtermGrade: assignment.midtermGrade ?? "",
+                midtermGrade: assignment.midtermGrade ?? "", // Initialize with empty string if null
                 midtermRemarks: assignment.midtermRemarks ?? "",
-                finalGrade: assignment.finalGrade ?? "",
+                finalGrade: assignment.finalGrade ?? "", // Initialize with empty string if null
                 finalRemarks: assignment.finalRemarks ?? "",
             });
         }
@@ -84,11 +83,12 @@ export function SubmitGradesModal({
   const handleFormSubmit = async (values: SubmitGradesFormValues) => {
     try {
         // Ensure empty strings become null before submission if desired by backend
+        // And convert valid numbers from string if needed (though coerce handles this in schema)
         const processedValues = {
             ...values,
-            prelimGrade: values.prelimGrade === "" ? null : values.prelimGrade,
-            midtermGrade: values.midtermGrade === "" ? null : values.midtermGrade,
-            finalGrade: values.finalGrade === "" ? null : values.finalGrade,
+            prelimGrade: values.prelimGrade === "" || values.prelimGrade === null ? null : Number(values.prelimGrade),
+            midtermGrade: values.midtermGrade === "" || values.midtermGrade === null ? null : Number(values.midtermGrade),
+            finalGrade: values.finalGrade === "" || values.finalGrade === null ? null : Number(values.finalGrade),
         }
       console.log("Submitting grades:", processedValues);
       await onSubmit(processedValues); // Call the actual submit function passed via props
@@ -133,10 +133,24 @@ export function SubmitGradesModal({
                             <FormItem>
                             <FormLabel>Grade</FormLabel>
                             <FormControl>
-                                <Input placeholder="e.g., 85, B+, INC" {...field} value={field.value ?? ""} />
+                                <Input
+                                     type="number" // Use number type for input
+                                     min="0"
+                                     max="100"
+                                     step="1" // Allow only whole numbers if desired, or "any" for decimals
+                                     placeholder="Enter grade (0-100)"
+                                     {...field}
+                                     // Use nullish coalescing for value to handle null/undefined
+                                     value={field.value ?? ""}
+                                     // Ensure onChange converts empty string or invalid number to empty string for the field state
+                                     onChange={(e) => {
+                                        const val = e.target.value;
+                                        field.onChange(val === '' ? '' : Number(val));
+                                    }}
+                                     />
                             </FormControl>
                              <FormMessage />
-                                <p className="text-xs text-muted-foreground">Numeric (0-100) or Letter (A+/B-/P/INC etc.)</p>
+                                <p className="text-xs text-muted-foreground">Numeric grade between 0 and 100.</p>
                             </FormItem>
                         )}
                         />
@@ -167,7 +181,18 @@ export function SubmitGradesModal({
                             <FormItem>
                             <FormLabel>Grade</FormLabel>
                             <FormControl>
-                                <Input placeholder="e.g., 85, B+, INC" {...field} value={field.value ?? ""} />
+                                 <Input
+                                     type="number"
+                                     min="0"
+                                     max="100"
+                                     step="1"
+                                     placeholder="Enter grade (0-100)"
+                                     {...field}
+                                     value={field.value ?? ""}
+                                     onChange={(e) => {
+                                        const val = e.target.value;
+                                        field.onChange(val === '' ? '' : Number(val));
+                                    }}/>
                             </FormControl>
                              <FormMessage />
                             </FormItem>
@@ -200,7 +225,18 @@ export function SubmitGradesModal({
                             <FormItem>
                             <FormLabel>Grade</FormLabel>
                             <FormControl>
-                                <Input placeholder="e.g., 85, B+, INC" {...field} value={field.value ?? ""} />
+                                <Input
+                                     type="number"
+                                     min="0"
+                                     max="100"
+                                     step="1"
+                                     placeholder="Enter grade (0-100)"
+                                     {...field}
+                                     value={field.value ?? ""}
+                                     onChange={(e) => {
+                                        const val = e.target.value;
+                                        field.onChange(val === '' ? '' : Number(val));
+                                    }}/>
                             </FormControl>
                             <FormMessage />
                             </FormItem>

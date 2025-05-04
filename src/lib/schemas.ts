@@ -49,13 +49,12 @@ export const teacherSchema = z.object({
   teacherId: z.string().optional(),
 });
 
-// Schema for validating a single grade value (numeric or specific strings)
+// Schema for validating a single grade value (numeric 0-100 only)
 const gradeValueSchema = z.union([
     z.coerce.number().min(0, "Min 0").max(100, "Max 100").optional(), // Numeric 0-100
-    z.string().regex(/^[A-F][+-]?$|^P$|^F$|^INC$|^DRP$/, "Invalid (A+/B-/P/INC)").optional(), // Letter grades, P/F, INC, DRP
-    z.literal(""), // Allow empty string
+    z.literal(""), // Allow empty string for clearing the field
     z.null(), // Allow null
-]).nullable(); // Allow null
+]).nullable(); // Explicitly allow null
 
 
 // Schema for submitting grades for all terms at once
