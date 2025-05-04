@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -41,6 +42,17 @@ import { assignAdviserSchema, announcementSchema } from "@/lib/schemas";
 import { format } from 'date-fns';
 import { z } from 'zod';
 import { ManageSubjectsModal } from "@/components/manage-subjects-modal";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog" // Import AlertDialog components
 
 type AssignAdviserFormValues = z.infer<typeof assignAdviserSchema>;
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;
@@ -79,7 +91,8 @@ const postData = async <T, R>(url: string, data: T): Promise<R> => {
 const deleteData = async (url: string): Promise<void> => {
      const response = await fetch(url, { method: 'DELETE' });
     if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+         let errorData; try { errorData = await response.json(); } catch (e) {}
+         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
     }
      // Check if the response has content before trying to parse JSON
     if (response.status !== 204) { // 204 No Content usually means success for DELETE
@@ -111,7 +124,7 @@ export default function AssignmentsAnnouncementsPage() {
   const [selectedSection, setSelectedSection] = React.useState<Section | null>(null);
   const [selectedSectionAssignments, setSelectedSectionAssignments] = React.useState<SectionSubjectAssignment[]>([]);
   const [isLoadingAssignments, setIsLoadingAssignments] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // For form submissions
+  const [isSubmitting, setIsSubmitting] = React.useState(false); // For form submissions and delete actions
 
   const { toast } = useToast();
 
@@ -300,6 +313,22 @@ export default function AssignmentsAnnouncementsPage() {
     }
   };
 
+    // --- Delete Announcement Function ---
+    const handleDeleteAnnouncement = async (announcementId: string) => {
+        setIsSubmitting(true); // Use general submitting state
+        try {
+            // Example DELETE /api/announcements/{announcementId}
+            await deleteData(`/api/announcements/${announcementId}`);
+            setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
+            toast({ title: "Deleted", description: "Announcement removed." });
+        } catch (error: any) {
+                toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete announcement." });
+        } finally {
+                setIsSubmitting(false);
+        }
+    };
+
+
   // Get currently assigned adviser IDs to filter the dropdown
   const assignedAdviserIds = React.useMemo(() =>
       sections.map(sec => sec.adviserId).filter((id): id is number => id !== undefined && id !== null),
@@ -392,29 +421,37 @@ export default function AssignmentsAnnouncementsPage() {
          {
              id: 'delete_announcement',
              cell: ({ row }) => (
-                 <Button
-                     variant="ghost"
-                     size="sm"
-                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                     onClick={async (e) => {
-                        e.stopPropagation(); // Prevent triggering other actions
-                        // Add confirmation dialog here if desired
-                        setIsSubmitting(true); // Use general submitting state
-                        try {
-                            // Example DELETE /api/announcements/{announcementId}
-                            await deleteData(`/api/announcements/${row.original.id}`);
-                            setAnnouncements(prev => prev.filter(a => a.id !== row.original.id));
-                            toast({ title: "Deleted", description: "Announcement removed." });
-                        } catch (error: any) {
-                             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete announcement." });
-                        } finally {
-                             setIsSubmitting(false);
-                        }
-                     }}
-                     disabled={isSubmitting}
-                 >
-                     <Trash2 className="h-4 w-4" />
-                 </Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                         <Button
+                             variant="ghost"
+                             size="sm"
+                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                             disabled={isSubmitting} // Disable trigger if submitting
+                         >
+                             <Trash2 className="h-4 w-4" />
+                         </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                         <AlertDialogHeader>
+                             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                             <AlertDialogDescription>
+                                 This action cannot be undone. This will permanently delete the announcement: "{row.original.title}".
+                             </AlertDialogDescription>
+                         </AlertDialogHeader>
+                         <AlertDialogFooter>
+                             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                             <AlertDialogAction
+                                 onClick={() => handleDeleteAnnouncement(row.original.id)}
+                                 className={buttonVariants({ variant: "destructive" })}
+                                 disabled={isSubmitting}
+                             >
+                                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                 Yes, delete
+                             </AlertDialogAction>
+                         </AlertDialogFooter>
+                    </AlertDialogContent>
+                 </AlertDialog>
              ),
          },
     ], [isSubmitting]); // Added isSubmitting dependency for delete button state
@@ -671,3 +708,5 @@ export default function AssignmentsAnnouncementsPage() {
     </div>
   );
 }
+
+    

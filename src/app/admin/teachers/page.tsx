@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -157,7 +158,7 @@ export default function ManageTeachersPage() {
       }
   };
 
-  const handleRowClick = (teacher: Teacher) => {
+  const handleOpenEditModal = (teacher: Teacher) => {
     setSelectedTeacher(teacher);
     setIsEditModalOpen(true);
   };
@@ -219,14 +220,14 @@ export default function ManageTeachersPage() {
       // Function to generate dropdown menu items for each row
     const generateActionMenuItems = (teacher: Teacher) => (
         <>
-        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRowClick(teacher); }}>
+        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleOpenEditModal(teacher); }}>
             <Edit className="mr-2 h-4 w-4" />
             Edit / View Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
          <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                     </DropdownMenuItem>
@@ -242,7 +243,10 @@ export default function ManageTeachersPage() {
                     <AlertDialogFooter>
                     <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
                     <AlertDialogAction
-                        onClick={() => handleDeleteTeacher(teacher.id)}
+                         onClick={async (e) => {
+                             e.stopPropagation();
+                             await handleDeleteTeacher(teacher.id);
+                        }}
                          className={buttonVariants({ variant: "destructive" })}
                          disabled={isSubmitting}
                         >
@@ -286,7 +290,8 @@ export default function ManageTeachersPage() {
                 data={teachers}
                 searchPlaceholder="Search by first name..."
                 searchColumnId="firstName"
-                onRowClick={handleRowClick}
+                // Remove onRowClick
+                // onRowClick={handleOpenEditModal}
                  actionMenuItems={generateActionMenuItems}
             />
         )}
@@ -309,3 +314,5 @@ export default function ManageTeachersPage() {
     </div>
   );
 }
+
+    

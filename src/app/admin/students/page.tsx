@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -210,7 +211,7 @@ export default function ManageStudentsPage() {
       }
   };
 
-  const handleRowClick = (student: Student) => {
+  const handleOpenEditModal = (student: Student) => {
     setSelectedStudent(student);
     setIsEditModalOpen(true);
   };
@@ -331,13 +332,14 @@ export default function ManageStudentsPage() {
       // Function to generate dropdown menu items for each row
     const generateActionMenuItems = (student: Student) => (
         <>
-        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRowClick(student); }}>
+        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleOpenEditModal(student); }}>
             <Edit className="mr-2 h-4 w-4" />
             Edit / View Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
          <AlertDialog>
                 <AlertDialogTrigger asChild>
+                    {/* Ensure the trigger is clickable */}
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                          <Trash2 className="mr-2 h-4 w-4" />
                          Delete
@@ -354,7 +356,11 @@ export default function ManageStudentsPage() {
                     <AlertDialogFooter>
                     <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
                     <AlertDialogAction
-                        onClick={() => handleDeleteStudent(student.id)}
+                        // Directly call handleDeleteStudent when action is clicked
+                        onClick={async (e) => {
+                             e.stopPropagation(); // Prevent triggering other actions if necessary
+                             await handleDeleteStudent(student.id);
+                        }}
                         className={buttonVariants({ variant: "destructive" })}
                         disabled={isSubmitting}
                         >
@@ -398,7 +404,8 @@ export default function ManageStudentsPage() {
                 data={students}
                 searchPlaceholder="Search by first name..."
                 searchColumnId="firstName"
-                onRowClick={handleRowClick}
+                // Remove onRowClick to disable opening modal on row click
+                // onRowClick={handleOpenEditModal}
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
@@ -423,3 +430,5 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
+
+    
