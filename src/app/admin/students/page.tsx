@@ -29,7 +29,9 @@ import { cn } from "@/lib/utils";
 const fetchData = async <T>(url: string): Promise<T> => {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
+    const data = await response.json();
+    // The PHP backend wraps results in a "records" array for reads
+    return data.records || data; // Adjust based on specific endpoint needs
 };
 
 const postData = async <T, R>(url: string, data: T): Promise<R> => {
@@ -61,7 +63,7 @@ const putData = async <T, R>(url: string, data: T): Promise<R> => {
 
 const deleteData = async (url: string): Promise<void> => {
     const response = await fetch(url, { method: 'DELETE' });
-     if (!response.ok) {
+     if (!response.ok && response.status !== 204) { // Check for 204 No Content
          let errorData; try { errorData = await response.json(); } catch (e) {}
          throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
     }
@@ -129,8 +131,9 @@ export default function ManageStudentsPage() {
     const fetchStudents = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchData<{ records: Student[] }>('/api/students');
-        setStudents(data.records || []);
+        // Use the correct API endpoint (ensure your backend serves this)
+        const data = await fetchData<Student[]>('/api/students/read.php');
+        setStudents(data || []); // Assuming the PHP script returns the array directly or under "records"
       } catch (error) {
         console.error("Failed to fetch students:", error);
          toast({ variant: "destructive", title: "Error", description: "Failed to load student data." });
@@ -157,7 +160,7 @@ export default function ManageStudentsPage() {
 
     console.log("Attempting to add student:", payload);
     try {
-        const newStudent = await postData<typeof payload, Student>('/api/students', payload);
+        const newStudent = await postData<typeof payload, Student>('/api/students/create.php', payload);
         setStudents(prev => [...prev, newStudent]);
         toast({ title: "Student Added", description: `${newStudent.firstName} ${newStudent.lastName} (${newStudent.year || newStudent.status}, Section ${newStudent.section}) has been added.` });
     } catch (error: any) {
@@ -173,13 +176,14 @@ export default function ManageStudentsPage() {
 
      const payload = {
          ...values,
-         id: selectedStudent.id,
+         id: selectedStudent.id, // Ensure ID is included
          year: values.status === 'New' ? '1st Year' : values.year,
      };
       console.log("Attempting to edit student:", payload);
 
      try {
-         const updatedStudent = await putData<typeof payload, Student>(`/api/students/${selectedStudent.id}`, payload);
+         // Make sure the URL includes the student ID
+         const updatedStudent = await putData<typeof payload, Student>(`/api/students/update.php/${selectedStudent.id}`, payload);
          setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
          toast({ title: "Student Updated", description: `${updatedStudent.firstName} ${updatedStudent.lastName} has been updated.` });
          closeEditModal();
@@ -194,7 +198,7 @@ export default function ManageStudentsPage() {
   const handleDeleteStudent = async (studentId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`/api/students/${studentId}`);
+          await deleteData(`/api/students/delete.php/${studentId}`);
           setStudents(prev => prev.filter(s => s.id !== studentId));
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
       } catch (error: any) {
@@ -206,15 +210,16 @@ export default function ManageStudentsPage() {
   };
 
   // --- Reset Password Function ---
-  const handleResetPassword = async (userId: number, lastName: string) => {
+  const handleResetPassword = async (userId: number, firstName: string, lastName: string) => {
       setIsSubmitting(true);
       try {
            // Call the generic reset password endpoint
-           await postData('/api/admin/reset-password', { userId, userType: 'student' });
+           // The payload for this endpoint only needs userId and userType
+           await postData('/api/admin/reset_password.php', { userId, userType: 'student' });
            const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
            toast({
                 title: "Password Reset Successful",
-                description: `Password for student ID ${userId} has been reset. Default password: ${defaultPassword}`, // Mention default format
+                description: `Password for ${firstName} ${lastName} has been reset to the default: ${defaultPassword}`,
            });
       } catch (error: any) {
            console.error("Failed to reset password:", error);
@@ -379,7 +384,7 @@ export default function ManageStudentsPage() {
                      <AlertDialogAction
                           onClick={async (e) => {
                               e.stopPropagation();
-                              await handleResetPassword(student.id, student.lastName);
+                              await handleResetPassword(student.id, student.firstName, student.lastName);
                          }}
                           className={buttonVariants({ variant: "destructive" })} // Use destructive style for reset confirmation
                           disabled={isSubmitting}
