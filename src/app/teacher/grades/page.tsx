@@ -66,11 +66,18 @@ const yearLevelOptions = [
     { value: "4th Year", label: "4th Year" },
 ];
 
-// Helper to get distinct values for filtering - Removed as not used anymore
-// const getDistinctValues = (data: any[], key: keyof any): { value: string; label: string }[] => {
-//     const distinct = [...new Set(data.map(item => item[key]).filter(Boolean))];
-//     return distinct.map(value => ({ value, label: value }));
-// }
+// Helper to get distinct values for filtering
+const getDistinctValues = (data: any[], key: keyof any): { value: string; label: string }[] => {
+    const distinct = [...new Set(data.map(item => item[key]).filter(Boolean))];
+    // Sort sections numerically then alphabetically (e.g., 10A, 10B, 20A)
+    distinct.sort((a, b) => {
+        const numA = parseInt(a.match(/\d+/)?.[0] || '0');
+        const numB = parseInt(b.match(/\d+/)?.[0] || '0');
+        if (numA !== numB) return numA - numB;
+        return a.localeCompare(b);
+    });
+    return distinct.map(value => ({ value, label: value }));
+}
 
 
 export default function SubmitGradesPage() {
@@ -79,6 +86,7 @@ export default function SubmitGradesPage() {
   const [subjects, setSubjects] = React.useState<Subject[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = React.useState<string>("all"); // State for subject filter
   const [selectedYearLevel, setSelectedYearLevel] = React.useState<string>("all");
+  const [selectedSection, setSelectedSection] = React.useState<string>("all"); // State for section filter
   const [isLoading, setIsLoading] = React.useState(true);
   const [isGradeModalOpen, setIsGradeModalOpen] = React.useState(false);
   const [selectedAssignment, setSelectedAssignment] = React.useState<StudentSubjectAssignmentWithGrades | null>(null);
@@ -106,7 +114,7 @@ export default function SubmitGradesPage() {
       fetchData();
   }, [toast]);
 
-  // Filter assignments based on selected subject and year level
+  // Filter assignments based on selected subject, year level, and section
   React.useEffect(() => {
       let filtered = allAssignments;
 
@@ -118,8 +126,12 @@ export default function SubmitGradesPage() {
           filtered = filtered.filter(a => a.year === selectedYearLevel);
       }
 
+      if (selectedSection !== "all") {
+          filtered = filtered.filter(a => a.section === selectedSection);
+      }
+
       setFilteredAssignments(filtered);
-  }, [selectedSubjectId, selectedYearLevel, allAssignments]);
+  }, [selectedSubjectId, selectedYearLevel, selectedSection, allAssignments]);
 
 
   // Handle opening the grade input modal
@@ -262,6 +274,12 @@ export default function SubmitGradesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], []); // Empty dependency array
 
+   // Calculate section options dynamically
+    const sectionOptions = React.useMemo(() => [
+        { value: 'all', label: 'All Sections' },
+        ...getDistinctValues(allAssignments, 'section') // Use helper to get unique sections
+    ], [allAssignments]);
+
 
   return (
     <div className="space-y-6">
@@ -270,7 +288,7 @@ export default function SubmitGradesPage() {
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5" /> Filter Students</CardTitle>
-                <CardDescription>Select Subject and Year Level to filter the list of students.</CardDescription>
+                <CardDescription>Select Subject, Year Level, and Section to filter the list.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col md:flex-row gap-4">
                  {/* Subject Filter */}
@@ -306,6 +324,22 @@ export default function SubmitGradesPage() {
                         </SelectContent>
                     </Select>
                  </div>
+                  {/* Section Filter */}
+                 <div className="flex-1 space-y-1">
+                    <Label htmlFor="section-filter">Section</Label>
+                    <Select value={selectedSection} onValueChange={setSelectedSection}>
+                        <SelectTrigger id="section-filter">
+                            <SelectValue placeholder="Select section..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {sectionOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                 </div>
             </CardContent>
         </Card>
 
@@ -317,6 +351,7 @@ export default function SubmitGradesPage() {
                      View student list based on filters. Click 'Input Grades' to enter Prelim, Midterm, and Final grades.
                      {selectedSubjectId !== 'all' && ` Currently showing: ${subjects.find(s => s.id === selectedSubjectId)?.name}`}
                      {selectedYearLevel !== 'all' && ` | ${selectedYearLevel}`}
+                     {selectedSection !== 'all' && ` | Section ${selectedSection}`}
                  </CardDescription>
             </CardHeader>
              <CardContent>
@@ -347,3 +382,4 @@ export default function SubmitGradesPage() {
     </div>
   );
 }
+
