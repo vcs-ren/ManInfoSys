@@ -1,3 +1,4 @@
+
 "use client"; // Mark as Client Component
 
 import * as React from "react";
@@ -6,14 +7,7 @@ import { Megaphone, Link as LinkIcon, Loader2 } from "lucide-react"; // Added Li
 import Link from 'next/link'; // Import Link for navigation
 import { buttonVariants } from "@/components/ui/button"; // Import buttonVariants for styling
 import type { Announcement } from "@/types";
-
-// --- API Helper ---
-const fetchData = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-};
-// --- End API Helper ---
+import { fetchData } from "@/lib/api"; // Import the centralized API helper
 
 export default function TeacherDashboardPage() {
    const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
@@ -25,12 +19,12 @@ export default function TeacherDashboardPage() {
             setIsLoading(true);
             setError(null);
             try {
-                // Replace with your actual API endpoint for fetching teacher announcements
-                const data = await fetchData<Announcement[]>('/api/teacher/announcements');
+                // Use fetchData helper
+                const data = await fetchData<Announcement[]>('/api/teacher/announcements/read.php');
                 setAnnouncements(data || []);
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Failed to fetch announcements:", err);
-                setError("Could not load announcements. Please try again later.");
+                setError(err.message || "Could not load announcements. Please try again later.");
                  // Optionally use toast here
             } finally {
                 setIsLoading(false);
@@ -63,7 +57,6 @@ export default function TeacherDashboardPage() {
                         <div key={announcement.id} className="p-3 border rounded-md bg-secondary">
                              <p className="font-semibold">
                                  {announcement.title}
-                                 {/* Format date safely */}
                                  <span className="text-xs text-muted-foreground font-normal ml-2">
                                      - {announcement.date ? new Date(announcement.date).toLocaleDateString() : 'No Date'}
                                  </span>

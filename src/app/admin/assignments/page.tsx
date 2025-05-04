@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, PlusCircle, Megaphone, BookOpen, Trash2, Loader2 } from "lucide-react"; // Added Loader2
+import { UserCheck, PlusCircle, Megaphone, BookOpen, Trash2, Loader2, Info } from "lucide-react"; // Added Loader2, Info
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
@@ -52,58 +52,11 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog" // Import AlertDialog components
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
+import { fetchData, postData, deleteData } from "@/lib/api"; // Import API helpers
 
 type AssignAdviserFormValues = z.infer<typeof assignAdviserSchema>;
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;
-
-// --- API Helper Functions (Examples - replace with actual API calls) ---
-
-const fetchData = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-};
-
-const postData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-        // Try to get error message from response body
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch (e) {
-            // Ignore if response body is not JSON
-        }
-        throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-};
-
-const deleteData = async (url: string): Promise<void> => {
-     const response = await fetch(url, { method: 'DELETE' });
-    if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-     // Check if the response has content before trying to parse JSON
-    if (response.status !== 204) { // 204 No Content usually means success for DELETE
-        try {
-            await response.json(); // Or handle based on expected response
-        } catch (e) {
-             console.warn("Could not parse JSON response from DELETE request.");
-        }
-    }
-};
-
 
 // Helper to get distinct values for filtering
 const getDistinctValues = (data: any[], key: string): { value: string; label: string }[] => {
@@ -144,24 +97,24 @@ export default function AssignmentsAnnouncementsPage() {
     },
   });
 
-  // Fetch initial data
+  // Fetch initial data using API helpers
   React.useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
         const [sectionsData, teachersData, subjectsData, announcementsData] = await Promise.all([
-          fetchData<Section[]>('/api/sections'), // Replace with actual API endpoint
-          fetchData<Teacher[]>('/api/teachers'),   // Replace with actual API endpoint
-          fetchData<Subject[]>('/api/subjects'),   // Replace with actual API endpoint
-          fetchData<Announcement[]>('/api/announcements'), // Replace with actual API endpoint
+          fetchData<Section[]>('/api/sections/read.php'),
+          fetchData<{ records: Teacher[] }>('/api/teachers/read.php').then(d => d.records), // Adjust for potential nesting
+          fetchData<Subject[]>('/api/subjects/read.php'),
+          fetchData<Announcement[]>('/api/announcements/read.php'),
         ]);
         setSections(sectionsData || []);
         setTeachers(teachersData || []);
         setSubjects(subjectsData || []);
         setAnnouncements(announcementsData || []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch initial data:", error);
-        toast({ variant: "destructive", title: "Error", description: "Failed to load page data. Please refresh." });
+        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load page data. Please refresh." });
       } finally {
         setIsLoading(false);
       }
@@ -169,18 +122,18 @@ export default function AssignmentsAnnouncementsPage() {
     loadData();
   }, [toast]);
 
-   // Fetch assignments when Manage Subjects modal opens for a section
+   // Fetch assignments when Manage Subjects modal opens for a section using helper
     React.useEffect(() => {
         if (isManageSubjectsModalOpen && selectedSection) {
             const fetchAssignments = async () => {
                 setIsLoadingAssignments(true);
                 try {
-                    // Example: /api/sections/{sectionId}/assignments
-                    const assignmentsData = await fetchData<SectionSubjectAssignment[]>(`/api/sections/${selectedSection.id}/assignments`);
+                    const assignmentsData = await fetchData<SectionSubjectAssignment[]>(`/api/sections/assignments/read.php?sectionId=${selectedSection.id}`); // Example with query param
+                    // Or if using path param: `/api/sections/${selectedSection.id}/assignments/read.php` - Adjust based on PHP routing
                     setSelectedSectionAssignments(assignmentsData || []);
-                } catch (error) {
+                } catch (error: any) {
                     console.error("Failed to fetch assignments:", error);
-                    toast({ variant: "destructive", title: "Error", description: "Failed to load subject assignments." });
+                    toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load subject assignments." });
                 } finally {
                     setIsLoadingAssignments(false);
                 }
@@ -204,7 +157,6 @@ export default function AssignmentsAnnouncementsPage() {
     const handleAddSubjectAssignment = async (sectionId: string, subjectId: string, teacherId: number) => {
         if (!selectedSection) return;
 
-        // Get subject/teacher names locally for optimistic update/toast message
         const subject = subjects.find(s => s.id === subjectId);
         const teacher = teachers.find(t => t.id === teacherId);
         const subjectName = subject?.name || `Subject ${subjectId}`;
@@ -218,13 +170,11 @@ export default function AssignmentsAnnouncementsPage() {
 
         setIsLoadingAssignments(true);
         try {
-            // Example: POST /api/sections/{sectionId}/assignments
             const savedAssignment = await postData<typeof newAssignmentPayload, SectionSubjectAssignment>(
-                `/api/sections/${sectionId}/assignments`,
-                newAssignmentPayload
+                 `/api/sections/assignments/create.php`, // Send sectionId in payload
+                 newAssignmentPayload
             );
-            // Optimistically update UI or re-fetch
-             setSelectedSectionAssignments(prev => [...prev, { ...savedAssignment, subjectName, teacherName }]); // Add local names
+            setSelectedSectionAssignments(prev => [...prev, { ...savedAssignment, subjectName, teacherName }]);
             toast({ title: "Assignment Added", description: `${subjectName} assigned to ${teacherName} for ${selectedSection.sectionCode}.` });
         } catch (error: any) {
             console.error("Failed to save assignment:", error);
@@ -239,8 +189,7 @@ export default function AssignmentsAnnouncementsPage() {
 
         setIsLoadingAssignments(true);
         try {
-            // Example: DELETE /api/assignments/{assignmentId}
-            await deleteData(`/api/assignments/${assignmentId}`);
+            await deleteData(`/api/assignments/delete.php/${assignmentId}`); // Pass ID in URL
             setSelectedSectionAssignments(prev => prev.filter(a => a.id !== assignmentId));
             toast({ title: "Assignment Removed", description: `Subject assignment removed successfully.` });
         } catch (error: any) {
@@ -254,16 +203,15 @@ export default function AssignmentsAnnouncementsPage() {
   const handleAssignAdviser = async (values: AssignAdviserFormValues) => {
     if (!selectedSection) return;
     setIsSubmitting(true);
-    const adviserIdToAssign = values.adviserId === 0 ? null : values.adviserId; // Use null for unassign in API?
+    const adviserIdToAssign = values.adviserId === 0 ? null : values.adviserId;
 
     try {
-        // Example: PATCH /api/sections/{sectionId}/adviser
          const updatedSection = await postData<{ adviserId: number | null }, Section>(
-             `/api/sections/${selectedSection.id}/adviser`,
-             { adviserId: adviserIdToAssign }
+             `/api/sections/adviser/update.php`, // Send sectionId in payload or URL
+             { sectionId: selectedSection.id, adviserId: adviserIdToAssign } // Assuming payload method
+             // Or use URL param method: `/api/sections/${selectedSection.id}/adviser/update.php`, { adviserId: adviserIdToAssign }
          );
 
-        // Update local state
         setSections(prev =>
             prev.map(sec =>
                 sec.id === selectedSection.id
@@ -292,16 +240,14 @@ export default function AssignmentsAnnouncementsPage() {
         yearLevel: values.targetYearLevel === 'all' ? null : values.targetYearLevel,
         section: values.targetSection === 'all' ? null : values.targetSection,
       }
-      // author might be set by the backend based on logged-in user
     };
 
     try {
-        // Example: POST /api/announcements
         const newAnnouncement = await postData<typeof announcementPayload, Announcement>(
-            '/api/announcements',
+            '/api/announcements/create.php',
             announcementPayload
         );
-        setAnnouncements(prev => [newAnnouncement, ...prev]); // Add to the top
+        setAnnouncements(prev => [newAnnouncement, ...prev]);
         toast({ title: "Announcement Posted", description: "Announcement created successfully." });
         setIsAnnounceModalOpen(false);
         announcementForm.reset();
@@ -313,12 +259,11 @@ export default function AssignmentsAnnouncementsPage() {
     }
   };
 
-    // --- Delete Announcement Function ---
+    // --- Delete Announcement Function (using helper) ---
     const handleDeleteAnnouncement = async (announcementId: string) => {
-        setIsSubmitting(true); // Use general submitting state
+        setIsSubmitting(true);
         try {
-            // Example DELETE /api/announcements/{announcementId}
-            await deleteData(`/api/announcements/${announcementId}`);
+            await deleteData(`/api/announcements/delete.php/${announcementId}`); // Pass ID in URL
             setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
             toast({ title: "Deleted", description: "Announcement removed." });
         } catch (error: any) {
@@ -375,8 +320,7 @@ export default function AssignmentsAnnouncementsPage() {
          </div>
       ),
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [assignedAdviserIds]); // Dependency needed if filtering happens here
+  ], [assignedAdviserIds, teachers]); // Added teachers dependency for dropdown
 
   // Define columns for the Announcements DataTable
     const announcementColumns: ColumnDef<Announcement>[] = React.useMemo(() => [
@@ -385,7 +329,7 @@ export default function AssignmentsAnnouncementsPage() {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
              cell: ({ row }) => {
                  try {
-                     return format(new Date(row.original.date), "PP"); // Format date nicely
+                     return format(new Date(row.original.date), "PP");
                  } catch (e) {
                      return "Invalid Date";
                  }
@@ -404,7 +348,7 @@ export default function AssignmentsAnnouncementsPage() {
             accessorKey: "target",
             header: "Target Audience",
             cell: ({ row }) => {
-                 const target = row.original.target || {}; // Handle potential null/undefined target
+                 const target = row.original.target || {};
                  const { course, yearLevel, section } = target;
                  const targetParts = [];
                  if (course && course !== 'all') targetParts.push(`Course: ${course}`);
@@ -427,7 +371,7 @@ export default function AssignmentsAnnouncementsPage() {
                              variant="ghost"
                              size="sm"
                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                             disabled={isSubmitting} // Disable trigger if submitting
+                             disabled={isSubmitting}
                          >
                              <Trash2 className="h-4 w-4" />
                          </Button>
@@ -454,7 +398,7 @@ export default function AssignmentsAnnouncementsPage() {
                  </AlertDialog>
              ),
          },
-    ], [isSubmitting]); // Added isSubmitting dependency for delete button state
+    ], [isSubmitting]);
 
   const courseOptions = React.useMemo(() => [{ value: 'all', label: 'All Courses' }, ...getDistinctValues(sections, 'course')], [sections]);
   const yearLevelOptions = React.useMemo(() => [{ value: 'all', label: 'All Year Levels' }, ...getDistinctValues(sections, 'yearLevel')], [sections]);
@@ -652,10 +596,10 @@ export default function AssignmentsAnnouncementsPage() {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value={"0"}>--- Unassign Adviser ---</SelectItem>
-                         {isLoading ? ( // Use general loading state here
+                         {isLoading ? (
                             <SelectItem value="loading" disabled>Loading advisers...</SelectItem>
                         ) : (
-                            teachers
+                             teachers
                                 .filter(teacher => !assignedAdviserIds.includes(teacher.id) || teacher.id === selectedSection?.adviserId)
                                 .map((teacher) => (
                                     <SelectItem key={teacher.id} value={String(teacher.id)}>
@@ -695,18 +639,16 @@ export default function AssignmentsAnnouncementsPage() {
                 isOpen={isManageSubjectsModalOpen}
                 onOpenChange={setIsManageSubjectsModalOpen}
                 section={selectedSection}
-                subjects={subjects} // Pass all subjects
-                teachers={teachers} // Pass all teachers
-                assignments={selectedSectionAssignments} // Pass current assignments for the section
+                subjects={subjects}
+                teachers={teachers}
+                assignments={selectedSectionAssignments}
                 onAddAssignment={handleAddSubjectAssignment}
                 onDeleteAssignment={handleDeleteSubjectAssignment}
                 isLoadingAssignments={isLoadingAssignments}
-                isLoadingSubjects={isLoading} // Reuse main loading state
-                isLoadingTeachers={isLoading} // Reuse main loading state
+                isLoadingSubjects={isLoading}
+                isLoadingTeachers={isLoading}
             />
          )}
     </div>
   );
 }
-
-    

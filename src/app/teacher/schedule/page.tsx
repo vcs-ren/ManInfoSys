@@ -1,44 +1,36 @@
+
 "use client";
 
 import * as React from "react";
 import { CalendarView } from "@/components/ui/calendar-view"; // Re-use the calendar component
 import type { ScheduleEntry } from "@/types";
 import { Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast"; // Import useToast
-
-// --- API Helper ---
-const fetchData = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-};
-// --- End API Helper ---
-
+import { useToast } from "@/hooks/use-toast";
+import { fetchData } from "@/lib/api"; // Import the centralized API helper
 
 export default function TeacherSchedulePage() {
     const [scheduleEntries, setScheduleEntries] = React.useState<ScheduleEntry[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
-     const { toast } = useToast(); // Initialize toast
+     const { toast } = useToast();
 
      React.useEffect(() => {
         const fetchSchedule = async () => {
         setIsLoading(true);
         try {
-            // Replace with your actual API endpoint for fetching the teacher's schedule
-            const data = await fetchData<ScheduleEntry[]>('/api/teacher/schedule');
-            // Ensure dates are converted to Date objects if they come as strings
+            // Use fetchData helper
+            const data = await fetchData<ScheduleEntry[]>('/api/teacher/schedule/read.php');
              const processedData = (data || []).map(entry => ({
                  ...entry,
                  start: new Date(entry.start),
                  end: new Date(entry.end),
              }));
             setScheduleEntries(processedData);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to fetch teacher schedule:", error);
-            toast({ // Use toast for error notification
+            toast({
                 variant: "destructive",
                 title: "Error Loading Schedule",
-                description: "Could not fetch schedule data. Please try refreshing the page.",
+                description: error.message || "Could not fetch schedule data. Please try refreshing the page.",
             });
         } finally {
             setIsLoading(false);
@@ -46,7 +38,7 @@ export default function TeacherSchedulePage() {
         };
         fetchSchedule();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Add toast as dependency
+    }, []);
 
 
   return (

@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -19,29 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-
-// --- API Helper Functions ---
-const fetchData = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-};
-
-const postData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'POST', // Or PUT/PATCH depending on the endpoint for updating grades
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-     if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    // Assuming API returns the updated assignment or a success message
-    return response.json();
-};
-// --- End API Helpers ---
-
+import { fetchData, postData } from "@/lib/api"; // Import API helpers
 
 // Define valid year levels for filtering
 const yearLevelOptions = [
@@ -78,23 +57,22 @@ export default function SubmitGradesPage() {
   const [selectedAssignment, setSelectedAssignment] = React.useState<StudentSubjectAssignmentWithGrades | null>(null);
   const { toast } = useToast();
 
-  // Fetch initial data
+  // Fetch initial data using helpers
   React.useEffect(() => {
       const fetchDataAndSubjects = async () => {
           setIsLoading(true);
           try {
-              // Replace with actual API endpoints
-              // Fetch assignments including existing grades for the logged-in teacher
-              const assignmentsData = await fetchData<StudentSubjectAssignmentWithGrades[]>('/api/teacher/assignments/grades');
-              // Fetch subjects taught by the teacher
-              const subjectsData = await fetchData<Subject[]>('/api/teacher/subjects');
+              const [assignmentsData, subjectsData] = await Promise.all([
+                  fetchData<StudentSubjectAssignmentWithGrades[]>('/api/teacher/assignments/grades/read.php'),
+                  fetchData<Subject[]>('/api/teacher/subjects/read.php')
+              ]);
 
               setAllAssignments(assignmentsData || []);
-              setFilteredAssignments(assignmentsData || []); // Initially show all
-              setSubjects([{ id: "all", name: "All Subjects" }, ...(subjectsData || [])]); // Add "all" option
-          } catch (error) {
+              setFilteredAssignments(assignmentsData || []);
+              setSubjects([{ id: "all", name: "All Subjects" }, ...(subjectsData || [])]);
+          } catch (error: any) {
               console.error("Failed to fetch grading data:", error);
-              toast({ variant: "destructive", title: "Error", description: "Could not load grading data. Please refresh." });
+              toast({ variant: "destructive", title: "Error", description: error.message || "Could not load grading data. Please refresh." });
           } finally {
               setIsLoading(false);
           }
@@ -118,11 +96,10 @@ export default function SubmitGradesPage() {
     setIsGradeModalOpen(true);
   };
 
-  // Submit Grade Function (API Call)
+  // Submit Grade Function (API Call using helper)
   const handleGradeSubmit = async (values: Omit<StudentSubjectAssignmentWithGrades, 'studentName' | 'subjectName' | 'section' | 'year' | 'status'>) => {
     if (!selectedAssignment) return;
 
-    // Prepare payload - ensure numeric grades are numbers, nulls are null
     const payload = {
         ...values,
         prelimGrade: values.prelimGrade === "" || values.prelimGrade === null ? null : Number(values.prelimGrade),
@@ -132,26 +109,25 @@ export default function SubmitGradesPage() {
      console.log(`Submitting grades for assignment: ${values.assignmentId}`, payload);
 
     try {
-        // Replace with your actual endpoint for submitting/updating grades
-        // Example: POST /api/grades or PUT /api/assignments/{assignmentId}/grades
+        // Use postData helper for the API call
         const updatedAssignment = await postData<typeof payload, StudentSubjectAssignmentWithGrades>(
-            `/api/assignments/${values.assignmentId}/grades`, // Example endpoint structure
+            `/api/assignments/grades/update.php`, // Send assignmentId in payload
             payload
+            // Or adjust path if ID is needed in URL: `/api/assignments/${values.assignmentId}/grades/update.php`
         );
 
-        // Update the local state with the response from the API
          const updateState = (prev: StudentSubjectAssignmentWithGrades[]) =>
             prev.map(assign =>
-                assign.assignmentId === updatedAssignment.assignmentId
-                ? updatedAssignment // Use the updated data from the server
+                 // Use assignmentId for matching, which is unique per student-subject pair in this context
+                assign.assignmentId === updatedAssignment.assignmentId && assign.studentId === updatedAssignment.studentId
+                ? updatedAssignment
                 : assign
             );
 
         setAllAssignments(updateState);
-        // Filtered list will update automatically via useEffect
+        // Filtered list will update automatically
 
         toast({ title: "Grades Submitted", description: `Grades for ${selectedAssignment.subjectName} submitted for ${selectedAssignment.studentName}.` });
-        // Modal is closed by the modal component itself on success
     } catch (error: any) {
         console.error("Grade submission error:", error);
         toast({
@@ -159,7 +135,7 @@ export default function SubmitGradesPage() {
             title: "Error Submitting Grades",
             description: error.message || `Failed to submit grades. Please try again.`,
         });
-         throw error; // Re-throw for SubmitGradesModal to handle
+         throw error;
     }
   };
 
@@ -170,11 +146,10 @@ export default function SubmitGradesPage() {
         accessorKey: "studentName",
         header: ({ column }) => <DataTableColumnHeader column={column} title="Student Name" />,
     },
-    // Subject column only needed if "All Subjects" is selected
     ...(selectedSubjectId === 'all' ? [{
         accessorKey: "subjectName",
         header: ({ column }) => <DataTableColumnHeader column={column} title="Subject" />,
-    } as ColumnDef<StudentSubjectAssignmentWithGrades>] : []), // Type assertion needed
+    } as ColumnDef<StudentSubjectAssignmentWithGrades>] : []),
      {
         accessorKey: "year",
          header: "Year",
@@ -237,7 +212,7 @@ export default function SubmitGradesPage() {
         </Button>
       ),
     },
-  ], [selectedSubjectId]); // Dependency added for conditional column
+  ], [selectedSubjectId]);
 
    // Calculate section options dynamically based on filtered assignments
     const sectionOptions = React.useMemo(() => {

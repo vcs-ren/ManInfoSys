@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -25,25 +26,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { passwordChangeSchema } from "@/lib/schemas";
+import { postData } from "@/lib/api"; // Import the centralized API helper
 
 type PasswordFormValues = z.infer<typeof passwordChangeSchema>;
-
-// --- API Helper ---
-const postData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-     if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    // Assuming successful password change returns simple success message or status
-    return response.json(); // Adjust based on actual API response
-};
-// --- End API Helper ---
-
 
 export default function AdminSettingsPage() {
   const { toast } = useToast();
@@ -57,7 +42,7 @@ export default function AdminSettingsPage() {
     },
   });
 
-  // Update Password Function (API Call)
+  // Update Password Function (API Call using helper)
   const onSubmit = async (values: PasswordFormValues) => {
     console.log("Attempting admin password change...");
     const payload = {
@@ -67,9 +52,8 @@ export default function AdminSettingsPage() {
     };
 
     try {
-        // Replace with your actual API endpoint for changing admin password
-        // Backend must verify currentPassword against the logged-in admin's hash
-        await postData('/api/admin/change-password', payload);
+        // Use postData helper with the relative PHP endpoint path
+        await postData('/api/admin/change_password.php', payload);
 
         toast({
             title: "Password Updated",
@@ -92,65 +76,68 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-6">
-      h1 className="text-3xl font-bold">Settingsh1>
-       Card>
-          CardHeader>
-             div className="flex items-center space-x-2">
-                 LockKeyhole className="h-6 w-6 text-primary" />
-                CardTitle>Change PasswordCardTitle>
-             div>
-            CardDescription>Update your account password. Choose a strong, unique password.CardDescription>
-          CardHeader>
-          CardContent>
-             Form {...form}>
-                form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-md">
-                    FormField
+      <h1 className="text-3xl font-bold">Settings</h1>
+       <Card>
+          <CardHeader>
+             <div className="flex items-center space-x-2">
+                 <LockKeyhole className="h-6 w-6 text-primary" />
+                <CardTitle>Change Password</CardTitle>
+             </div>
+            <CardDescription>Update your account password. Choose a strong, unique password.</CardDescription>
+          </CardHeader>
+          <CardContent>
+             <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-md">
+                    <FormField
                         control={form.control}
                         name="currentPassword"
                         render={({ field }) => (
-                        FormItem>
-                            FormLabel>Current PasswordFormLabel>
-                            FormControl>
-                            Input type="password" placeholder="Enter your current password" {...field} />
-                            FormControl>
-                            FormMessage />
-                        FormItem>
+                        <FormItem>
+                            <FormLabel>Current Password</FormLabel>
+                            <FormControl>
+                            <Input type="password" placeholder="Enter your current password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
                         )}
-                    FormField
+                    />
+                    <FormField
                         control={form.control}
                         name="newPassword"
                         render={({ field }) => (
-                        FormItem>
-                            FormLabel>New PasswordFormLabel>
-                            FormControl>
-                            Input type="password" placeholder="Enter your new password" {...field} />
-                            FormControl>
-                             p className="text-xs text-muted-foreground">Must be at least 6 characters long.p>
-                            FormMessage />
-                        FormItem>
+                        <FormItem>
+                            <FormLabel>New Password</FormLabel>
+                            <FormControl>
+                            <Input type="password" placeholder="Enter your new password" {...field} />
+                            </FormControl>
+                             <p className="text-xs text-muted-foreground">Must be at least 6 characters long.</p>
+                            <FormMessage />
+                        </FormItem>
                         )}
-                    FormField
+                    />
+                    <FormField
                         control={form.control}
                         name="confirmPassword"
                         render={({ field }) => (
-                        FormItem>
-                            FormLabel>Confirm New PasswordFormLabel>
-                            FormControl>
-                            Input type="password" placeholder="Confirm your new password" {...field} />
-                            FormControl>
-                            FormMessage />
-                        FormItem>
+                        <FormItem>
+                            <FormLabel>Confirm New Password</FormLabel>
+                            <FormControl>
+                            <Input type="password" placeholder="Confirm your new password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
                         )}
-                    
+                    />
 
-                     Button type="submit" disabled={form.formState.isSubmitting}>
-                         {form.formState.isSubmitting ? Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating... : 'Update Password'}
-                     Button>
-                form>
-             Form>
-          CardContent>
-       Card>
 
-    div>
+                     <Button type="submit" disabled={form.formState.isSubmitting}>
+                         {form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</> : 'Update Password'}
+                     </Button>
+                </form>
+             </Form>
+          </CardContent>
+       </Card>
+
+    </div>
   );
 }

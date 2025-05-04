@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -25,37 +26,17 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { Student } from "@/types";
 import { profileSchema } from "@/lib/schemas"; // Using a generic profile schema
-import { Loader2 } from "lucide-react";
-import { Separator } from "@/components/ui/separator"; // Import Separator
-import { Textarea } from "@/components/ui/textarea"; // Import Textarea
-
-// --- API Helpers ---
-const fetchData = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-};
-
-const putData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'PUT', // Or PATCH
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-     if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-};
-// --- End API Helpers ---
-
+import { Loader2, Pencil } from "lucide-react"; // Added Pencil
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { fetchData, putData } from "@/lib/api"; // Import API helpers
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function StudentProfilePage() {
   const [studentData, setStudentData] = React.useState<Student | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isEditing, setIsEditing] = React.useState(false); // State to toggle edit mode
   const { toast } = useToast();
 
   const form = useForm<ProfileFormValues>({
@@ -77,8 +58,8 @@ export default function StudentProfilePage() {
     const loadProfile = async () => {
       setIsLoading(true);
       try {
-        // Replace with your actual API endpoint for fetching the logged-in student's profile
-        const data = await fetchData<Student>('/api/student/profile');
+        // Use fetchData helper
+        const data = await fetchData<Student>('/api/student/profile/read.php');
         setStudentData(data);
         // Reset form with fetched data
         form.reset({
@@ -92,9 +73,9 @@ export default function StudentProfilePage() {
             emergencyContactPhone: data.emergencyContactPhone || "",
             emergencyContactAddress: data.emergencyContactAddress || "",
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch profile:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not load profile data." });
+        toast({ variant: "destructive", title: "Error", description: error.message || "Could not load profile data." });
       } finally {
         setIsLoading(false);
       }
@@ -104,26 +85,23 @@ export default function StudentProfilePage() {
   }, []); // Fetch only once on mount
 
 
-  // Update Profile Function (API Call)
+  // Update Profile Function (API Call using helper)
   const onSubmit = async (values: ProfileFormValues) => {
-    if (!studentData) return; // Should not happen if loaded
+    if (!studentData) return;
 
-     const payload = {
-         ...values, // Includes all editable fields + id
-     };
+     const payload = { ...values };
     console.log("Updating profile:", payload);
 
     try {
-        // Replace with your actual PUT/PATCH endpoint (e.g., /api/student/profile)
-        // The backend should identify the user via session/token, not rely solely on ID in payload
-        const updatedProfile = await putData<typeof payload, Student>('/api/student/profile', payload);
-        // Update local state optimistically or with the response
-        setStudentData(prev => ({ ...prev, ...updatedProfile })); // Merge updates
+        // Use putData helper
+        const updatedProfile = await putData<typeof payload, Student>('/api/student/profile/update.php', payload);
+        setStudentData(prev => ({ ...prev, ...updatedProfile }));
         toast({
             title: "Profile Updated",
             description: "Your profile information has been saved.",
         });
-        form.reset(updatedProfile); // Reset form with the confirmed updated values
+        form.reset(updatedProfile);
+        setIsEditing(false); // Exit edit mode after successful save
     } catch (error: any) {
         console.error("Failed to update profile:", error);
         toast({
@@ -133,6 +111,24 @@ export default function StudentProfilePage() {
         });
     }
   };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        // Reset form to original fetched data if edits were made
+        if (studentData) {
+            form.reset({
+                id: studentData.id,
+                firstName: studentData.firstName,
+                lastName: studentData.lastName,
+                email: studentData.email || "",
+                phone: studentData.phone || "",
+                emergencyContactName: studentData.emergencyContactName || "",
+                emergencyContactRelationship: studentData.emergencyContactRelationship || "",
+                emergencyContactPhone: studentData.emergencyContactPhone || "",
+                emergencyContactAddress: studentData.emergencyContactAddress || "",
+            });
+        }
+    };
 
   if (isLoading) {
     return (
@@ -150,11 +146,18 @@ export default function StudentProfilePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">My Profile</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">My Profile</h1>
+         {!isEditing && (
+            <Button variant="outline" onClick={() => setIsEditing(true)}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit Profile
+            </Button>
+        )}
+      </div>
        <Card>
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
-            <CardDescription>View and update your personal and contact details. Academic information and Username ({studentData.studentId}) are managed by the admin.</CardDescription>
+            <CardDescription>View {isEditing ? 'and update ' : ''}your personal and contact details. Academic information and Username ({studentData.studentId}) are managed by the admin.</CardDescription>
           </CardHeader>
           <CardContent>
              <Form {...form}>
@@ -197,7 +200,7 @@ export default function StudentProfilePage() {
                                 <FormItem>
                                     <FormLabel>First Name</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="Your first name" {...field} />
+                                    <Input placeholder="Your first name" {...field} disabled={!isEditing || form.formState.isSubmitting}/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -210,7 +213,7 @@ export default function StudentProfilePage() {
                                 <FormItem>
                                     <FormLabel>Last Name</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="Your last name" {...field} />
+                                    <Input placeholder="Your last name" {...field} disabled={!isEditing || form.formState.isSubmitting} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -224,7 +227,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Email Address</FormLabel>
                                 <FormControl>
-                                <Input type="email" placeholder="your.email@example.com" {...field} value={field.value ?? ''} />
+                                <Input type="email" placeholder="your.email@example.com" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -237,7 +240,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Phone Number</FormLabel>
                                 <FormControl>
-                                <Input type="tel" placeholder="Your phone number" {...field} value={field.value ?? ''}/>
+                                <Input type="tel" placeholder="Your phone number" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -257,7 +260,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Contact Name</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Parent/Guardian Name" {...field} value={field.value ?? ''} />
+                                    <Input placeholder="Parent/Guardian Name" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -270,7 +273,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Relationship</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g., Mother, Father, Guardian" {...field} value={field.value ?? ''} />
+                                    <Input placeholder="e.g., Mother, Father, Guardian" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -283,7 +286,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Contact Phone</FormLabel>
                                 <FormControl>
-                                    <Input type="tel" placeholder="Emergency contact phone number" {...field} value={field.value ?? ''} />
+                                    <Input type="tel" placeholder="Emergency contact phone number" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -296,7 +299,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Contact Address</FormLabel>
                                 <FormControl>
-                                    <Textarea placeholder="Full Address" {...field} value={field.value ?? ''}/>
+                                    <Textarea placeholder="Full Address" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -304,10 +307,16 @@ export default function StudentProfilePage() {
                         />
                     </div>
 
-
-                     <Button type="submit" disabled={form.formState.isSubmitting} className="mt-6">
-                         {form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
-                     </Button>
+                     {isEditing && (
+                        <div className="flex justify-end gap-2 mt-6">
+                             <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={form.formState.isSubmitting}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={!form.formState.isDirty || form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
+                            </Button>
+                        </div>
+                     )}
                 </form>
              </Form>
           </CardContent>

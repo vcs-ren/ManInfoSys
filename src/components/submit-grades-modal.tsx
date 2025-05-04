@@ -32,13 +32,24 @@ import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "./ui/scroll-area";
 
+// Define the expected payload type matching the PHP endpoint
+// Ensure grades are number | null
+type GradePayload = Omit<StudentSubjectAssignmentWithGrades, 'studentName' | 'subjectName' | 'section' | 'year' | 'status' | 'prelimGrade' | 'midtermGrade' | 'finalGrade'> & {
+    prelimGrade: number | null;
+    prelimRemarks?: string | null;
+    midtermGrade: number | null;
+    midtermRemarks?: string | null;
+    finalGrade: number | null;
+    finalRemarks?: string | null;
+};
+
 type SubmitGradesFormValues = z.infer<typeof submitGradesSchema>;
 
 interface SubmitGradesModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  assignment: StudentSubjectAssignmentWithGrades; // Data for the specific assignment
-  onSubmit: (values: SubmitGradesFormValues) => Promise<void> | void;
+  assignment: StudentSubjectAssignmentWithGrades;
+  onSubmit: (values: GradePayload) => Promise<void> | void; // Expecting the payload type
 }
 
 export function SubmitGradesModal({
@@ -51,31 +62,31 @@ export function SubmitGradesModal({
 
   const form = useForm<SubmitGradesFormValues>({
     resolver: zodResolver(submitGradesSchema),
+    // Initialize form with values from the assignment prop
     defaultValues: {
       assignmentId: assignment.assignmentId,
       studentId: assignment.studentId,
       subjectId: assignment.subjectId,
-      prelimGrade: assignment.prelimGrade ?? "", // Initialize with empty string if null
+      prelimGrade: assignment.prelimGrade ?? "",
       prelimRemarks: assignment.prelimRemarks ?? "",
-      midtermGrade: assignment.midtermGrade ?? "", // Initialize with empty string if null
+      midtermGrade: assignment.midtermGrade ?? "",
       midtermRemarks: assignment.midtermRemarks ?? "",
-      finalGrade: assignment.finalGrade ?? "", // Initialize with empty string if null
+      finalGrade: assignment.finalGrade ?? "",
       finalRemarks: assignment.finalRemarks ?? "",
     },
   });
 
-   // Reset form when dialog opens or assignment changes
     React.useEffect(() => {
         if (isOpen) {
             form.reset({
                 assignmentId: assignment.assignmentId,
                 studentId: assignment.studentId,
                 subjectId: assignment.subjectId,
-                prelimGrade: assignment.prelimGrade ?? "", // Initialize with empty string if null
+                prelimGrade: assignment.prelimGrade ?? "",
                 prelimRemarks: assignment.prelimRemarks ?? "",
-                midtermGrade: assignment.midtermGrade ?? "", // Initialize with empty string if null
+                midtermGrade: assignment.midtermGrade ?? "",
                 midtermRemarks: assignment.midtermRemarks ?? "",
-                finalGrade: assignment.finalGrade ?? "", // Initialize with empty string if null
+                finalGrade: assignment.finalGrade ?? "",
                 finalRemarks: assignment.finalRemarks ?? "",
             });
         }
@@ -83,44 +94,41 @@ export function SubmitGradesModal({
 
   const handleFormSubmit = async (values: SubmitGradesFormValues) => {
     try {
-        // Helper to safely convert form values (string, number, null, undefined) to number or null
         const convertToNumberOrNull = (val: unknown): number | null => {
-            if (val === "" || val === null || typeof val === 'undefined') {
-                return null;
-            }
-            const num = Number(val); // Attempt conversion
-            // Check if the result is a valid finite number
+            if (val === "" || val === null || typeof val === 'undefined') return null;
+            const num = Number(val);
             return isNaN(num) || !isFinite(num) ? null : num;
         };
 
-        // Prepare the payload ensuring grade fields are either numbers or null
-        const payload = {
-            ...values,
+        const payload: GradePayload = {
+            assignmentId: values.assignmentId,
+            studentId: values.studentId,
+            subjectId: values.subjectId,
             prelimGrade: convertToNumberOrNull(values.prelimGrade),
+            prelimRemarks: values.prelimRemarks || null,
             midtermGrade: convertToNumberOrNull(values.midtermGrade),
+            midtermRemarks: values.midtermRemarks || null,
             finalGrade: convertToNumberOrNull(values.finalGrade),
+            finalRemarks: values.finalRemarks || null,
         };
 
-        console.log("Submitting grades (processed):", payload);
-        // Cast the payload to the expected type for the onSubmit function
-        // This assumes the onSubmit function expects the structure with grades as number | null
-        await onSubmit(payload as SubmitGradesFormValues); // Call the actual submit function passed via props
+        console.log("Submitting grades (processed payload):", payload);
+        await onSubmit(payload); // Call the actual submit function passed via props
 
-        toast({
-            title: "Success",
-            description: `Grades submitted successfully for ${assignment.studentName} in ${assignment.subjectName}.`,
-        });
-        onOpenChange(false); // Close main dialog
-    } catch (error: any) { // Add type annotation for error
-        console.error("Grade submission error:", error);
-        // Use error.message if available, otherwise provide a generic message
-        const errorMessage = error?.message || "Failed to submit grades. Please try again.";
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: errorMessage,
-        });
-        // No need to re-throw if the error is handled here
+        // Toast is handled by the parent component on success
+        // toast({
+        //     title: "Success",
+        //     description: `Grades submitted successfully for ${assignment.studentName} in ${assignment.subjectName}.`,
+        // });
+        onOpenChange(false); // Close modal on success
+    } catch (error: any) {
+        console.error("Grade submission error in modal:", error);
+        // Toast is handled by the parent component on error
+        // toast({
+        //     variant: "destructive",
+        //     title: "Error",
+        //     description: error?.message || "Failed to submit grades. Please try again.",
+        // });
     }
   };
 
@@ -151,24 +159,21 @@ export function SubmitGradesModal({
                             <FormLabel>Grade</FormLabel>
                             <FormControl>
                                 <Input
-                                     type="number" // Use number type for input
+                                     type="number"
                                      min="0"
                                      max="100"
-                                     step="1" // Allow only whole numbers if desired, or "any" for decimals
+                                     step="1" // Or "any" for decimals
                                      placeholder="Enter grade (0-100)"
                                      {...field}
-                                     // Use nullish coalescing for value to handle null/undefined
                                      value={field.value ?? ""}
-                                     // Ensure onChange converts empty string or invalid number to empty string for the field state
                                      onChange={(e) => {
                                         const val = e.target.value;
-                                        // Allow empty string, otherwise attempt to convert to number
                                         field.onChange(val === '' ? '' : val);
                                     }}
                                      />
                             </FormControl>
                              <FormMessage />
-                                <p className="text-xs text-muted-foreground">Numeric grade between 0 and 100.</p>
+                             {/* Removed redundant text, placeholder is sufficient */}
                             </FormItem>
                         )}
                         />
@@ -203,7 +208,7 @@ export function SubmitGradesModal({
                                      type="number"
                                      min="0"
                                      max="100"
-                                     step="1"
+                                     step="1" // Or "any"
                                      placeholder="Enter grade (0-100)"
                                      {...field}
                                      value={field.value ?? ""}
@@ -247,7 +252,7 @@ export function SubmitGradesModal({
                                      type="number"
                                      min="0"
                                      max="100"
-                                     step="1"
+                                     step="1" // Or "any"
                                      placeholder="Enter grade (0-100)"
                                      {...field}
                                      value={field.value ?? ""}

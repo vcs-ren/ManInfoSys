@@ -26,8 +26,9 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, Loader2 } from 'lucide-react';
-import { loginSchema } from "@/lib/schemas"; // Import the updated schema
-import Link from "next/link"; // Import Link
+import { loginSchema } from "@/lib/schemas";
+import Link from "next/link";
+import { postData } from "@/lib/api"; // Import the centralized API helper
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
@@ -39,45 +40,26 @@ interface LoginResponse {
     redirectPath?: string;
 }
 
-
-// --- API Helper ---
-const postData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-    // Even if response is not ok, parse the JSON for error messages
-    const responseData = await response.json();
-     if (!response.ok) {
-         // Use the message from the JSON response if available
-         throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
-    }
-    return responseData;
-};
-// --- End API Helper ---
-
-
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
 
   const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema), // Use the updated schema
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
-      password: "", // Add default value for password
+      password: "",
     },
   });
 
-  // Handle form submission - Call PHP Authentication API
+  // Handle form submission - Call PHP Authentication API via centralized helper
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     console.log("Login attempt:", data.username); // Don't log password
 
     try {
-         // Call the PHP login endpoint
+        // Call the PHP login endpoint using the helper
         const response = await postData<LoginFormValues, LoginResponse>('/api/login.php', data);
 
         if (response.success && response.role && response.redirectPath) {
@@ -101,7 +83,6 @@ export default function LoginPage() {
         toast({
             variant: "destructive",
             title: "Login Error",
-            // Display the error message from the caught error
             description: error.message || "An error occurred during login. Please try again.",
         });
     } finally {
@@ -155,7 +136,7 @@ export default function LoginPage() {
             </form>
           </Form>
         </CardContent>
-         <CardFooter className="text-center justify-center text-sm"> {/* Updated footer */}
+         <CardFooter className="text-center justify-center text-sm">
              <Link href="/forgot-password" className="text-primary hover:underline">
                  Forgot password?
              </Link>

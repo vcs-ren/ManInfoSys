@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, RotateCcw } from "lucide-react"; // Added RotateCcw for Reset Password
+import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info } from "lucide-react"; // Added RotateCcw, Info
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -20,56 +20,18 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+} from "@/components/ui/alert-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"; // Import DropdownMenu components
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
-// --- API Helper Functions (Implement based on your backend) ---
-const fetchData = async <T>(url: string): Promise<T> => {
-    // Append a cache-busting query parameter
-    const cacheBustingUrl = `${url}${url.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
-    const response = await fetch(cacheBustingUrl, { cache: 'no-store' }); // Prevent caching
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-};
-
-const postData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-};
-
-const putData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-     if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-};
-
-
-const deleteData = async (url: string): Promise<void> => {
-    const response = await fetch(url, { method: 'DELETE' });
-     if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-};
-// --- End API Helpers ---
-
+import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
 
 // Define form fields for the UserForm component using FormFieldConfig
 const teacherFormFields: FormFieldConfig<Teacher>[] = [
@@ -85,7 +47,8 @@ export default function ManageTeachersPage() {
   const [teachers, setTeachers] = React.useState<Teacher[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedTeacher, setSelectedTeacher] = React.useState<Teacher | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isModalOpen, setIsModalOpen] = React.useState(false); // Combined state for Add/Edit modal
+  const [isEditMode, setIsEditMode] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false); // For delete/reset password confirmation
    const { toast } = useToast();
 
@@ -94,11 +57,11 @@ export default function ManageTeachersPage() {
     const fetchTeachers = async () => {
       setIsLoading(true);
        try {
-        const data = await fetchData<{ records: Teacher[] }>('/api/teachers/read.php'); // Update to PHP endpoint
+        const data = await fetchData<{ records: Teacher[] }>('/api/teachers/read.php');
         setTeachers(data.records || []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch teachers:", error);
-        toast({ variant: "destructive", title: "Error", description: "Failed to load teacher data." });
+        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load teacher data." });
       } finally {
         setIsLoading(false);
       }
@@ -106,44 +69,34 @@ export default function ManageTeachersPage() {
     fetchTeachers();
   }, [toast]);
 
-  // Add Teacher Function (API Call)
-  const handleAddTeacher = async (values: Omit<Teacher, 'id' | 'teacherId'>) => {
-     console.log("Attempting to add teacher:", values);
+  // Add or Edit Teacher Function (using helpers)
+  const handleSaveTeacher = async (values: Teacher) => {
+     const payload = { ...values, id: isEditMode ? selectedTeacher?.id : undefined };
+     console.log(`Attempting to ${isEditMode ? 'edit' : 'add'} teacher:`, payload);
      try {
-         const newTeacher = await postData<typeof values, Teacher>('/api/teachers/create.php', values); // Update to PHP endpoint
-         setTeachers(prev => [...prev, newTeacher]);
-         toast({ title: "Teacher Added", description: `${newTeacher.firstName} ${newTeacher.lastName} has been added.` });
+         let savedTeacher: Teacher;
+         if (isEditMode && payload.id) {
+             savedTeacher = await putData<typeof payload, Teacher>(`/api/teachers/update.php/${payload.id}`, payload);
+             setTeachers(prev => prev.map(t => t.id === savedTeacher.id ? savedTeacher : t));
+             toast({ title: "Teacher Updated", description: `${savedTeacher.firstName} ${savedTeacher.lastName} has been updated.` });
+         } else {
+             savedTeacher = await postData<Omit<typeof payload, 'id'>, Teacher>('/api/teachers/create.php', payload);
+             setTeachers(prev => [...prev, savedTeacher]);
+             toast({ title: "Teacher Added", description: `${savedTeacher.firstName} ${savedTeacher.lastName} has been added.` });
+         }
+         closeModal();
      } catch (error: any) {
-         console.error("Failed to add teacher:", error);
-         toast({ variant: "destructive", title: "Error Adding Teacher", description: error.message || "Could not add teacher." });
-         throw error;
+         console.error(`Failed to ${isEditMode ? 'update' : 'add'} teacher:`, error);
+         toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Teacher`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} teacher.` });
+         throw error; // Re-throw to keep modal open
      }
   };
 
-   // Edit Teacher Function (API Call)
-  const handleEditTeacher = async (values: Teacher) => {
-     if (!selectedTeacher) return;
-
-     const payload = { ...values, id: selectedTeacher.id };
-     console.log("Attempting to edit teacher:", payload);
-
-     try {
-         const updatedTeacher = await putData<typeof payload, Teacher>(`/api/teachers/update.php/${selectedTeacher.id}`, payload); // Update to PHP endpoint
-         setTeachers(prev => prev.map(t => t.id === updatedTeacher.id ? updatedTeacher : t));
-         toast({ title: "Teacher Updated", description: `${updatedTeacher.firstName} ${updatedTeacher.lastName} has been updated.` });
-         closeEditModal();
-     } catch (error: any) {
-         console.error("Failed to update teacher:", error);
-         toast({ variant: "destructive", title: "Error Updating Teacher", description: error.message || "Could not update teacher." });
-         throw error;
-     }
-  };
-
-   // Delete Teacher Function (API Call)
+   // Delete Teacher Function (using helper)
   const handleDeleteTeacher = async (teacherId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`/api/teachers/delete.php/${teacherId}`); // Update to PHP endpoint
+          await deleteData(`/api/teachers/delete.php/${teacherId}`);
           setTeachers(prev => prev.filter(t => t.id !== teacherId));
           toast({ title: "Teacher Deleted", description: `Teacher record has been removed.` });
       } catch (error: any) {
@@ -154,16 +107,15 @@ export default function ManageTeachersPage() {
       }
   };
 
-    // --- Reset Password Function ---
+    // --- Reset Password Function (using helper) ---
     const handleResetPassword = async (userId: number, lastName: string) => {
         setIsSubmitting(true);
         try {
-             // Call the generic reset password endpoint
-             await postData('/api/admin/reset_password.php', { userId, userType: 'teacher' }); // Update to PHP endpoint
+             await postData('/api/admin/reset_password.php', { userId, userType: 'teacher' });
              const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
              toast({
                   title: "Password Reset Successful",
-                  description: `Password for teacher ID ${userId} has been reset. Default password: ${defaultPassword}`, // Mention default format
+                  description: `Password for teacher ID ${userId} has been reset. Default password: ${defaultPassword}`,
              });
         } catch (error: any) {
              console.error("Failed to reset password:", error);
@@ -177,14 +129,20 @@ export default function ManageTeachersPage() {
         }
     };
 
-  const handleOpenEditModal = (teacher: Teacher) => {
-    setSelectedTeacher(teacher);
-    setIsEditModalOpen(true);
+   const openAddModal = () => {
+    setIsEditMode(false);
+    setSelectedTeacher(null);
+    setIsModalOpen(true);
   };
 
-   const closeEditModal = () => {
-    setSelectedTeacher(null);
-    setIsEditModalOpen(false);
+  const openEditModal = (teacher: Teacher) => {
+    setIsEditMode(true);
+    setSelectedTeacher(teacher);
+    setIsModalOpen(true);
+  };
+
+   const closeModal = () => {
+    setIsModalOpen(false);
   };
 
     // Define dynamic department options for filter
@@ -205,11 +163,17 @@ export default function ManageTeachersPage() {
             accessorKey: "firstName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("firstName")}</div>,
+             filterFn: (row, id, value) => { // Add basic text filtering
+                return String(row.getValue(id)).toLowerCase().includes(String(value).toLowerCase());
+            },
         },
         {
             accessorKey: "lastName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
+             filterFn: (row, id, value) => {
+                return String(row.getValue(id)).toLowerCase().includes(String(value).toLowerCase());
+            },
         },
          {
             accessorKey: "department",
@@ -235,15 +199,15 @@ export default function ManageTeachersPage() {
             cell: ({ row }) => <div>{row.getValue("phone") || '-'}</div>,
              enableHiding: true,
         },
-    ], [departmentOptions]); // Dependency on dynamic options
+    ], [departmentOptions]);
 
 
       // Function to generate dropdown menu items for each row
     const generateActionMenuItems = (teacher: Teacher) => (
         <>
-        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleOpenEditModal(teacher); }}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit / View Details
+        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditModal(teacher); }}>
+            <Info className="mr-2 h-4 w-4" /> {/* Use Info icon */}
+            View / Edit Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
           {/* Reset Password Action */}
@@ -268,7 +232,7 @@ export default function ManageTeachersPage() {
                               e.stopPropagation();
                               await handleResetPassword(teacher.id, teacher.lastName);
                          }}
-                          className={cn(buttonVariants({ variant: "destructive" }))} // Use destructive style for reset confirmation
+                          className={cn(buttonVariants({ variant: "destructive" }))}
                           disabled={isSubmitting}
                      >
                           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -317,18 +281,9 @@ export default function ManageTeachersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Manage Teachers</h1>
-        <UserForm<Teacher>
-          trigger={
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Teacher
-            </Button>
-          }
-          formSchema={teacherSchema}
-          onSubmit={handleAddTeacher}
-          title="Add New Teacher"
-          description="Fill in the details below. Credentials are generated upon creation."
-          formFields={teacherFormFields}
-        />
+         <Button onClick={openAddModal}> {/* Button to open Add modal */}
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Teacher
+        </Button>
       </div>
 
       {isLoading ? (
@@ -341,29 +296,25 @@ export default function ManageTeachersPage() {
             <DataTable
                 columns={columns}
                 data={teachers}
-                searchPlaceholder="Search by first name..."
-                searchColumnId="firstName"
+                searchPlaceholder="Search by name..."
+                searchColumnId="firstName" // Can filter by first name
                  actionMenuItems={generateActionMenuItems}
             />
         )}
 
 
-      {/* Edit Modal - Controlled externally */}
-       {selectedTeacher && (
-           <UserForm<Teacher>
-              isOpen={isEditModalOpen}
-              onOpenChange={setIsEditModalOpen}
-              formSchema={teacherSchema}
-              onSubmit={handleEditTeacher}
-              title={`Edit Teacher: ${selectedTeacher.firstName} ${selectedTeacher.lastName}`}
-              description="Update the teacher's information below. Username and password are auto-generated and managed by the system."
-              formFields={teacherFormFields.map(f => ({...f, disabled: false }))}
-              isEditMode={true}
-              initialData={selectedTeacher}
-            />
-       )}
+      {/* Add/Edit Modal using UserForm */}
+        <UserForm<Teacher>
+          isOpen={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          formSchema={teacherSchema}
+          onSubmit={handleSaveTeacher}
+          title={isEditMode ? `Edit Teacher: ${selectedTeacher?.firstName} ${selectedTeacher?.lastName}` : 'Add New Teacher'}
+          description={isEditMode ? "Update the teacher's information below. Username and password are managed by the system." : "Fill in the details below. Credentials are generated upon creation."}
+          formFields={teacherFormFields}
+          isEditMode={isEditMode}
+          initialData={isEditMode ? selectedTeacher : undefined}
+        />
     </div>
   );
 }
-
-    

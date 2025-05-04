@@ -61,6 +61,8 @@ export function ManageSubjectsModal({
 }: ManageSubjectsModalProps) {
   const [selectedSubjectId, setSelectedSubjectId] = React.useState<string>("");
   const [selectedTeacherId, setSelectedTeacherId] = React.useState<string>("");
+  const [isSubmittingAdd, setIsSubmittingAdd] = React.useState(false); // Local loading state for add
+  const [isDeletingId, setIsDeletingId] = React.useState<string | null>(null); // Track which assignment is being deleted
   const { toast } = useToast();
 
   const handleAddClick = async () => {
@@ -81,12 +83,32 @@ export function ManageSubjectsModal({
           return;
       }
 
-
-      await onAddAssignment(section.id, selectedSubjectId, teacherIdNum);
-      // Reset dropdowns after successful add
-      setSelectedSubjectId("");
-      setSelectedTeacherId("");
+      setIsSubmittingAdd(true); // Start loading for add
+      try {
+          await onAddAssignment(section.id, selectedSubjectId, teacherIdNum);
+          // Reset dropdowns only on successful add
+          setSelectedSubjectId("");
+          setSelectedTeacherId("");
+      } catch (error) {
+            // Error toast is handled by the calling component (AssignmentsAnnouncementsPage)
+            console.error("Error during add assignment:", error);
+      } finally {
+          setIsSubmittingAdd(false); // Stop loading for add
+      }
   };
+
+    const handleDeleteClick = async (assignmentId: string) => {
+        setIsDeletingId(assignmentId); // Start loading for delete specific item
+        try {
+             await onDeleteAssignment(assignmentId);
+              // Success toast handled by calling component
+        } catch (error) {
+             // Error toast handled by calling component
+             console.error("Error during delete assignment:", error);
+        } finally {
+             setIsDeletingId(null); // Stop loading for delete
+        }
+    };
 
     // Filter available subjects (subjects not already assigned to this section)
     const availableSubjects = React.useMemo(() => {
@@ -108,7 +130,7 @@ export function ManageSubjectsModal({
           {/* Subject Selection */}
           <div className="space-y-1">
             <Label htmlFor="subject-select">Subject</Label>
-            <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={isLoadingSubjects || isLoadingAssignments}>
+            <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={isLoadingSubjects || isLoadingAssignments || isSubmittingAdd}>
               <SelectTrigger id="subject-select">
                 <SelectValue placeholder="Select Subject..." />
               </SelectTrigger>
@@ -129,7 +151,7 @@ export function ManageSubjectsModal({
           {/* Teacher Selection */}
           <div className="space-y-1">
             <Label htmlFor="teacher-select">Teacher</Label>
-            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId} disabled={isLoadingTeachers || isLoadingAssignments}>
+            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId} disabled={isLoadingTeachers || isLoadingAssignments || isSubmittingAdd}>
               <SelectTrigger id="teacher-select">
                 <SelectValue placeholder="Select Teacher..." />
               </SelectTrigger>
@@ -152,10 +174,10 @@ export function ManageSubjectsModal({
           {/* Add Button */}
           <Button
             onClick={handleAddClick}
-            disabled={!selectedSubjectId || !selectedTeacherId || isLoadingAssignments}
-            className="md:self-end" // Align button nicely on medium screens+
+            disabled={!selectedSubjectId || !selectedTeacherId || isLoadingAssignments || isSubmittingAdd || isDeletingId !== null} // Disable if any operation is in progress
+            className="md:self-end"
           >
-             {isLoadingAssignments ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+             {isSubmittingAdd ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
              Assign Subject
           </Button>
         </div>
@@ -175,8 +197,9 @@ export function ManageSubjectsModal({
                 <TableBody>
                 {isLoadingAssignments ? (
                     <TableRow>
-                    <TableCell colSpan={3} className="text-center">
+                    <TableCell colSpan={3} className="text-center py-4">
                         <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                         <span className="text-muted-foreground ml-2">Loading assignments...</span>
                     </TableCell>
                     </TableRow>
                 ) : assignments.length > 0 ? (
@@ -189,18 +212,23 @@ export function ManageSubjectsModal({
                             variant="ghost"
                             size="sm"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => onDeleteAssignment(assign.id)}
-                            disabled={isLoadingAssignments}
+                            onClick={() => handleDeleteClick(assign.id)}
+                             // Disable if this specific item is being deleted or if an add is in progress
+                            disabled={isLoadingAssignments || isSubmittingAdd || isDeletingId === assign.id}
                             aria-label={`Remove assignment ${assign.id}`}
                         >
-                            <Trash2 className="h-4 w-4" />
+                           {isDeletingId === assign.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                           ) : (
+                                <Trash2 className="h-4 w-4" />
+                           )}
                         </Button>
                         </TableCell>
                     </TableRow>
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
                         No subjects assigned yet.
                     </TableCell>
                     </TableRow>
@@ -212,7 +240,7 @@ export function ManageSubjectsModal({
 
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoadingAssignments}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoadingAssignments || isSubmittingAdd || isDeletingId !== null}>
             Close
           </Button>
         </DialogFooter>

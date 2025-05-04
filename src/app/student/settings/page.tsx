@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -25,24 +26,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { passwordChangeSchema } from "@/lib/schemas";
+import { postData } from "@/lib/api"; // Import the centralized API helper
 
 type PasswordFormValues = z.infer<typeof passwordChangeSchema>;
-
-// --- API Helper ---
-const postData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-     if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    // Assuming successful password change returns simple success message or status
-    return response.json(); // Adjust based on actual API response
-};
-// --- End API Helper ---
 
 export default function StudentSettingsPage() {
   const { toast } = useToast();
@@ -56,19 +42,17 @@ export default function StudentSettingsPage() {
     },
   });
 
-  // Update Password Function (API Call)
+  // Update Password Function (API Call using helper)
   const onSubmit = async (values: PasswordFormValues) => {
     console.log("Attempting student password change...");
     const payload = {
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
-        // No need to send confirmPassword, validation is frontend only
     };
 
     try {
-        // Replace with your actual API endpoint for changing student password
-        // Backend should verify currentPassword against the logged-in user's hash
-        await postData('/api/student/change-password', payload);
+        // Use postData helper
+        await postData('/api/student/change_password.php', payload);
 
         toast({
         title: "Password Updated",
@@ -82,7 +66,6 @@ export default function StudentSettingsPage() {
           title: "Error",
           description: error.message || "Failed to change password. Please check your current password and try again.",
         });
-         // Optionally set form error if specific field is wrong (e.g., current password)
          if (error.message && error.message.toLowerCase().includes("incorrect current password")) {
              form.setError("currentPassword", { message: "Incorrect current password" });
          }

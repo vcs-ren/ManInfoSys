@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, RotateCcw } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info } from "lucide-react"; // Added Info icon
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -20,58 +20,18 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+} from "@/components/ui/alert-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"; // Import DropdownMenu components
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
-// --- API Helper Functions (Implement based on your backend) ---
-const fetchData = async <T>(url: string): Promise<T> => {
-    // Append a cache-busting query parameter
-    const cacheBustingUrl = `${url}${url.includes('?') ? '&' : '?'}t=${new Date().getTime()}`;
-    const response = await fetch(cacheBustingUrl, { cache: 'no-store' }); // Prevent caching
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-};
-
-
-const postData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-};
-
-const putData = async <T, R>(url: string, data: T): Promise<R> => {
-    const response = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-     if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-};
-
-
-const deleteData = async (url: string): Promise<void> => {
-    const response = await fetch(url, { method: 'DELETE' });
-     if (!response.ok) {
-         let errorData; try { errorData = await response.json(); } catch (e) {}
-         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-    }
-    // No need to parse response body for successful DELETE (often 204 No Content)
-};
-// --- End API Helpers ---
-
+import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
 
 // Define course options (consider fetching these from API if dynamic)
 const courseOptions = [
@@ -101,7 +61,7 @@ const studentFormFields: FormFieldConfig<Student>[] = [
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true },
   { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true },
   { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true },
-  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, condition: (data) => data?.status ? ['Continuing', 'Transferee', 'Returnee'].includes(data.status) : false }, // Updated condition check
+  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, condition: (data) => data?.status ? ['Continuing', 'Transferee', 'Returnee'].includes(data.status) : false },
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
   { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
   // Emergency Contact Fields
@@ -115,7 +75,8 @@ export default function ManageStudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isModalOpen, setIsModalOpen] = React.useState(false); // Combined state for Add/Edit modal
+  const [isEditMode, setIsEditMode] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false); // For delete/reset password confirmation
   const { toast } = useToast();
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
@@ -127,16 +88,16 @@ export default function ManageStudentsPage() {
     phone: false,
   });
 
-  // Fetch students from API on component mount
+  // Fetch students from API on component mount using helper
   React.useEffect(() => {
     const fetchStudents = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchData<{ records: Student[] }>('/api/students/read.php'); // Update to PHP endpoint
+        const data = await fetchData<{ records: Student[] }>('/api/students/read.php');
         setStudents(data.records || []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch students:", error);
-         toast({ variant: "destructive", title: "Error", description: "Failed to load student data." });
+         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load student data." });
       } finally {
         setIsLoading(false);
       }
@@ -144,60 +105,47 @@ export default function ManageStudentsPage() {
     fetchStudents();
   }, [toast]);
 
-  // Add Student Function (API Call)
-  const handleAddStudent = async (values: Omit<Student, 'id' | 'studentId' | 'section'>) => {
+  // Add or Edit Student Function (API Call using helpers)
+  const handleSaveStudent = async (values: Student) => {
     const year = values.status === 'New' ? '1st Year' : values.year;
 
+    // Client-side validation check (schema should also catch this)
     if (['Continuing', 'Transferee', 'Returnee'].includes(values.status) && !year) {
         toast({ variant: "destructive", title: "Validation Error", description: "Year level is required for this status." });
-        throw new Error("Year level missing"); // Prevent submission
+        throw new Error("Year level missing");
     }
 
     const payload = {
       ...values,
       year: year, // Ensure year is correctly set based on status
+      id: isEditMode ? selectedStudent?.id : undefined, // Include ID only for editing
     };
 
-    console.log("Attempting to add student:", payload);
+    console.log(`Attempting to ${isEditMode ? 'edit' : 'add'} student:`, payload);
     try {
-        const newStudent = await postData<typeof payload, Student>('/api/students/create.php', payload); // Update to PHP endpoint
-        setStudents(prev => [...prev, newStudent]);
-        toast({ title: "Student Added", description: `${newStudent.firstName} ${newStudent.lastName} (${newStudent.year || newStudent.status}, Section ${newStudent.section}) has been added.` });
+        let savedStudent: Student;
+        if (isEditMode && payload.id) {
+            savedStudent = await putData<typeof payload, Student>(`/api/students/update.php/${payload.id}`, payload);
+            setStudents(prev => prev.map(s => s.id === savedStudent.id ? savedStudent : s));
+            toast({ title: "Student Updated", description: `${savedStudent.firstName} ${savedStudent.lastName} has been updated.` });
+        } else {
+            savedStudent = await postData<Omit<typeof payload, 'id'>, Student>('/api/students/create.php', payload);
+            setStudents(prev => [...prev, savedStudent]);
+            toast({ title: "Student Added", description: `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.year || savedStudent.status}, Section ${savedStudent.section}) has been added.` });
+        }
+        closeModal();
     } catch (error: any) {
-        console.error("Failed to add student:", error);
-        toast({ variant: "destructive", title: "Error Adding Student", description: error.message || "Could not add student. Please try again." });
-         throw error;
+        console.error(`Failed to ${isEditMode ? 'update' : 'add'} student:`, error);
+        toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Student`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} student. Please try again.` });
+         throw error; // Re-throw to keep modal open on error
     }
   };
 
-   // Edit Student Function (API Call)
-  const handleEditStudent = async (values: Student) => {
-     if (!selectedStudent) return;
-
-     const payload = {
-         ...values,
-         id: selectedStudent.id,
-         year: values.status === 'New' ? '1st Year' : values.year,
-     };
-      console.log("Attempting to edit student:", payload);
-
-     try {
-         const updatedStudent = await putData<typeof payload, Student>(`/api/students/update.php/${selectedStudent.id}`, payload); // Update to PHP endpoint and pass ID in URL
-         setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
-         toast({ title: "Student Updated", description: `${updatedStudent.firstName} ${updatedStudent.lastName} has been updated.` });
-         closeEditModal();
-     } catch (error: any) {
-         console.error("Failed to update student:", error);
-         toast({ variant: "destructive", title: "Error Updating Student", description: error.message || "Could not update student. Please try again." });
-         throw error;
-     }
-  };
-
-   // Delete Student Function (API Call)
+   // Delete Student Function (API Call using helper)
   const handleDeleteStudent = async (studentId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`/api/students/delete.php/${studentId}`); // Update to PHP endpoint and pass ID in URL
+          await deleteData(`/api/students/delete.php/${studentId}`);
           setStudents(prev => prev.filter(s => s.id !== studentId));
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
       } catch (error: any) {
@@ -208,16 +156,15 @@ export default function ManageStudentsPage() {
       }
   };
 
-  // --- Reset Password Function ---
+  // --- Reset Password Function (using helper) ---
   const handleResetPassword = async (userId: number, lastName: string) => {
       setIsSubmitting(true);
       try {
-           // Call the generic reset password endpoint
-           await postData('/api/admin/reset_password.php', { userId, userType: 'student' }); // Update to PHP endpoint
+           await postData('/api/admin/reset_password.php', { userId, userType: 'student' });
            const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
            toast({
                 title: "Password Reset Successful",
-                description: `Password for student ID ${userId} has been reset. Default password: ${defaultPassword}`, // Mention default format
+                description: `Password for student ID ${userId} has been reset. Default password: ${defaultPassword}`,
            });
       } catch (error: any) {
            console.error("Failed to reset password:", error);
@@ -231,15 +178,25 @@ export default function ManageStudentsPage() {
       }
   };
 
-
-  const handleOpenEditModal = (student: Student) => {
-    setSelectedStudent(student);
-    setIsEditModalOpen(true);
+   const openAddModal = () => {
+    setIsEditMode(false);
+    setSelectedStudent(null); // Clear selected student
+    setIsModalOpen(true);
   };
 
-   const closeEditModal = () => {
-    setSelectedStudent(null);
-    setIsEditModalOpen(false);
+  const openEditModal = (student: Student) => {
+    setIsEditMode(true);
+    setSelectedStudent(student);
+    setIsModalOpen(true);
+  };
+
+   const closeModal = () => {
+    setIsModalOpen(false);
+    // Keep selectedStudent for a moment if needed, or clear it:
+    // setTimeout(() => { // Delay clearing to allow modal fade out
+    //     setSelectedStudent(null);
+    //     setIsEditMode(false);
+    // }, 300);
   };
 
     // Memoize section options calculation
@@ -259,11 +216,17 @@ export default function ManageStudentsPage() {
             accessorKey: "firstName",
              header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("firstName")}</div>,
+             filterFn: (row, id, value) => { // Add basic text filtering
+                return String(row.getValue(id)).toLowerCase().includes(String(value).toLowerCase());
+            },
         },
         {
             accessorKey: "lastName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
+             filterFn: (row, id, value) => {
+                return String(row.getValue(id)).toLowerCase().includes(String(value).toLowerCase());
+            },
         },
          {
             accessorKey: "course",
@@ -298,10 +261,10 @@ export default function ManageStudentsPage() {
                     options={yearLevelOptions}
                  />
             ),
-            cell: ({ row }) => <div className="text-center">{row.original.year || '-'}</div>, // Display original.year
+            cell: ({ row }) => <div className="text-center">{row.original.year || '-'}</div>,
             filterFn: (row, id, value) => {
-                 const rowValue = row.original.year; // Filter based on original.year
-                 return rowValue ? value.includes(rowValue) : value.includes('-'); // Handle '-' case if needed
+                 const rowValue = row.original.year;
+                 return rowValue ? value.includes(rowValue) : value.includes('-');
              },
         },
         {
@@ -320,13 +283,13 @@ export default function ManageStudentsPage() {
             accessorKey: "email",
             header: "Email",
             cell: ({ row }) => <div className="lowercase">{row.getValue("email") || '-'}</div>,
-             enableHiding: true, // Enable hiding
+             enableHiding: true,
         },
         {
             accessorKey: "phone",
             header: "Phone",
             cell: ({ row }) => <div>{row.getValue("phone") || '-'}</div>,
-            enableHiding: true, // Enable hiding
+            enableHiding: true,
         },
          {
             accessorKey: "emergencyContactName",
@@ -353,15 +316,15 @@ export default function ManageStudentsPage() {
             enableHiding: true,
         },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [sectionOptions]); // Dependency on calculated options
+    ], [sectionOptions]);
 
 
       // Function to generate dropdown menu items for each row
     const generateActionMenuItems = (student: Student) => (
         <>
-        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleOpenEditModal(student); }}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit / View Details
+        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditModal(student); }}>
+            <Info className="mr-2 h-4 w-4" /> {/* Use Info icon for view/edit */}
+            View / Edit Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
          {/* Reset Password Action */}
@@ -386,7 +349,7 @@ export default function ManageStudentsPage() {
                               e.stopPropagation();
                               await handleResetPassword(student.id, student.lastName);
                          }}
-                          className={cn(buttonVariants({ variant: "destructive" }))} // Use destructive style for reset confirmation
+                          className={cn(buttonVariants({ variant: "destructive" }))}
                           disabled={isSubmitting}
                      >
                           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -434,18 +397,9 @@ export default function ManageStudentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Manage Students</h1>
-        <UserForm<Student>
-          trigger={
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Student
-            </Button>
-          }
-          formSchema={studentSchema}
-          onSubmit={handleAddStudent}
-          title="Add New Student"
-          description="Fill in the details below. Section & Year (for New status) are assigned automatically. Credentials are generated upon creation."
-          formFields={studentFormFields}
-        />
+        <Button onClick={openAddModal}> {/* Button to open Add modal */}
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Student
+        </Button>
       </div>
 
       {isLoading ? (
@@ -458,8 +412,8 @@ export default function ManageStudentsPage() {
             <DataTable
                 columns={columns}
                 data={students}
-                searchPlaceholder="Search by first name..."
-                searchColumnId="firstName"
+                searchPlaceholder="Search by name..."
+                searchColumnId="firstName" // Can also search lastName, add more filters if needed
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
@@ -467,22 +421,18 @@ export default function ManageStudentsPage() {
         )}
 
 
-      {/* Edit Modal - Controlled externally */}
-      {selectedStudent && (
-           <UserForm<Student>
-              isOpen={isEditModalOpen}
-              onOpenChange={setIsEditModalOpen}
-              formSchema={studentSchema}
-              onSubmit={handleEditStudent}
-              title={`Edit Student: ${selectedStudent.firstName} ${selectedStudent.lastName}`}
-              description="Update info. Username, password, section & year are managed by the system."
-              formFields={studentFormFields.map(f => ({...f, disabled: false }))}
-              isEditMode={true}
-              initialData={selectedStudent}
-            />
-      )}
+      {/* Add/Edit Modal using UserForm */}
+      <UserForm<Student>
+            isOpen={isModalOpen}
+            onOpenChange={setIsModalOpen}
+            formSchema={studentSchema}
+            onSubmit={handleSaveStudent}
+            title={isEditMode ? `Edit Student: ${selectedStudent?.firstName} ${selectedStudent?.lastName}` : 'Add New Student'}
+            description={isEditMode ? "Update info. Username, password, section are managed by the system." : "Fill in the details below. Section & Year (for New status) are assigned automatically. Credentials are generated upon creation."}
+            formFields={studentFormFields.map(f => ({...f, disabled: f.name === 'section' }))} // Section is read-only
+            isEditMode={isEditMode}
+            initialData={isEditMode ? selectedStudent : undefined} // Pass selected student data for editing
+        />
     </div>
   );
 }
-
-    

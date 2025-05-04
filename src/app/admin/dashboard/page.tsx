@@ -2,8 +2,9 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCog, CalendarDays } from "lucide-react";
-import * as React from 'react'; // Import React
+import { Users, UserCog, CalendarDays, Loader2 } from "lucide-react"; // Added Loader2
+import * as React from 'react';
+import { fetchData } from "@/lib/api"; // Import the centralized API helper
 
 // Interface for dashboard stats fetched from API
 interface DashboardStats {
@@ -20,22 +21,18 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Fetch dashboard data from the backend API
+  // Fetch dashboard data from the backend API using the helper
   React.useEffect(() => {
     const fetchStats = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Replace with your actual API endpoint
-        const response = await fetch('/api/admin/dashboard-stats'); // Example API call
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data: DashboardStats = await response.json();
+        // Use the fetchData helper with the relative PHP endpoint path
+        const data = await fetchData<DashboardStats>('/api/admin/dashboard-stats.php');
         setStats(data);
       } catch (err: any) { // Catch specific error type if possible
         console.error("Failed to fetch dashboard stats:", err);
-        setError("Failed to load dashboard data. Please try again later.");
+        setError(err.message || "Failed to load dashboard data. Please try again later.");
         // Optionally use toast here
       } finally {
         setIsLoading(false);
@@ -49,10 +46,14 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Admin Dashboard</h1>
 
-      {isLoading && <p>Loading dashboard data...</p>}
+      {isLoading && (
+        <div className="flex items-center justify-center py-10">
+             <Loader2 className="mr-2 h-6 w-6 animate-spin" /> Loading dashboard data...
+        </div>
+      )}
       {error && <p className="text-destructive">{error}</p>}
 
-      {stats && (
+      {stats && !isLoading && !error && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -61,7 +62,6 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalStudents}</div>
-              {/* Replace static text with dynamic data if available from API */}
               {/* <p className="text-xs text-muted-foreground">+20 from last month</p> */}
             </CardContent>
           </Card>
@@ -88,7 +88,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Placeholder for more dashboard components like charts or recent activity */}
+      {/* Placeholder for more dashboard components */}
        <Card>
           <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
@@ -99,7 +99,7 @@ export default function AdminDashboardPage() {
           </CardContent>
        </Card>
 
-       {/* Updated PHP conceptual example */}
+       {/* PHP Backend API Snippet */}
         <Card>
           <CardHeader>
               <CardTitle>PHP Backend API Snippet (Conceptual)</CardTitle>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -9,15 +10,7 @@ import type { StudentTermGrade } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-
-// --- API Helper ---
-const fetchData = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-};
-// --- End API Helper ---
-
+import { fetchData } from "@/lib/api"; // Import the centralized API helper
 
 export default function ViewGradesPage() {
   const [grades, setGrades] = React.useState<StudentTermGrade[]>([]);
@@ -28,12 +21,12 @@ export default function ViewGradesPage() {
     const fetchGrades = async () => {
       setIsLoading(true);
       try {
-        // Replace with your actual API endpoint for fetching student grades
-        const data = await fetchData<StudentTermGrade[]>('/api/student/grades');
+        // Use the fetchData helper with the relative PHP endpoint path
+        const data = await fetchData<StudentTermGrade[]>('/api/student/grades/read.php');
         setGrades(data || []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch grades:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not load grades." });
+        toast({ variant: "destructive", title: "Error", description: error.message || "Could not load grades." });
       } finally {
         setIsLoading(false);
       }

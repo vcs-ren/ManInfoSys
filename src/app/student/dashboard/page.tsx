@@ -1,23 +1,18 @@
+
 "use client"; // Mark as Client Component
 
 import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Megaphone, Bell, Loader2 } from "lucide-react";
-import type { Announcement, ScheduleEntry } from "@/types"; // Assuming ScheduleEntry type exists
+import type { Announcement } from "@/types"; // Assuming ScheduleEntry type exists - removed as UpcomingItem is simpler
+import { fetchData } from "@/lib/api"; // Import the centralized API helper
 
-// --- API Helper ---
-const fetchData = async <T>(url: string): Promise<T> => {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return response.json();
-};
-// --- End API Helper ---
-
-interface UpcomingItem { // Define a basic type for upcoming items
+// Interface for upcoming items (simplified)
+interface UpcomingItem {
     id: string;
     title: string;
-    date?: Date;
-    type: 'assignment' | 'event' | 'class'; // Example types
+    date?: string; // Date might be string from API
+    type: string; // Keep type flexible
 }
 
 export default function StudentDashboardPage() {
@@ -33,17 +28,17 @@ export default function StudentDashboardPage() {
             setIsLoadingUpcoming(true);
             setError(null);
             try {
-                // Fetch announcements targeted to the student (e.g., /api/student/announcements)
-                const announcementsData = await fetchData<Announcement[]>('/api/student/announcements'); // Replace with actual endpoint
+                // Fetch announcements using the helper
+                const announcementsData = await fetchData<Announcement[]>('/api/student/announcements/read.php');
                 setAnnouncements(announcementsData || []);
 
-                // Fetch upcoming items (e.g., /api/student/upcoming)
-                const upcomingData = await fetchData<UpcomingItem[]>('/api/student/upcoming'); // Replace with actual endpoint
+                // Fetch upcoming items using the helper
+                const upcomingData = await fetchData<UpcomingItem[]>('/api/student/upcoming/read.php');
                 setUpcomingItems(upcomingData || []);
 
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Failed to load dashboard data:", err);
-                setError("Could not load dashboard information. Please try again later.");
+                setError(err.message || "Could not load dashboard information. Please try again later.");
                 // Optionally use toast here
             } finally {
                 setIsLoadingAnnouncements(false);
@@ -79,10 +74,9 @@ export default function StudentDashboardPage() {
                         <div key={announcement.id} className={`p-3 border rounded-md ${announcement.author === 'Admin' ? 'bg-accent/50' : 'bg-secondary'}`}>
                              <p className="font-semibold">
                                 <span className={`text-xs font-medium mr-2 px-1.5 py-0.5 rounded ${announcement.author === 'Admin' ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground text-background'}`}>
-                                    {announcement.author || 'SYSTEM'} {/* Show author or SYSTEM */}
+                                    {announcement.author || 'SYSTEM'}
                                 </span>
                                 {announcement.title}
-                                 {/* Format date safely */}
                                  <span className="text-xs text-muted-foreground font-normal ml-2">
                                      - {announcement.date ? new Date(announcement.date).toLocaleDateString() : 'No Date'}
                                  </span>
@@ -114,6 +108,7 @@ export default function StudentDashboardPage() {
                          {upcomingItems.map(item => (
                              <li key={item.id} className="text-sm p-2 border-l-4 border-primary bg-secondary rounded">
                                  <span className="font-medium">{item.title}</span>
+                                 {/* Safely format date if it exists */}
                                  {item.date && <span className="text-xs text-muted-foreground ml-2">({new Date(item.date).toLocaleDateString()})</span>}
                                  <span className="text-xs bg-primary/20 text-primary font-semibold px-1.5 py-0.5 rounded ml-2 capitalize">{item.type}</span>
                              </li>
