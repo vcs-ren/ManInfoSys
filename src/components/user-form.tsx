@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -28,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Student, Teacher } from "@/types";
-
+import { Label } from "@/components/ui/label"; // Import Label
 interface UserFormProps<T extends Student | Teacher> {
   trigger?: React.ReactNode; // Trigger is now optional
   isOpen?: boolean; // Optional prop to control dialog state externally
@@ -198,3 +197,4 @@ export function UserForm<T extends Student | Teacher>({
     </Dialog>
   );
 }
+
