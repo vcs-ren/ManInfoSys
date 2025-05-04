@@ -6,9 +6,9 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Edit, Filter } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
+import { DataTable, DataTableColumnHeader } from "@/components/data-table"; // Removed unused DataTableFilterableColumnHeader
 import { SubmitGradesModal } from "@/components/submit-grades-modal"; // Import the new grade form modal
-import type { StudentSubjectAssignmentWithGrades, Subject, Term } from "@/types"; // Use the new type
+import type { StudentSubjectAssignmentWithGrades, Subject } from "@/types"; // Use the new type, Removed unused Term
 import {
   Select,
   SelectContent,
@@ -42,7 +42,7 @@ const getTeacherStudentAssignments = async (): Promise<StudentSubjectAssignmentW
      // Student 4 - Subject C
     { assignmentId: "ssa-4-IT202", studentId: 2, studentName: "Jane Smith", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "20B", year: "2nd Year", prelimGrade: "A-", midtermGrade: "B+", finalGrade: "B", status: "Complete" }, // Letter grades
     { assignmentId: "ssa-5-BA301", studentId: 4, studentName: "Mary Brown", subjectId: "BA301", subjectName: "Marketing Principles", section: "30C", year: "3rd Year", prelimGrade: "INC", midtermGrade: 80, finalGrade: null, status: "Incomplete", prelimRemarks: "Missing Prelim Paper" }, // INC grade
-    { assignmentId: "ssa-6-CS101", studentId: 1, studentName: "John Doe", subjectId: "CS101", subjectName: "Intro to Programming", section: "10A", year: "1st Year", prelimGrade: 70, midtermGrade: 65, finalGrade: 72, status: "Complete" }, // Example Failed
+    { assignmentId: "ssa-6-CS101", studentId: 10, studentName: "Alice Wonder", subjectId: "CS101", subjectName: "Intro to Programming", section: "10A", year: "1st Year", prelimGrade: 70, midtermGrade: 65, finalGrade: 72, status: "Complete" }, // Example Failed
   ];
 };
 
@@ -66,18 +66,18 @@ const yearLevelOptions = [
     { value: "4th Year", label: "4th Year" },
 ];
 
-// Helper to get distinct values for filtering
-const getDistinctValues = (data: any[], key: keyof any): { value: string; label: string }[] => {
-    const distinct = [...new Set(data.map(item => item[key]).filter(Boolean))];
-    return distinct.map(value => ({ value, label: value }));
-}
+// Helper to get distinct values for filtering - Removed as not used anymore
+// const getDistinctValues = (data: any[], key: keyof any): { value: string; label: string }[] => {
+//     const distinct = [...new Set(data.map(item => item[key]).filter(Boolean))];
+//     return distinct.map(value => ({ value, label: value }));
+// }
 
 
 export default function SubmitGradesPage() {
   const [allAssignments, setAllAssignments] = React.useState<StudentSubjectAssignmentWithGrades[]>([]);
   const [filteredAssignments, setFilteredAssignments] = React.useState<StudentSubjectAssignmentWithGrades[]>([]);
   const [subjects, setSubjects] = React.useState<Subject[]>([]);
-  const [selectedSubjectId, setSelectedSubjectId] = React.useState<string>("all");
+  const [selectedSubjectId, setSelectedSubjectId] = React.useState<string>("all"); // State for subject filter
   const [selectedYearLevel, setSelectedYearLevel] = React.useState<string>("all");
   const [isLoading, setIsLoading] = React.useState(true);
   const [isGradeModalOpen, setIsGradeModalOpen] = React.useState(false);
@@ -148,9 +148,9 @@ export default function SubmitGradesPage() {
                 finalGrade: values.finalGrade,
                 finalRemarks: values.finalRemarks,
                 // Recalculate status based on submitted grades
-                status: (values.prelimGrade !== null && values.midtermGrade !== null && values.finalGrade !== null)
+                status: (values.prelimGrade !== null && values.prelimGrade !== "" && values.midtermGrade !== null && values.midtermGrade !== "" && values.finalGrade !== null && values.finalGrade !== "")
                         ? 'Complete'
-                        : (values.prelimGrade !== null || values.midtermGrade !== null || values.finalGrade !== null)
+                        : (values.prelimGrade !== null && values.prelimGrade !== "" || values.midtermGrade !== null && values.midtermGrade !== "" || values.finalGrade !== null && values.finalGrade !== "")
                             ? 'Incomplete'
                             : 'Not Submitted' as 'Complete' | 'Incomplete' | 'Not Submitted'
               }
@@ -208,7 +208,8 @@ export default function SubmitGradesPage() {
             const status = assignment.status;
             const finalGrade = assignment.finalGrade;
 
-            if (status === 'Complete') {
+            // Only show remarks if status is 'Complete'
+            if (status === 'Complete' && finalGrade !== null && finalGrade !== undefined && finalGrade !== "") {
                 let numericGrade: number | null = null;
                 let isLetterPassed = false;
                 let isLetterFailed = false;
@@ -222,7 +223,7 @@ export default function SubmitGradesPage() {
                         isLetterPassed = true;
                     }
                      // Define failing letter grades explicitly
-                    else if (['F', 'INC', 'DRP'].includes(upperGrade)) {
+                    else if (['F', 'INC', 'DRP', 'W'].includes(upperGrade)) { // Added 'W' for Withdraw
                          isLetterFailed = true;
                     }
                     // Handle other potential string grades if necessary
@@ -239,10 +240,8 @@ export default function SubmitGradesPage() {
                 }
 
             } else {
-                // If status is not 'Complete', show the status itself
-                let variant: "secondary" | "outline" = "secondary";
-                if (status === 'Incomplete') variant = 'outline';
-                return <Badge variant={variant}>{status}</Badge>;
+                // If status is not 'Complete' or final grade is missing, show nothing or a placeholder
+                 return <span className="text-muted-foreground">-</span>; // Or return null to show nothing
             }
          },
           enableSorting: false, // Disable sorting for this complex cell
@@ -260,6 +259,7 @@ export default function SubmitGradesPage() {
         </Button>
       ),
     },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   ], []); // Empty dependency array
 
 

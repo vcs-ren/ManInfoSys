@@ -115,7 +115,7 @@ export interface StudentSubjectAssignmentWithGrades {
     subjectName: string;
     section: string;
     year: string; // Add year level for filtering
-    prelimGrade?: number | string | null; // Grade for the term, null if not submitted
+    prelimGrade?: number | string | null; // Grade for the term, null or empty string if not submitted
     prelimRemarks?: string;
     midtermGrade?: number | string | null;
     midtermRemarks?: string;
