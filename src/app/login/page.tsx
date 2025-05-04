@@ -25,10 +25,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, Loader2 } from 'lucide-react';
+import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react'; // Added Eye, EyeOff
 import { loginSchema } from "@/lib/schemas";
 import Link from "next/link";
-import { postData } from "@/lib/api"; // Import the centralized API helper
+import { postData } from "@/lib/api";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
@@ -44,6 +44,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false); // State for password visibility
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -60,7 +61,7 @@ export default function LoginPage() {
 
     try {
         // Call the PHP login endpoint using the helper
-        const response = await postData<LoginFormValues, LoginResponse>('/api/login.php', data);
+        const response = await postData<LoginFormValues, LoginResponse>('/login.php', data); // Use relative path
 
         if (response.success && response.role && response.redirectPath) {
             toast({
@@ -81,11 +82,11 @@ export default function LoginPage() {
     } catch (error: any) {
         console.error("Login API error:", error);
          // Provide more specific feedback for fetch errors
-        if (error.message.includes('Failed to fetch')) {
+        if (error instanceof Error && error.message.includes('Network error')) {
              toast({
                 variant: "destructive",
                 title: "Network Error",
-                description: "Could not connect to the server. Please ensure the backend is running and accessible.",
+                description: error.message, // Display the specific network error message
              });
         } else {
             toast({
@@ -124,16 +125,39 @@ export default function LoginPage() {
                 )}
               />
 
-              {/* Password Field Reinstated */}
+              {/* Password Field */}
                <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="Enter password" {...field} disabled={isLoading} />
-                    </FormControl>
+                    <div className="relative">
+                        <FormControl>
+                            <Input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Enter password"
+                                {...field}
+                                disabled={isLoading}
+                                className="pr-10" // Add padding to the right for the icon
+                            />
+                        </FormControl>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-1 top-1/2 h-full -translate-y-1/2 px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            disabled={isLoading}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                            {showPassword ? (
+                                <EyeOff className="h-4 w-4" aria-hidden="true" />
+                            ) : (
+                                <Eye className="h-4 w-4" aria-hidden="true" />
+                            )}
+                         </Button>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
