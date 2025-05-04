@@ -146,18 +146,21 @@ export function UserForm<T extends Student | Teacher>({
                             {fieldConfig.type === 'select' ? (
                                  <Select
                                     onValueChange={field.onChange}
-                                    defaultValue={field.value as string}
+                                    // Ensure the value passed to Select is always a string
+                                    value={field.value ? String(field.value) : undefined}
                                     disabled={fieldConfig.disabled || form.formState.isSubmitting}
                                 >
-                                    <SelectTrigger>
-                                    <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
+                                    {/* Apply w-full to the trigger */}
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
                                     </SelectTrigger>
+                                    {/* Ensure SelectContent pops over other elements */}
                                     <SelectContent>
-                                    {(fieldConfig.options || []).map((option) => (
-                                        <SelectItem key={option.value} value={String(option.value)}>
-                                        {option.label}
-                                        </SelectItem>
-                                    ))}
+                                        {(fieldConfig.options || []).map((option) => (
+                                            <SelectItem key={option.value} value={String(option.value)}>
+                                            {option.label}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             ) : (
@@ -239,3 +242,4 @@ export function UserForm<T extends Student | Teacher>({
     </Dialog>
   );
 }
+

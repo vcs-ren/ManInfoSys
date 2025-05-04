@@ -1,13 +1,15 @@
 
 // Shared types for the application
 
+export type StudentStatus = 'New' | 'Transferee' | 'Continuing' | 'Returnee';
+
 export interface Student {
   id: number; // Database ID
   studentId: string; // e.g., "s1001" - Generated ID (1000 + DB ID)
   firstName: string;
   lastName: string;
   course: string;
-  year: number; // e.g., 1, 2, 3, 4
+  status: StudentStatus; // Replaces year level
   section: string;
   email?: string; // Optional fields
   phone?: string;
@@ -43,4 +45,5 @@ export interface ScheduleEntry {
 }
 
 // Define more types as needed (e.g., Course, Section, Announcement)
+
 

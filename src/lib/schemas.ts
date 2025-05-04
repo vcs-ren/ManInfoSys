@@ -1,5 +1,9 @@
 
 import { z } from "zod";
+import type { StudentStatus } from "@/types"; // Import the status type
+
+const studentStatusEnum: [StudentStatus, ...StudentStatus[]] = ['New', 'Transferee', 'Continuing', 'Returnee'];
+
 
 // Schema for adding/editing a student
 export const studentSchema = z.object({
@@ -7,7 +11,8 @@ export const studentSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   course: z.string().min(1, "Course is required"),
-  year: z.coerce.number().min(1, "Year is required").max(6, "Year seems too high"), // Use coerce for string-to-number conversion from input
+  // year: z.coerce.number().min(1, "Year is required").max(6, "Year seems too high"), // Removed year
+  status: z.enum(studentStatusEnum, { required_error: "Status is required"}), // Added status validation
   section: z.string().optional(), // Section is now optional in the form, will be auto-assigned
   email: z.string().email("Invalid email address").optional().or(z.literal('')), // Optional email
   phone: z.string().optional().or(z.literal('')), // Optional phone
@@ -62,3 +67,4 @@ export const scheduleEntrySchema = z.object({
     message: "End date cannot be before start date",
     path: ["end"], // Point error to 'end' field
 });
+

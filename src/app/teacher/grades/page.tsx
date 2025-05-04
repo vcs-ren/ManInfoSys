@@ -28,13 +28,13 @@ const getStudentsBySection = async (section: string): Promise<Student[]> => {
   // In real app, fetch from backend: /api/students?section=section
   if (section === "Section A") {
     return [
-      { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", year: 3, section: "A" },
-      { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", year: 3, section: "A" },
+      { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", status: "Continuing", section: "A" },
+      { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", status: "Continuing", section: "A" },
     ];
   } else if (section === "Section B") {
      return [
-      { id: 2, studentId: "s1002", firstName: "Jane", lastName: "Smith", course: "Information Technology", year: 2, section: "B" },
-      { id: 5, studentId: "s1005", firstName: "David", lastName: "Wilson", course: "Information Technology", year: 2, section: "B" },
+      { id: 2, studentId: "s1002", firstName: "Jane", lastName: "Smith", course: "Information Technology", status: "New", section: "B" },
+      { id: 5, studentId: "s1005", firstName: "David", lastName: "Wilson", course: "Information Technology", status: "Returnee", section: "B" },
     ];
   }
   return []; // Return empty if section not found or no students
@@ -133,6 +133,10 @@ export default function SubmitGradesPage() {
         accessorKey: "lastName",
          header: "Last Name",
     },
+    {
+        accessorKey: "status", // Added status column
+         header: "Status",
+    },
     // Potentially add a column to show existing grade status if available
     // {
     //     accessorKey: "gradeStatus", // This key needs data mapping
@@ -217,3 +221,4 @@ export default function SubmitGradesPage() {
     </div>
   );
 }
+

@@ -38,7 +38,7 @@ const getStudentProfile = async (): Promise<Student> => {
         firstName: "John",
         lastName: "Doe",
         course: "Computer Science",
-        year: 3,
+        status: "Continuing", // Replaced year with status
         section: "A",
         email: "john.doe@example.com",
         phone: "123-456-7890"
@@ -123,13 +123,13 @@ export default function StudentProfilePage() {
        <Card>
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
-            <CardDescription>View and update your contact details. Academic information (Course, Year, Section) and Username ({studentData.studentId}) are managed by the admin.</CardDescription>
+            <CardDescription>View and update your contact details. Academic information (Course, Status, Section) and Username ({studentData.studentId}) are managed by the admin.</CardDescription>
           </CardHeader>
           <CardContent>
              <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                    {/* Display Only Fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                          <FormItem>
                             <FormLabel>Course</FormLabel>
                             <FormControl>
@@ -137,9 +137,15 @@ export default function StudentProfilePage() {
                             </FormControl>
                         </FormItem>
                          <FormItem>
-                            <FormLabel>Year & Section</FormLabel>
+                            <FormLabel>Status</FormLabel>
                             <FormControl>
-                                <Input value={`${studentData.year} - ${studentData.section}`} disabled readOnly className="bg-muted"/>
+                                <Input value={studentData.status} disabled readOnly className="bg-muted"/>
+                            </FormControl>
+                        </FormItem>
+                         <FormItem>
+                            <FormLabel>Section</FormLabel>
+                            <FormControl>
+                                <Input value={studentData.section} disabled readOnly className="bg-muted"/>
                             </FormControl>
                         </FormItem>
                     </div>
@@ -223,3 +229,4 @@ export default function StudentProfilePage() {
     </div>
   );
 }
+

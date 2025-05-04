@@ -9,7 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form"; // Import FormFieldConfig type
 import { studentSchema } from "@/lib/schemas";
-import type { Student } from "@/types"; // Import Student type
+import type { Student, StudentStatus } from "@/types"; // Import Student and StudentStatus types
 import {
     AlertDialog,
     AlertDialogAction,
@@ -31,11 +31,11 @@ const getStudents = async (): Promise<Student[]> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 500));
   return [
-    { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", year: 3, section: "A", email: "john.doe@example.com" },
-    { id: 2, studentId: "s1002", firstName: "Jane", lastName: "Smith", course: "Information Technology", year: 2, section: "B", email: "jane.smith@example.com" },
-    { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", year: 3, section: "A" },
-    { id: 4, studentId: "s1004", firstName: "Mary", lastName: "Brown", course: "Business Administration", year: 4, section: "C", email: "mary.brown@example.com" },
-    { id: 5, studentId: "s1005", firstName: "David", lastName: "Wilson", course: "Information Technology", year: 2, section: "B" },
+    { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", status: "Continuing", section: "A", email: "john.doe@example.com" },
+    { id: 2, studentId: "s1002", firstName: "Jane", lastName: "Smith", course: "Information Technology", status: "New", section: "B", email: "jane.smith@example.com" },
+    { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", status: "Continuing", section: "A" },
+    { id: 4, studentId: "s1004", firstName: "Mary", lastName: "Brown", course: "Business Administration", status: "Transferee", section: "C", email: "mary.brown@example.com" },
+    { id: 5, studentId: "s1005", firstName: "David", lastName: "Wilson", course: "Information Technology", status: "Returnee", section: "B" },
   ];
 };
 
@@ -47,13 +47,21 @@ const courseOptions = [
   // Add more courses as needed
 ];
 
+// Define status options for dropdown
+const statusOptions: { value: StudentStatus; label: string }[] = [
+    { value: "New", label: "New" },
+    { value: "Transferee", label: "Transferee" },
+    { value: "Continuing", label: "Continuing" },
+    { value: "Returnee", label: "Returnee" },
+];
+
 
 // Define form fields for the UserForm component
 const studentFormFields: FormFieldConfig<Student>[] = [
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true },
   { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true }, // Use select type
-  { name: "year", label: "Year Level", placeholder: "e.g., 3", type: "number", required: true },
+  { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true }, // Use select type for status
   // Section field removed - will be assigned randomly
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
   { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
@@ -97,7 +105,7 @@ export default function ManageStudentsPage() {
         id: newId,
         studentId: newStudentId,
         section: randomSection, // Add the generated section
-        year: Number(values.year) // Ensure year is number
+        status: values.status // Ensure status is included
     };
     setStudents(prev => [...prev, newStudent]);
     // In real app: POST to PHP backend, get back the full student object with ID/studentId/section
@@ -115,7 +123,7 @@ export default function ManageStudentsPage() {
      const updatedStudent = {
          ...selectedStudent, // Start with original data
          ...values, // Apply form changes
-         year: Number(values.year), // Ensure year is number
+         status: values.status, // Ensure status is included
          // section: selectedStudent.section // Keep original section (or re-assign if needed)
      }
     setStudents(prev => prev.map(s => s.id === selectedStudent.id ? updatedStudent : s));
@@ -177,27 +185,18 @@ export default function ManageStudentsPage() {
                  return value.includes(row.getValue(id))
              },
         },
-        {
-            accessorKey: "year",
-            header: ({ column }) => ( // Use implicit return with parentheses
+         {
+            accessorKey: "status",
+             header: ({ column }) => ( // Use implicit return with parentheses
                      <DataTableFilterableColumnHeader
                          column={column} // Pass column object
-                         title="Year"
-                         options={[
-                             { label: "1", value: "1" },
-                             { label: "2", value: "2" },
-                             { label: "3", value: "3" },
-                             { label: "4", value: "4" },
-                             // Add more years if applicable
-                         ].map(o => ({ label: o.label, value: String(o.value) })) // Ensure values are strings
-                     }
+                         title="Status"
+                         options={statusOptions} // Use defined status options
                      />
             ),
-            cell: ({ row }) => <div className="text-center">{row.getValue("year")}</div>,
+            cell: ({ row }) => <div className="text-center">{row.getValue("status")}</div>,
             filterFn: (row, id, value) => {
-                 // Ensure comparison happens correctly (value is array, cell is number)
-                 const yearValue = row.getValue(id);
-                 return value.includes(String(yearValue));
+                return value.includes(row.getValue(id))
             },
         },
         {
