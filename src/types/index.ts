@@ -29,7 +29,6 @@ export interface Teacher {
   department: string;
   email?: string; // Optional fields
   phone?: string;
-  assignedSections?: string[]; // Optional: List of section codes the teacher is assigned to
   // Add other relevant teacher fields
 }
 
@@ -45,10 +44,27 @@ export interface Section {
     sectionCode: string; // e.g., "10A"
     course: string; // e.g., "Computer Science"
     yearLevel: string; // e.g., "1st Year"
-    teacherId?: number; // ID of the assigned teacher
-    teacherName?: string; // Optional: Denormalized teacher name for display
+    adviserId?: number; // ID of the assigned adviser (previously teacherId)
+    adviserName?: string; // Optional: Denormalized adviser name for display (previously teacherName)
     studentCount?: number; // Optional: Number of students in the section
 }
+
+// Represents a subject
+export interface Subject {
+    id: string; // Unique identifier (e.g., "MATH101")
+    name: string; // e.g., "Mathematics 101"
+    description?: string;
+    // Potentially add course/year level relevance
+}
+
+// Represents the assignment of a teacher to a subject within a specific section
+export interface SectionSubjectAssignment {
+    sectionId: string;
+    subjectId: string;
+    teacherId: number;
+    teacherName?: string; // Optional denormalized name
+}
+
 
 // Represents an announcement
 export interface Announcement {
@@ -76,4 +92,4 @@ export interface ScheduleEntry {
     section?: string; // For teacher view
 }
 
-// Define more types as needed (e.g., Course, Section, Announcement)
+// Define more types as needed (e.g., Course)

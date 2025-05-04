@@ -3,9 +3,9 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, PlusCircle, Megaphone } from "lucide-react";
+import { UserCheck, PlusCircle, Megaphone, Edit, BookOpen } from "lucide-react"; // Added BookOpen for Manage Subjects
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
 import type { Section, Teacher, Announcement } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,21 +38,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { assignTeacherSchema, announcementSchema } from "@/lib/schemas";
+import { assignAdviserSchema, announcementSchema } from "@/lib/schemas"; // Updated schema import
+import { format } from 'date-fns'; // Import date-fns format
+import { z } from 'zod'; // Import z from zod
 
-type AssignTeacherFormValues = z.infer<typeof assignTeacherSchema>;
+type AssignAdviserFormValues = z.infer<typeof assignAdviserSchema>; // Renamed form values type
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;
 
 // Mock Data - Replace with API calls
 const getSections = async (): Promise<Section[]> => {
   await new Promise(resolve => setTimeout(resolve, 500));
-  // Fetch all sections, potentially with teacher info joined
+  // Fetch all sections, potentially with adviser info joined
   return [
-    { id: "CS-10A", sectionCode: "10A", course: "Computer Science", yearLevel: "1st Year", teacherId: 1, teacherName: "Alice Johnson" },
+    { id: "CS-10A", sectionCode: "10A", course: "Computer Science", yearLevel: "1st Year", adviserId: 1, adviserName: "Alice Johnson" },
     { id: "IT-10B", sectionCode: "10B", course: "Information Technology", yearLevel: "1st Year" },
     { id: "CS-20A", sectionCode: "20A", course: "Computer Science", yearLevel: "2nd Year" },
-    { id: "BA-30C", sectionCode: "30C", course: "Business Administration", yearLevel: "3rd Year", teacherId: 4, teacherName: "Diana Miller" },
-    { id: "IT-20B", sectionCode: "20B", course: "Information Technology", yearLevel: "2nd Year", teacherId: 2, teacherName: "Bob Williams" },
+    { id: "BA-30C", sectionCode: "30C", course: "Business Administration", yearLevel: "3rd Year", adviserId: 4, adviserName: "Diana Miller" },
+    { id: "IT-20B", sectionCode: "20B", course: "Information Technology", yearLevel: "2nd Year", adviserId: 2, adviserName: "Bob Williams" },
   ];
 };
 
@@ -63,6 +65,7 @@ const getTeachers = async (): Promise<Teacher[]> => {
     { id: 2, teacherId: "t1002", firstName: "Bob", lastName: "Williams", department: "Science" },
     { id: 3, teacherId: "t1003", firstName: "Charlie", lastName: "Davis", department: "English" },
     { id: 4, teacherId: "t1004", firstName: "Diana", lastName: "Miller", department: "Science" },
+    { id: 5, teacherId: "t1005", firstName: "Ethan", lastName: "Brown", department: "Mathematics" }, // Added more teachers for filtering demo
   ];
 };
 
@@ -92,9 +95,10 @@ export default function AssignmentsAnnouncementsPage() {
   const [selectedSection, setSelectedSection] = React.useState<Section | null>(null);
   const { toast } = useToast();
 
-  const assignTeacherForm = useForm<AssignTeacherFormValues>({
-    resolver: zodResolver(assignTeacherSchema),
-    defaultValues: { teacherId: undefined },
+  // Renamed form and schema
+  const assignAdviserForm = useForm<AssignAdviserFormValues>({
+    resolver: zodResolver(assignAdviserSchema),
+    defaultValues: { adviserId: 0 }, // Default to 0 (unassign) or undefined
   });
 
   const announcementForm = useForm<AnnouncementFormValues>({
@@ -137,24 +141,29 @@ export default function AssignmentsAnnouncementsPage() {
 
   const handleOpenAssignModal = (section: Section) => {
     setSelectedSection(section);
-    assignTeacherForm.reset({ teacherId: section.teacherId }); // Pre-fill if already assigned
+    // Reset form with current adviserId or 0 if unassigned
+    assignAdviserForm.reset({ adviserId: section.adviserId ?? 0 });
     setIsAssignModalOpen(true);
   };
 
-  const handleAssignTeacher = async (values: AssignTeacherFormValues) => {
+  const handleAssignAdviser = async (values: AssignAdviserFormValues) => {
     if (!selectedSection) return;
-    console.log(`Assigning Teacher ID: ${values.teacherId} to Section: ${selectedSection.sectionCode}`);
+    const adviserIdToAssign = values.adviserId === 0 ? undefined : values.adviserId; // Handle unassign (0)
+    const adviserName = adviserIdToAssign ? teachers.find(t => t.id === adviserIdToAssign) : undefined;
+    const adviserFullName = adviserName ? `${adviserName.firstName} ${adviserName.lastName}` : 'N/A';
+
+    console.log(`Assigning Adviser ID: ${adviserIdToAssign ?? 'None'} to Section: ${selectedSection.sectionCode}`);
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
-    const assignedTeacher = teachers.find(t => t.id === values.teacherId);
+
     setSections(prev =>
       prev.map(sec =>
         sec.id === selectedSection.id
-          ? { ...sec, teacherId: values.teacherId, teacherName: assignedTeacher ? `${assignedTeacher.firstName} ${assignedTeacher.lastName}` : 'N/A' }
+          ? { ...sec, adviserId: adviserIdToAssign, adviserName: adviserFullName }
           : sec
       )
     );
-    toast({ title: "Teacher Assigned", description: `Teacher assigned successfully to ${selectedSection.sectionCode}.` });
+    toast({ title: "Adviser Assigned", description: `Adviser ${adviserIdToAssign ? 'assigned' : 'unassigned'} successfully ${adviserIdToAssign ? 'to' : 'from'} ${selectedSection.sectionCode}.` });
     setIsAssignModalOpen(false);
   };
 
@@ -180,6 +189,12 @@ export default function AssignmentsAnnouncementsPage() {
     announcementForm.reset(); // Reset form
   };
 
+  // Get currently assigned adviser IDs to filter the dropdown
+  const assignedAdviserIds = React.useMemo(() =>
+      sections.map(sec => sec.adviserId).filter((id): id is number => id !== undefined), // Use type predicate
+    [sections]
+  );
+
   // Define columns for the Sections DataTable
   const sectionColumns: ColumnDef<Section>[] = React.useMemo(() => [
     {
@@ -195,23 +210,34 @@ export default function AssignmentsAnnouncementsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Year Level" />,
     },
     {
-      accessorKey: "teacherName",
-      header: "Assigned Teacher",
-      cell: ({ row }) => row.original.teacherName || <span className="text-muted-foreground italic">Not Assigned</span>,
+      accessorKey: "adviserName", // Changed accessor key
+      header: "Assigned Adviser", // Changed header title
+      cell: ({ row }) => row.original.adviserName || <span className="text-muted-foreground italic">Not Assigned</span>,
     },
     {
       id: "actions",
       cell: ({ row }) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleOpenAssignModal(row.original)}
-        >
-          <UserCheck className="mr-2 h-4 w-4" /> Assign Teacher
-        </Button>
+         <div className="flex gap-2">
+             <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleOpenAssignModal(row.original)}
+                >
+                <UserCheck className="mr-2 h-4 w-4" /> Assign Adviser
+            </Button>
+             {/* Placeholder Button for Managing Subjects */}
+             <Button
+                variant="outline"
+                size="sm"
+                onClick={() => alert(`Manage Subjects for ${row.original.sectionCode} (Not Implemented)`)} // Placeholder action
+                >
+                 <BookOpen className="mr-2 h-4 w-4" /> Manage Subjects
+            </Button>
+         </div>
       ),
     },
-  ], [handleOpenAssignModal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [assignedAdviserIds]); // Add assignedAdviserIds as dependency if filtering logic is inside
 
   // Define columns for the Announcements DataTable
     const announcementColumns: ColumnDef<Announcement>[] = React.useMemo(() => [
@@ -258,7 +284,7 @@ export default function AssignmentsAnnouncementsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Assignments & Announcements</h1>
+        <h1 className="text-3xl font-bold">Section Management & Announcements</h1> {/* Updated Title */}
         {/* Add Announcement Button */}
          <Dialog open={isAnnounceModalOpen} onOpenChange={setIsAnnounceModalOpen}>
             <DialogTrigger asChild>
@@ -387,7 +413,7 @@ export default function AssignmentsAnnouncementsPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Section Assignments</CardTitle>
-                <CardDescription>Assign teachers to class sections.</CardDescription>
+                <CardDescription>Assign advisers and manage subjects for class sections.</CardDescription>
             </CardHeader>
             <CardContent>
                 {isLoadingSections ? (
@@ -413,42 +439,49 @@ export default function AssignmentsAnnouncementsPage() {
         </Card>
 
 
-      {/* Assign Teacher Modal */}
+      {/* Assign Adviser Modal */}
       <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Assign Teacher to {selectedSection?.sectionCode}</DialogTitle>
+            <DialogTitle>Assign Adviser to {selectedSection?.sectionCode}</DialogTitle>
             <DialogDescription>
-                Select a teacher for {selectedSection?.course} - {selectedSection?.yearLevel}.
-                Current: {selectedSection?.teacherName || 'None'}
+                Select an adviser for {selectedSection?.course} - {selectedSection?.yearLevel}.
+                Current: {selectedSection?.adviserName || 'None'}
             </DialogDescription>
           </DialogHeader>
-          <Form {...assignTeacherForm}>
-            <form onSubmit={assignTeacherForm.handleSubmit(handleAssignTeacher)} className="space-y-4 py-4">
+          <Form {...assignAdviserForm}>
+            <form onSubmit={assignAdviserForm.handleSubmit(handleAssignAdviser)} className="space-y-4 py-4">
               <FormField
-                control={assignTeacherForm.control}
-                name="teacherId"
+                control={assignAdviserForm.control}
+                name="adviserId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Select Teacher</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value ? String(field.value) : undefined}>
+                    <FormLabel>Select Adviser</FormLabel>
+                    <Select onValueChange={(value) => field.onChange(parseInt(value, 10))} value={field.value ? String(field.value) : "0"}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a teacher..." />
+                          <SelectValue placeholder="Select an adviser..." />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        {/* Option to unassign */}
+                        <SelectItem value={"0"}>--- Unassign Adviser ---</SelectItem>
                         {isLoadingTeachers ? (
-                            <SelectItem value="loading" disabled>Loading teachers...</SelectItem>
+                            <SelectItem value="loading" disabled>Loading advisers...</SelectItem>
                         ) : (
-                            teachers.map((teacher) => (
-                                <SelectItem key={teacher.id} value={String(teacher.id)}>
-                                    {teacher.firstName} {teacher.lastName} ({teacher.department})
-                                </SelectItem>
-                             ))
+                            teachers
+                                // Filter out teachers already assigned to other sections (excluding the current one)
+                                .filter(teacher => !assignedAdviserIds.includes(teacher.id) || teacher.id === selectedSection?.adviserId)
+                                .map((teacher) => (
+                                    <SelectItem key={teacher.id} value={String(teacher.id)}>
+                                        {teacher.firstName} {teacher.lastName} ({teacher.department})
+                                    </SelectItem>
+                                ))
                         )}
-                         {/* Option to unassign */}
-                         <SelectItem value={"0"}>--- Unassign Teacher ---</SelectItem>
+                         {teachers.length > 0 && !isLoadingTeachers && teachers.filter(teacher => !assignedAdviserIds.includes(teacher.id) || teacher.id === selectedSection?.adviserId).length === 0 && (
+                            <SelectItem value="no-available" disabled>No available advisers</SelectItem>
+                         )}
+
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -456,11 +489,11 @@ export default function AssignmentsAnnouncementsPage() {
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAssignModalOpen(false)} disabled={assignTeacherForm.formState.isSubmitting}>
+                <Button type="button" variant="outline" onClick={() => setIsAssignModalOpen(false)} disabled={assignAdviserForm.formState.isSubmitting}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={assignTeacherForm.formState.isSubmitting}>
-                  {assignTeacherForm.formState.isSubmitting ? 'Assigning...' : 'Assign Teacher'}
+                <Button type="submit" disabled={assignAdviserForm.formState.isSubmitting}>
+                  {assignAdviserForm.formState.isSubmitting ? 'Assigning...' : 'Assign Adviser'}
                 </Button>
               </DialogFooter>
             </form>
@@ -469,15 +502,4 @@ export default function AssignmentsAnnouncementsPage() {
       </Dialog>
     </div>
   );
-}
-
-// Helper function to format date (consider moving to utils)
-function format(date: Date | string, formatString: string): string {
-    // Basic date formatting, consider using date-fns for more robust formatting
-    const d = typeof date === 'string' ? new Date(date) : date;
-    if (formatString === 'PP') {
-        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    }
-    // Add more formats as needed
-    return d.toISOString();
 }

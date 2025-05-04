@@ -91,9 +91,10 @@ export const scheduleEntrySchema = z.object({
     path: ["end"], // Point error to 'end' field
 });
 
-// Schema for Assigning a Teacher to a Section
-export const assignTeacherSchema = z.object({
-  teacherId: z.coerce.number({ invalid_type_error: "Please select a teacher."}).min(1, "Please select a teacher."), // Ensure a teacher ID is selected
+// Schema for Assigning an Adviser to a Section
+export const assignAdviserSchema = z.object({
+  // teacherId changed to adviserId
+  adviserId: z.coerce.number({ invalid_type_error: "Please select an adviser."}).min(1, "Please select an adviser."), // Ensure an adviser ID is selected (value 0 means unassign)
 });
 
 // Schema for Creating an Announcement
