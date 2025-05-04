@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -82,28 +83,44 @@ export function SubmitGradesModal({
 
   const handleFormSubmit = async (values: SubmitGradesFormValues) => {
     try {
-        // Ensure empty strings become null before submission if desired by backend
-        // And convert valid numbers from string if needed (though coerce handles this in schema)
-        const processedValues = {
+        // Helper to safely convert form values (string, number, null, undefined) to number or null
+        const convertToNumberOrNull = (val: unknown): number | null => {
+            if (val === "" || val === null || typeof val === 'undefined') {
+                return null;
+            }
+            const num = Number(val); // Attempt conversion
+            // Check if the result is a valid finite number
+            return isNaN(num) || !isFinite(num) ? null : num;
+        };
+
+        // Prepare the payload ensuring grade fields are either numbers or null
+        const payload = {
             ...values,
-            prelimGrade: values.prelimGrade === "" || values.prelimGrade === null ? null : Number(values.prelimGrade),
-            midtermGrade: values.midtermGrade === "" || values.midtermGrade === null ? null : Number(values.midtermGrade),
-            finalGrade: values.finalGrade === "" || values.finalGrade === null ? null : Number(values.finalGrade),
-        }
-      console.log("Submitting grades:", processedValues);
-      await onSubmit(processedValues); // Call the actual submit function passed via props
-      toast({
-        title: "Success",
-        description: `Grades submitted successfully for ${assignment.studentName} in ${assignment.subjectName}.`,
-      });
-      onOpenChange(false); // Close main dialog
-    } catch (error) {
-      console.error("Grade submission error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to submit grades. Please try again.`,
-      });
+            prelimGrade: convertToNumberOrNull(values.prelimGrade),
+            midtermGrade: convertToNumberOrNull(values.midtermGrade),
+            finalGrade: convertToNumberOrNull(values.finalGrade),
+        };
+
+        console.log("Submitting grades (processed):", payload);
+        // Cast the payload to the expected type for the onSubmit function
+        // This assumes the onSubmit function expects the structure with grades as number | null
+        await onSubmit(payload as SubmitGradesFormValues); // Call the actual submit function passed via props
+
+        toast({
+            title: "Success",
+            description: `Grades submitted successfully for ${assignment.studentName} in ${assignment.subjectName}.`,
+        });
+        onOpenChange(false); // Close main dialog
+    } catch (error: any) { // Add type annotation for error
+        console.error("Grade submission error:", error);
+        // Use error.message if available, otherwise provide a generic message
+        const errorMessage = error?.message || "Failed to submit grades. Please try again.";
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: errorMessage,
+        });
+        // No need to re-throw if the error is handled here
     }
   };
 
@@ -145,7 +162,8 @@ export function SubmitGradesModal({
                                      // Ensure onChange converts empty string or invalid number to empty string for the field state
                                      onChange={(e) => {
                                         const val = e.target.value;
-                                        field.onChange(val === '' ? '' : Number(val));
+                                        // Allow empty string, otherwise attempt to convert to number
+                                        field.onChange(val === '' ? '' : val);
                                     }}
                                      />
                             </FormControl>
@@ -191,7 +209,7 @@ export function SubmitGradesModal({
                                      value={field.value ?? ""}
                                      onChange={(e) => {
                                         const val = e.target.value;
-                                        field.onChange(val === '' ? '' : Number(val));
+                                        field.onChange(val === '' ? '' : val);
                                     }}/>
                             </FormControl>
                              <FormMessage />
@@ -235,7 +253,7 @@ export function SubmitGradesModal({
                                      value={field.value ?? ""}
                                      onChange={(e) => {
                                         const val = e.target.value;
-                                        field.onChange(val === '' ? '' : Number(val));
+                                        field.onChange(val === '' ? '' : val);
                                     }}/>
                             </FormControl>
                             <FormMessage />
