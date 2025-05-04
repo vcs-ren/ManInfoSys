@@ -309,5 +309,38 @@ class Student {
          return false;
     }
 
+      // Method for a student to change their own password
+    public function changePassword($studentId, $currentPassword, $newPassword) {
+        // 1. Verify the current password
+        $query = "SELECT password_hash FROM " . $this->table . " WHERE id = :id LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $studentId);
+        $stmt->execute();
+        $student = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$student || !password_verify($currentPassword, $student['password_hash'])) {
+            // Current password incorrect or student not found
+             throw new Exception("Incorrect current password."); // Throw exception for specific error handling
+        }
+
+        // 2. Hash the new password
+        $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+
+        // 3. Update the password in the database
+        $updateQuery = "UPDATE " . $this->table . " SET password_hash = :newPasswordHash WHERE id = :id";
+        $updateStmt = $this->conn->prepare($updateQuery);
+        $updateStmt->bindParam(':newPasswordHash', $newPasswordHash);
+        $updateStmt->bindParam(':id', $studentId);
+
+        if ($updateStmt->execute()) {
+            return true;
+        } else {
+             error_log("Failed to update password for student ID: " . $studentId);
+             throw new Exception("Failed to update password."); // Throw generic error
+        }
+    }
+
+
 }
 ?>
+

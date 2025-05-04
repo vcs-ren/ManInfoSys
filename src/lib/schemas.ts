@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 import type { StudentStatus } from "@/types"; // Import the status type
 
@@ -134,4 +135,11 @@ export const passwordChangeSchema = z.object({
 export const assignSubjectSchema = z.object({
   subjectId: z.string().min(1, "Please select a subject."),
   teacherId: z.coerce.number({ invalid_type_error: "Please select a teacher." }).min(1, "Please select a teacher."),
+});
+
+
+// Schema for Login - Updated to include password
+export const loginSchema = z.object({
+  username: z.string().min(1, { message: "Username is required" }),
+  password: z.string().min(1, { message: "Password is required" }), // Password is now required
 });

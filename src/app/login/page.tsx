@@ -26,14 +26,36 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, Loader2 } from 'lucide-react';
-
-// Simplified Login Schema (Username only)
-const loginSchema = z.object({
-  username: z.string().min(1, { message: "Username is required" }),
-  // Password field removed from schema as it's not used
-});
+import { loginSchema } from "@/lib/schemas"; // Import the updated schema
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+// Interface for the expected API response
+interface LoginResponse {
+    success: boolean;
+    message: string;
+    role?: 'Admin' | 'Student' | 'Teacher';
+    redirectPath?: string;
+}
+
+
+// --- API Helper ---
+const postData = async <T, R>(url: string, data: T): Promise<R> => {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    // Even if response is not ok, parse the JSON for error messages
+    const responseData = await response.json();
+     if (!response.ok) {
+         // Use the message from the JSON response if available
+         throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
+    }
+    return responseData;
+};
+// --- End API Helper ---
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,47 +63,48 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = React.useState(false);
 
   const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(loginSchema), // Use the updated schema
     defaultValues: {
       username: "",
+      password: "", // Add default value for password
     },
   });
 
-  // Handle form submission - Mock Authentication
+  // Handle form submission - Call PHP Authentication API
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
-    console.log("Login attempt:", data);
+    console.log("Login attempt:", data.username); // Don't log password
 
-    // --- BASIC MOCK AUTH (No Password Check) ---
-    let response: { success: boolean, role: string, redirectPath: string } | null = null;
-    if (data.username === 'admin') {
-        response = { success: true, role: 'Admin', redirectPath: '/admin/dashboard' };
-    } else if (data.username === 's1001') { // Specific student ID
-         response = { success: true, role: 'Student', redirectPath: '/student/dashboard' };
-    } else if (data.username === 't1001') { // Specific teacher ID
-         response = { success: true, role: 'Teacher', redirectPath: '/teacher/dashboard' };
-    }
-    // --- End Mock Auth ---
+    try {
+         // Call the PHP login endpoint
+        const response = await postData<LoginFormValues, LoginResponse>('/api/login.php', data);
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    setIsLoading(false);
-
-    if (response?.success) {
-        toast({
-            title: "Login Successful",
-            description: `Redirecting to ${response.role} dashboard...`,
-        });
-        // Store session/token if needed (implementation depends on auth strategy)
-        // e.g., localStorage.setItem('userRole', response.role);
-        router.push(response.redirectPath); // Redirect based on mock response
-    } else {
+        if (response.success && response.role && response.redirectPath) {
+            toast({
+                title: "Login Successful",
+                description: `Redirecting to ${response.role} dashboard...`,
+            });
+            // Optional: Store session/token here if needed
+            // Example: localStorage.setItem('userRole', response.role);
+            router.push(response.redirectPath);
+        } else {
+            // Use the message from the API response
+            toast({
+                variant: "destructive",
+                title: "Login Failed",
+                description: response.message || "Invalid username or password.",
+            });
+        }
+    } catch (error: any) {
+        console.error("Login API error:", error);
         toast({
             variant: "destructive",
-            title: "Login Failed",
-            description: "Invalid username. Use 'admin', 's1001', or 't1001'.",
+            title: "Login Error",
+            // Display the error message from the caught error
+            description: error.message || "An error occurred during login. Please try again.",
         });
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -90,7 +113,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-primary">CampusConnect</CardTitle>
-          <CardDescription>Sign in with your provided username.</CardDescription>
+          <CardDescription>Sign in with your provided username and password.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -103,14 +126,27 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter username (e.g., admin, s1001, t1001)" {...field} disabled={isLoading} />
+                      <Input placeholder="Enter username" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Password field removed */}
+              {/* Password Field Reinstated */}
+               <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Enter password" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Logging in...</> : <> <LogIn className="mr-2 h-4 w-4" /> Login </>}
@@ -118,9 +154,9 @@ export default function LoginPage() {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="text-center text-xs text-muted-foreground">
-          Use 'admin', 's1001', or 't1001' for testing. No password needed.
-        </CardFooter>
+         <CardFooter className="text-center text-xs text-muted-foreground">
+             Enter your assigned username and password.
+         </CardFooter>
       </Card>
     </div>
   );

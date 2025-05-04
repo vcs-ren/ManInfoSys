@@ -217,5 +217,36 @@ class Teacher {
          printf("Error resetting password: %s.\n", $stmt->errorInfo()[2]);
          return false;
     }
+
+     // Method for a teacher to change their own password
+    public function changePassword($teacherId, $currentPassword, $newPassword) {
+        // 1. Verify the current password
+        $query = "SELECT password_hash FROM " . $this->table . " WHERE id = :id LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $teacherId);
+        $stmt->execute();
+        $teacher = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$teacher || !password_verify($currentPassword, $teacher['password_hash'])) {
+            // Current password incorrect or teacher not found
+            throw new Exception("Incorrect current password."); // Throw specific error
+        }
+
+        // 2. Hash the new password
+        $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+
+        // 3. Update the password in the database
+        $updateQuery = "UPDATE " . $this->table . " SET password_hash = :newPasswordHash WHERE id = :id";
+        $updateStmt = $this->conn->prepare($updateQuery);
+        $updateStmt->bindParam(':newPasswordHash', $newPasswordHash);
+        $updateStmt->bindParam(':id', $teacherId);
+
+        if ($updateStmt->execute()) {
+            return true;
+        } else {
+            error_log("Failed to update password for teacher ID: " . $teacherId);
+            throw new Exception("Failed to update password."); // Throw generic error
+        }
+    }
 }
 ?>
