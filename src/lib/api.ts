@@ -56,8 +56,8 @@ export const fetchData = async <T>(path: string): Promise<T> => {
     } catch (error) {
         console.error(`Network or fetch error when fetching from ${url}:`, error);
         // Re-throw a more specific error message if possible
-        if (error instanceof TypeError && error.message === 'Failed to fetch') {
-             throw new Error(`Failed to fetch. Check if the backend server at ${API_BASE_URL} is running and reachable, and check CORS configuration.`);
+        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+             throw new Error(`Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL is correct, and check CORS configuration.`);
         }
         throw error;
     }
@@ -106,8 +106,8 @@ export const postData = async <T, R>(path: string, data: T): Promise<R> => {
      } catch (error) {
         console.error(`Network or fetch error when posting to ${url}:`, error);
          // Re-throw a more specific error message if possible
-        if (error instanceof TypeError && error.message === 'Failed to fetch') {
-             throw new Error(`Failed to fetch. Check if the backend server at ${API_BASE_URL} is running and reachable, and check CORS configuration.`);
+        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+             throw new Error(`Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL (${url}) is correct, and check CORS configuration.`);
         }
         throw error;
     }
@@ -143,8 +143,8 @@ export const putData = async <T, R>(path: string, data: T): Promise<R> => {
         return responseData;
      } catch (error) {
         console.error(`Network or fetch error when putting to ${url}:`, error);
-         if (error instanceof TypeError && error.message === 'Failed to fetch') {
-             throw new Error(`Failed to fetch. Check if the backend server at ${API_BASE_URL} is running and reachable, and check CORS configuration.`);
+         if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+             throw new Error(`Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL (${url}) is correct, and check CORS configuration.`);
         }
         throw error;
     }
@@ -178,8 +178,8 @@ export const deleteData = async (path: string): Promise<void> => {
         // No need to parse response body for successful DELETE (often 204 No Content)
     } catch (error) {
         console.error(`Network or fetch error when deleting at ${url}:`, error);
-        if (error instanceof TypeError && error.message === 'Failed to fetch') {
-             throw new Error(`Failed to fetch. Check if the backend server at ${API_BASE_URL} is running and reachable, and check CORS configuration.`);
+        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+             throw new Error(`Network error: Could not connect to the API at ${API_BASE_URL}. Please ensure the backend server is running, the URL (${url}) is correct, and check CORS configuration.`);
         }
         throw error;
     }
