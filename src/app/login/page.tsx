@@ -80,11 +80,20 @@ export default function LoginPage() {
         }
     } catch (error: any) {
         console.error("Login API error:", error);
-        toast({
-            variant: "destructive",
-            title: "Login Error",
-            description: error.message || "An error occurred during login. Please try again.",
-        });
+         // Provide more specific feedback for fetch errors
+        if (error.message.includes('Failed to fetch')) {
+             toast({
+                variant: "destructive",
+                title: "Network Error",
+                description: "Could not connect to the server. Please ensure the backend is running and accessible.",
+             });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Login Error",
+                description: error.message || "An error occurred during login. Please try again.",
+            });
+        }
     } finally {
         setIsLoading(false);
     }
