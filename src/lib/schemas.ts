@@ -11,11 +11,11 @@ export const studentSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   course: z.string().min(1, "Course is required"),
-  // year: z.coerce.number().min(1, "Year is required").max(6, "Year seems too high"), // Removed year
   status: z.enum(studentStatusEnum, { required_error: "Status is required"}), // Added status validation
   section: z.string().optional(), // Section is now optional in the form, will be auto-assigned
   email: z.string().email("Invalid email address").optional().or(z.literal('')), // Optional email
   phone: z.string().optional().or(z.literal('')), // Optional phone
+  emergencyContact: z.string().optional().or(z.literal('')), // Optional emergency contact
   // Generated fields - not part of the form input, but part of the type
   studentId: z.string().optional(),
 });
@@ -44,13 +44,15 @@ export const gradeSchema = z.object({
 
 
 // Schema for Profile Editing (Generic example - customize per role)
+// Student profile is mostly read-only for academic info, editable for contact
 export const profileSchema = z.object({
    id: z.number(), // User ID is needed to update the correct record
    firstName: z.string().min(1, "First name is required"),
    lastName: z.string().min(1, "Last name is required"),
    email: z.string().email("Invalid email address").optional().or(z.literal('')),
    phone: z.string().optional().or(z.literal('')),
-   // Add other editable fields specific to the role (e.g., department for teacher)
+   emergencyContact: z.string().optional().or(z.literal('')), // Allow viewing on profile, potentially editable by admin only
+   // Add other editable fields specific to the role if needed
    // Password change might need a separate form/process
 });
 
@@ -67,4 +69,3 @@ export const scheduleEntrySchema = z.object({
     message: "End date cannot be before start date",
     path: ["end"], // Point error to 'end' field
 });
-

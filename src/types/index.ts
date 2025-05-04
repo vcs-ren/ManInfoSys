@@ -13,6 +13,7 @@ export interface Student {
   section: string;
   email?: string; // Optional fields
   phone?: string;
+  emergencyContact?: string; // Optional emergency contact phone number
   // Add other relevant student fields
 }
 
@@ -45,5 +46,3 @@ export interface ScheduleEntry {
 }
 
 // Define more types as needed (e.g., Course, Section, Announcement)
-
-

@@ -31,10 +31,10 @@ const getStudents = async (): Promise<Student[]> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 500));
   return [
-    { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", status: "Continuing", section: "A", email: "john.doe@example.com" },
+    { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", status: "Continuing", section: "A", email: "john.doe@example.com", phone: "111-222-3333", emergencyContact: "999-888-7777" },
     { id: 2, studentId: "s1002", firstName: "Jane", lastName: "Smith", course: "Information Technology", status: "New", section: "B", email: "jane.smith@example.com" },
-    { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", status: "Continuing", section: "A" },
-    { id: 4, studentId: "s1004", firstName: "Mary", lastName: "Brown", course: "Business Administration", status: "Transferee", section: "C", email: "mary.brown@example.com" },
+    { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", status: "Continuing", section: "A", emergencyContact: "123-123-1234" },
+    { id: 4, studentId: "s1004", firstName: "Mary", lastName: "Brown", course: "Business Administration", status: "Transferee", section: "C", email: "mary.brown@example.com", phone: "444-555-6666" },
     { id: 5, studentId: "s1005", firstName: "David", lastName: "Wilson", course: "Information Technology", status: "Returnee", section: "B" },
   ];
 };
@@ -65,6 +65,7 @@ const studentFormFields: FormFieldConfig<Student>[] = [
   // Section field removed - will be assigned randomly
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
   { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
+  { name: "emergencyContact", label: "Emergency Contact", placeholder: "Enter emergency contact # (optional)", type: "tel" }, // Added emergency contact
 ];
 
 
@@ -105,7 +106,8 @@ export default function ManageStudentsPage() {
         id: newId,
         studentId: newStudentId,
         section: randomSection, // Add the generated section
-        status: values.status // Ensure status is included
+        status: values.status, // Ensure status is included
+        emergencyContact: values.emergencyContact // Include emergency contact
     };
     setStudents(prev => [...prev, newStudent]);
     // In real app: POST to PHP backend, get back the full student object with ID/studentId/section
@@ -124,6 +126,7 @@ export default function ManageStudentsPage() {
          ...selectedStudent, // Start with original data
          ...values, // Apply form changes
          status: values.status, // Ensure status is included
+         emergencyContact: values.emergencyContact, // Include emergency contact update
          // section: selectedStudent.section // Keep original section (or re-assign if needed)
      }
     setStudents(prev => prev.map(s => s.id === selectedStudent.id ? updatedStudent : s));
@@ -224,6 +227,16 @@ export default function ManageStudentsPage() {
             header: "Email",
             cell: ({ row }) => <div className="lowercase">{row.getValue("email") || '-'}</div>, // Handle missing email
         },
+        {
+            accessorKey: "phone",
+            header: "Phone",
+            cell: ({ row }) => <div>{row.getValue("phone") || '-'}</div>,
+        },
+         {
+            accessorKey: "emergencyContact",
+            header: "Emergency Contact",
+            cell: ({ row }) => <div>{row.getValue("emergencyContact") || '-'}</div>,
+        },
         // Actions column is added dynamically in the DataTable component
     // eslint-disable-next-line react-hooks/exhaustive-deps
     ], []); // Empty dependency array as columns don't depend on component state here
@@ -320,4 +333,3 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-

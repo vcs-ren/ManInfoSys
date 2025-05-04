@@ -41,7 +41,8 @@ const getStudentProfile = async (): Promise<Student> => {
         status: "Continuing", // Replaced year with status
         section: "A",
         email: "john.doe@example.com",
-        phone: "123-456-7890"
+        phone: "123-456-7890",
+        emergencyContact: "987-654-3210", // Added emergency contact
     };
 };
 
@@ -63,6 +64,7 @@ export default function StudentProfilePage() {
         lastName: "",
         email: "",
         phone: "",
+        emergencyContact: "", // Add emergency contact
     },
   });
 
@@ -79,6 +81,7 @@ export default function StudentProfilePage() {
             lastName: data.lastName,
             email: data.email || "", // Handle potentially undefined optional fields
             phone: data.phone || "",
+            emergencyContact: data.emergencyContact || "", // Add emergency contact
         });
       } catch (error) {
         console.error("Failed to fetch profile:", error);
@@ -206,6 +209,20 @@ export default function StudentProfilePage() {
                         </FormItem>
                         )}
                     />
+                     <FormField
+                        control={form.control}
+                        name="emergencyContact"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Emergency Contact</FormLabel>
+                            <FormControl>
+                                <Input type="tel" placeholder="Emergency contact phone" {...field} />
+                            </FormControl>
+                             <FormMessage />
+                             <p className="text-xs text-muted-foreground">Contact person in case of emergency.</p>
+                        </FormItem>
+                        )}
+                    />
 
                      <Button type="submit" disabled={form.formState.isSubmitting}>
                          {form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
@@ -229,4 +246,3 @@ export default function StudentProfilePage() {
     </div>
   );
 }
-
