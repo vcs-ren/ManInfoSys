@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, VisibilityState } from "@tanstack/react-table"; // Import VisibilityState
 import { PlusCircle, Edit, Trash2 } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -30,12 +30,13 @@ import { cn } from "@/lib/utils";
 const getStudents = async (): Promise<Student[]> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 500));
+  // Initial data might need updating to reflect new section format if loaded from DB
   return [
-    { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", status: "Continuing", year: "2nd Year", section: "A", email: "john.doe@example.com", phone: "111-222-3333", emergencyContactPhone: "999-888-7777", emergencyContactName: "Jane Doe", emergencyContactRelationship: "Mother" },
-    { id: 2, studentId: "s1002", firstName: "Jane", lastName: "Smith", course: "Information Technology", status: "New", year: "1st Year", section: "B", email: "jane.smith@example.com" },
-    { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", status: "Continuing", year: "1st Year", section: "A", emergencyContactPhone: "123-123-1234", emergencyContactName: "Mary Jones", emergencyContactRelationship: "Sister" },
-    { id: 4, studentId: "s1004", firstName: "Mary", lastName: "Brown", course: "Business Administration", status: "Transferee", year: "3rd Year", section: "C", email: "mary.brown@example.com", phone: "444-555-6666" },
-    { id: 5, studentId: "s1005", firstName: "David", lastName: "Wilson", course: "Information Technology", status: "Returnee", year: "2nd Year", section: "B" },
+    { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", status: "Continuing", year: "2nd Year", section: "20A", email: "john.doe@example.com", phone: "111-222-3333", emergencyContactPhone: "999-888-7777", emergencyContactName: "Jane Doe", emergencyContactRelationship: "Mother" },
+    { id: 2, studentId: "s1002", firstName: "Jane", lastName: "Smith", course: "Information Technology", status: "New", year: "1st Year", section: "10B", email: "jane.smith@example.com" },
+    { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", status: "Continuing", year: "1st Year", section: "10A", emergencyContactPhone: "123-123-1234", emergencyContactName: "Mary Jones", emergencyContactRelationship: "Sister" },
+    { id: 4, studentId: "s1004", firstName: "Mary", lastName: "Brown", course: "Business Administration", status: "Transferee", year: "3rd Year", section: "30C", email: "mary.brown@example.com", phone: "444-555-6666" },
+    { id: 5, studentId: "s1005", firstName: "David", lastName: "Wilson", course: "Information Technology", status: "Returnee", year: "2nd Year", section: "20B" },
   ];
 };
 
@@ -70,8 +71,8 @@ const studentFormFields: FormFieldConfig<Student>[] = [
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true },
   { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true }, // Use select type
   { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true }, // Use select type for status
-  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, condition: (data) => ['Continuing', 'Transferee', 'Returnee'].includes(data?.status) }, // Conditional Year Level
-  // Section field removed - will be assigned randomly
+  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, condition: (data) => ['Continuing', 'Transferee', 'Returnee'].includes(data?.status ?? '') }, // Conditional Year Level based on status
+  // Section field removed from form - generated automatically
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
   { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
   // Detailed Emergency Contact Fields
@@ -81,6 +82,19 @@ const studentFormFields: FormFieldConfig<Student>[] = [
   { name: "emergencyContactAddress", label: "Emergency Contact Address", placeholder: "Full Address (optional)", type: "textarea" },
 ];
 
+// Function to generate section based on year
+const generateSection = (year: string | undefined): string => {
+    const yearPrefixMap: { [key: string]: string } = {
+        "1st Year": "10",
+        "2nd Year": "20",
+        "3rd Year": "30",
+        "4th Year": "40",
+    };
+    const prefix = year ? yearPrefixMap[year] : "10"; // Default to 10 if year undefined (shouldn't happen with logic)
+    const randomLetter = ['A', 'B', 'C'][Math.floor(Math.random() * 3)]; // Assign random section letter A, B, or C
+    return `${prefix}${randomLetter}`;
+};
+
 
 export default function ManageStudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
@@ -88,6 +102,13 @@ export default function ManageStudentsPage() {
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const { toast } = useToast();
+  // State for column visibility - Hide emergency contacts by default
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+    emergencyContactName: false,
+    emergencyContactRelationship: false,
+    emergencyContactPhone: false,
+    emergencyContactAddress: false,
+  });
 
 
   React.useEffect(() => {
@@ -108,23 +129,31 @@ export default function ManageStudentsPage() {
 
   // Mock Add Student Function
   const handleAddStudent = async (values: Omit<Student, 'id' | 'studentId' | 'section'>) => {
-    console.log("Adding student:", values);
+    console.log("Adding student (raw form values):", values);
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
     const newId = Math.max(0, ...students.map(s => s.id)) + 1;
     const newStudentId = `s100${newId}`; // Simulate ID generation
-    const randomSection = ['A', 'B', 'C'][Math.floor(Math.random() * 3)]; // Assign random section
 
-    // Set year to '1st Year' if status is 'New', otherwise use the value from the form
+    // Determine year based on status
     const year = values.status === 'New' ? '1st Year' : values.year;
+
+    if (!year) {
+        // This should not happen due to form validation, but as a safeguard:
+        toast({ variant: "destructive", title: "Error", description: "Year level could not be determined." });
+        return;
+    }
+
+    // Generate section based on the determined year
+    const newSection = generateSection(year);
 
     const newStudent: Student = {
         ...values,
         id: newId,
         studentId: newStudentId,
-        section: randomSection, // Add the generated section
-        status: values.status, // Ensure status is included
-        year: year, // Add the determined year
+        section: newSection, // Use the generated section
+        status: values.status,
+        year: year, // Ensure year is set
         emergencyContactName: values.emergencyContactName,
         emergencyContactRelationship: values.emergencyContactRelationship,
         emergencyContactPhone: values.emergencyContactPhone,
@@ -132,7 +161,7 @@ export default function ManageStudentsPage() {
     };
     setStudents(prev => [...prev, newStudent]);
     // In real app: POST to PHP backend, get back the full student object with ID/studentId/section
-     toast({ title: "Student Added", description: `${values.firstName} ${values.lastName} (${year}, Section ${randomSection}) has been added.` });
+     toast({ title: "Student Added", description: `${values.firstName} ${values.lastName} (${year}, Section ${newSection}) has been added.` });
   };
 
    // Mock Edit Student Function
@@ -141,22 +170,29 @@ export default function ManageStudentsPage() {
      if (!selectedStudent) return;
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
-     // Note: In this mock, we don't re-assign section on edit, keeping the original.
-     // If section *should* change on edit based on some logic, implement here.
 
-     // Set year to '1st Year' if status is 'New', otherwise use the value from the form
+     // Determine year based on status (important if status can be changed during edit)
      const year = values.status === 'New' ? '1st Year' : values.year;
+
+     // Decide if section should change on edit. Generally, it might not unless the year changes.
+     // For simplicity, keep the original section unless year level *changes*.
+     let updatedSection = selectedStudent.section;
+     if (year !== selectedStudent.year) {
+         // If year changes, generate a new section based on the new year
+         updatedSection = generateSection(year);
+         console.log(`Year changed for student ${selectedStudent.studentId}. New section: ${updatedSection}`);
+     }
 
      const updatedStudent = {
          ...selectedStudent, // Start with original data
          ...values, // Apply form changes
-         status: values.status, // Ensure status is included
+         status: values.status,
          year: year, // Set the determined year
+         section: updatedSection, // Set the determined section
          emergencyContactName: values.emergencyContactName,
          emergencyContactRelationship: values.emergencyContactRelationship,
          emergencyContactPhone: values.emergencyContactPhone,
          emergencyContactAddress: values.emergencyContactAddress,
-         // section: selectedStudent.section // Keep original section (or re-assign if needed)
      }
     setStudents(prev => prev.map(s => s.id === selectedStudent.id ? updatedStudent : s));
      toast({ title: "Student Updated", description: `${values.firstName} ${values.lastName} has been updated.` });
@@ -251,13 +287,15 @@ export default function ManageStudentsPage() {
             accessorKey: "section",
             header: ({ column }) => { // Use explicit return
                  return (
+                    // Example filter options - adjust if needed based on actual generated sections
                     <DataTableFilterableColumnHeader
-                        column={column} // Pass column object
+                        column={column}
                         title="Section"
-                        options={[ // Should be dynamic based on available sections
-                            { label: "A", value: "A" },
-                            { label: "B", value: "B" },
-                            { label: "C", value: "C" },
+                        options={[
+                            { label: "10A", value: "10A" }, { label: "10B", value: "10B" }, { label: "10C", value: "10C" },
+                            { label: "20A", value: "20A" }, { label: "20B", value: "20B" }, { label: "20C", value: "20C" },
+                            { label: "30A", value: "30A" }, { label: "30B", value: "30B" }, { label: "30C", value: "30C" },
+                            { label: "40A", value: "40A" }, { label: "40B", value: "40B" }, { label: "40C", value: "40C" },
                         ]}
                     />
                  );
@@ -281,16 +319,19 @@ export default function ManageStudentsPage() {
             accessorKey: "emergencyContactName",
             header: "Emergency Contact Name",
             cell: ({ row }) => <div>{row.original.emergencyContactName || '-'}</div>,
+            enableHiding: true, // Allow hiding this column
         },
          {
             accessorKey: "emergencyContactRelationship",
             header: "Relationship",
             cell: ({ row }) => <div>{row.original.emergencyContactRelationship || '-'}</div>,
+             enableHiding: true, // Allow hiding this column
         },
          {
             accessorKey: "emergencyContactPhone",
             header: "Emergency Contact Phone",
             cell: ({ row }) => <div>{row.original.emergencyContactPhone || '-'}</div>,
+             enableHiding: true, // Allow hiding this column
         },
          {
             accessorKey: "emergencyContactAddress",
@@ -372,6 +413,9 @@ export default function ManageStudentsPage() {
                 searchColumnId="firstName"
                 onRowClick={handleRowClick}
                 actionMenuItems={generateActionMenuItems}
+                // Pass column visibility state and setter
+                columnVisibility={columnVisibility}
+                setColumnVisibility={setColumnVisibility}
             />
         )}
 
@@ -385,7 +429,7 @@ export default function ManageStudentsPage() {
               formSchema={studentSchema}
               onSubmit={handleEditStudent}
               title={`Edit Student: ${selectedStudent.firstName} ${selectedStudent.lastName}`}
-              description="Update info. Username, password, section & year (for New status) are managed by the system."
+              description="Update info. Username, password, section & year are managed by the system."
               formFields={studentFormFields.map(f => ({...f, disabled: false }))} // Ensure fields are initially enabled
               isEditMode={true}
               initialData={selectedStudent} // Pass current data

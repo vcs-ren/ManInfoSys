@@ -47,6 +47,8 @@ interface DataTableProps<TData, TValue> {
   searchColumnId?: string; // ID of the column to filter by search input
   onRowClick?: (row: TData) => void;
   actionMenuItems?: (row: TData) => React.ReactNode; // Function to generate dropdown items
+  columnVisibility?: VisibilityState; // Optional: Control visibility state externally
+  setColumnVisibility?: React.Dispatch<React.SetStateAction<VisibilityState>>; // Optional: Setter for external control
 }
 
 export function DataTable<TData, TValue>({
@@ -55,12 +57,22 @@ export function DataTable<TData, TValue>({
   searchPlaceholder = "Search...",
   searchColumnId, // e.g., "firstName" or "email"
   onRowClick,
-  actionMenuItems
+  actionMenuItems,
+  columnVisibility: controlledColumnVisibility, // Rename for clarity
+  setColumnVisibility: controlledSetColumnVisibility, // Rename for clarity
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [internalColumnVisibility, setInternalColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
+
+  // Determine if visibility is controlled externally
+  const isVisibilityControlled = controlledColumnVisibility !== undefined && controlledSetColumnVisibility !== undefined;
+
+  // Use controlled state if provided, otherwise use internal state
+  const columnVisibility = isVisibilityControlled ? controlledColumnVisibility : internalColumnVisibility;
+  const setColumnVisibility = isVisibilityControlled ? controlledSetColumnVisibility : setInternalColumnVisibility;
+
 
   // Add action column if actionMenuItems are provided
    const tableColumns = React.useMemo(() => {
@@ -98,12 +110,12 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
+    onColumnVisibilityChange: setColumnVisibility, // Use the determined setter
     onRowSelectionChange: setRowSelection,
     state: {
       sorting,
       columnFilters,
-      columnVisibility,
+      columnVisibility, // Use the determined visibility state
       rowSelection,
     },
   });
@@ -142,7 +154,8 @@ export function DataTable<TData, TValue>({
                       column.toggleVisibility(!!value)
                     }
                   >
-                    {column.id.replace(/([A-Z])/g, ' $1').trim()} {/* Format column ID */}
+                    {/* Improve label generation for camelCase IDs */}
+                    {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                   </DropdownMenuCheckboxItem>
                 );
               })}
