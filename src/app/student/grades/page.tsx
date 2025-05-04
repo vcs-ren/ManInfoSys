@@ -6,21 +6,24 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { BookOpenCheck, Loader2 } from "lucide-react";
 
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
-import type { Grade } from "@/types"; // Assuming Grade type includes subject, grade, remarks
+import type { Grade } from "@/types"; // Using the updated Grade type
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
 // Mock Data - Replace with API call to get grades for the logged-in student
+// Data should now align with the Grade type (subject, grade, remarks)
 const getStudentGrades = async (): Promise<Grade[]> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 600));
   // In real app, fetch from backend: /api/student/grades
+  // Remarks could be system-generated (Passed/Failed/INC) or teacher's notes
   return [
-    { subject: "Mathematics 101", grade: "A-", remarks: "Excellent work!" },
-    { subject: "Physics 202", grade: 85, remarks: "Good understanding of concepts." }, // Example numeric grade
-    { subject: "English Literature", grade: "B+", remarks: "" },
-    { subject: "History 101", grade: "INC", remarks: "Missing final paper." }, // Example Incomplete
-    { subject: "Physical Education", grade: "P", remarks: "Passed" }, // Example Pass/Fail
+    { subject: "Mathematics 101", grade: "A-", remarks: "Passed - Excellent work!" },
+    { subject: "Physics 202", grade: 85, remarks: "Passed - Good understanding of concepts." },
+    { subject: "English Literature", grade: "B+", remarks: "Passed" },
+    { subject: "History 101", grade: "INC", remarks: "Failed - Missing final paper." }, // INC is a failing grade here
+    { subject: "Physical Education", grade: "P", remarks: "Passed" },
+    { subject: "Introduction to Programming", grade: 72, remarks: "Failed - Requires Improvement" }, // Example numeric failed grade
   ];
 };
 
@@ -82,7 +85,7 @@ export default function ViewGradesPage() {
       <Card>
          <CardHeader>
             <CardTitle>Grade Summary</CardTitle>
-            <CardDescription>Overview of your academic performance. Grades are updated by your teachers.</CardDescription>
+            <CardDescription>Overview of your academic performance. Remarks indicate the final status.</CardDescription>
         </CardHeader>
          <CardContent>
             {isLoading ? (

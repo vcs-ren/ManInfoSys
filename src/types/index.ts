@@ -1,3 +1,4 @@
+
 // Shared types for the application
 
 export type StudentStatus = 'New' | 'Transferee' | 'Continuing' | 'Returnee';
@@ -104,7 +105,8 @@ export interface ScheduleEntry {
 
 
 // Type for displaying student-subject assignments in the teacher's grade submission table
-// Includes placeholder grades for each term.
+// Includes placeholder grades for each term. Status is used internally for logic,
+// but the UI might display "Passed"/"Failed" in the Remarks column if status is "Complete".
 export interface StudentSubjectAssignmentWithGrades {
     assignmentId: string; // Unique ID combining student and subject for this context
     studentId: number;
@@ -119,9 +121,15 @@ export interface StudentSubjectAssignmentWithGrades {
     midtermRemarks?: string;
     finalGrade?: number | string | null;
     finalRemarks?: string;
-    // Status calculated based on term grades
+    // Status calculated based on term grades, used for internal logic
     status: 'Not Submitted' | 'Incomplete' | 'Complete';
 }
 
+// Type representing the grades a student sees
+export interface Grade {
+    subject: string;
+    grade: number | string; // Numeric or letter grade
+    remarks?: string; // Any remarks from the teacher or system (e.g., "Passed", "Failed", "INC")
+}
 
 // Define more types as needed (e.g., Course)

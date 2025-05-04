@@ -42,6 +42,7 @@ const getTeacherStudentAssignments = async (): Promise<StudentSubjectAssignmentW
      // Student 4 - Subject C
     { assignmentId: "ssa-4-IT202", studentId: 2, studentName: "Jane Smith", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "20B", year: "2nd Year", prelimGrade: "A-", midtermGrade: "B+", finalGrade: "B", status: "Complete" }, // Letter grades
     { assignmentId: "ssa-5-BA301", studentId: 4, studentName: "Mary Brown", subjectId: "BA301", subjectName: "Marketing Principles", section: "30C", year: "3rd Year", prelimGrade: "INC", midtermGrade: 80, finalGrade: null, status: "Incomplete", prelimRemarks: "Missing Prelim Paper" }, // INC grade
+    { assignmentId: "ssa-6-CS101", studentId: 1, studentName: "John Doe", subjectId: "CS101", subjectName: "Intro to Programming", section: "10A", year: "1st Year", prelimGrade: 70, midtermGrade: 65, finalGrade: 72, status: "Complete" }, // Example Failed
   ];
 };
 
@@ -200,18 +201,52 @@ export default function SubmitGradesPage() {
          cell: ({ row }) => row.original.finalGrade ?? <span className="text-muted-foreground">-</span>,
     },
     {
-        accessorKey: "status",
-        header: "Status",
+        accessorKey: "status", // Keep accessorKey as status for data access
+        header: "Remarks", // Change header label
          cell: ({ row }) => {
-            const status = row.original.status;
-            let variant: "default" | "secondary" | "outline" | "destructive" = "secondary";
-            if (status === 'Complete') variant = 'default'; // Use primary color for Complete
-            else if (status === 'Incomplete') variant = 'outline';
-            return <Badge variant={variant}>{status}</Badge>;
+            const assignment = row.original;
+            const status = assignment.status;
+            const finalGrade = assignment.finalGrade;
+
+            if (status === 'Complete') {
+                let numericGrade: number | null = null;
+                let isLetterPassed = false;
+                let isLetterFailed = false;
+
+                if (typeof finalGrade === 'number') {
+                    numericGrade = finalGrade;
+                } else if (typeof finalGrade === 'string') {
+                    const upperGrade = finalGrade.toUpperCase();
+                    // Define passing letter grades
+                    if (['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'P'].includes(upperGrade)) {
+                        isLetterPassed = true;
+                    }
+                     // Define failing letter grades explicitly
+                    else if (['F', 'INC', 'DRP'].includes(upperGrade)) {
+                         isLetterFailed = true;
+                    }
+                    // Handle other potential string grades if necessary
+                }
+
+                // Define passing criteria (numeric >= 75 OR passing letter grade)
+                const isPassed = (numericGrade !== null && numericGrade >= 75) || isLetterPassed;
+
+                if (isPassed) {
+                    return <Badge variant="default">Passed</Badge>;
+                } else {
+                    // Includes numeric fail, F, INC, DRP, or unhandled letter grades
+                    return <Badge variant="destructive">Failed</Badge>;
+                }
+
+            } else {
+                // If status is not 'Complete', show the status itself
+                let variant: "secondary" | "outline" = "secondary";
+                if (status === 'Incomplete') variant = 'outline';
+                return <Badge variant={variant}>{status}</Badge>;
+            }
          },
-         filterFn: (row, id, value) => {
-             return value.includes(row.getValue(id));
-         },
+          enableSorting: false, // Disable sorting for this complex cell
+         enableHiding: false, // Keep visible
     },
     {
       id: "actions",
@@ -226,12 +261,6 @@ export default function SubmitGradesPage() {
       ),
     },
   ], []); // Empty dependency array
-
-   const statusOptions = [
-        { value: 'Not Submitted', label: 'Not Submitted' },
-        { value: 'Incomplete', label: 'Incomplete' },
-        { value: 'Complete', label: 'Complete' },
-   ];
 
 
   return (
@@ -299,9 +328,7 @@ export default function SubmitGradesPage() {
                         data={filteredAssignments}
                         searchPlaceholder="Search by student name..."
                         searchColumnId="studentName"
-                        filterableColumnHeaders={[ // Define filterable columns
-                            { columnId: 'status', title: 'Status', options: statusOptions },
-                         ]}
+                         // Removed filterableColumnHeaders for the status/remarks column
                      />
                 )}
              </CardContent>
