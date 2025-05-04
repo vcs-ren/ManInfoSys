@@ -11,12 +11,13 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
+  SidebarFooter, // Keep SidebarFooter import if needed for structure, but it will be empty
   SidebarTrigger,
+  SidebarSeparator, // Import Separator
 } from '@/components/ui/sidebar';
 import type { IconName } from 'lucide-react'; // Import IconName type
 import dynamic from 'next/dynamic'; // Import dynamic for icon loading
-import { LogOut, LayoutDashboard as DefaultIcon } from 'lucide-react'; // Keep static icons
+import { LogOut, Settings, LayoutDashboard as DefaultIcon } from 'lucide-react'; // Keep static icons, add Settings
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 
@@ -47,12 +48,6 @@ const Icon = ({ name, ...props }: { name: IconName } & React.ComponentProps<any>
     }
   );
 
-   // Render a placeholder or default icon during loading or if icon fails to load
-   // This part might need refinement depending on how dynamic import handles errors
-//   if (!LucideIcon) {
-//       return <DefaultIcon {...props} />; // Render default icon - handled by loading state now
-//   }
-
   return <LucideIcon {...props} />;
 };
 
@@ -68,7 +63,9 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
   };
 
   // Filter the nav items based on the current user's role
-  const filteredNavItems = navItemGroups.find(group => group.role === currentUserRole)?.items || [];
+  const userNavGroup = navItemGroups.find(group => group.role === currentUserRole);
+  const filteredNavItems = userNavGroup?.items.filter(item => item.label !== 'Settings') || []; // Exclude settings from main list
+  const settingsNavItem = userNavGroup?.items.find(item => item.label === 'Settings'); // Find settings item
 
    // Helper function to determine if a nav item is active
   const checkIsActive = (itemHref: string, currentPathname: string): boolean => {
@@ -94,8 +91,9 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
             </div>
         </SidebarHeader>
 
-        <SidebarContent className="flex-1 overflow-y-auto p-2"> {/* Added padding */}
-             {/* Render only the menu for the current role */}
+        {/* Main Content Area */}
+        <SidebarContent className="flex-1 overflow-y-auto p-2 flex flex-col justify-between"> {/* Use flex-col and justify-between */}
+             {/* Main Navigation */}
              <SidebarMenu>
                 {filteredNavItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
@@ -117,17 +115,40 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
                 ))}
              </SidebarMenu>
 
+              {/* Settings and Logout Section at the bottom of the content */}
+              <div>
+                    <SidebarSeparator className="my-2" /> {/* Separator */}
+                    <SidebarMenu>
+                         {settingsNavItem && ( // Conditionally render settings if it exists
+                           <SidebarMenuItem key={settingsNavItem.href}>
+                                <Link href={settingsNavItem.href} passHref legacyBehavior>
+                                    <SidebarMenuButton
+                                    asChild
+                                    isActive={checkIsActive(settingsNavItem.href, pathname)}
+                                    tooltip={settingsNavItem.label}
+                                    className="justify-start"
+                                    >
+                                    <a>
+                                        <Icon name={settingsNavItem.icon} className="size-4 mr-2" />
+                                        <span>{settingsNavItem.label}</span>
+                                    </a>
+                                    </SidebarMenuButton>
+                                </Link>
+                           </SidebarMenuItem>
+                         )}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton onClick={handleLogout} className="justify-start w-full" tooltip="Logout">
+                                <LogOut className="size-4 mr-2" />
+                                <span>Logout</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+              </div>
         </SidebarContent>
 
+        {/* Footer is now empty */}
         <SidebarFooter>
-          <SidebarMenu>
-             <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleLogout} className="justify-start w-full" tooltip="Logout">
-                    <LogOut className="size-4 mr-2" />
-                    <span>Logout</span>
-                </SidebarMenuButton>
-             </SidebarMenuItem>
-          </SidebarMenu>
+           {/* Intentionally empty */}
         </SidebarFooter>
       </Sidebar>
 
