@@ -6,30 +6,34 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { BookOpenCheck, Loader2 } from "lucide-react";
 
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
-import type { Grade } from "@/types"; // Using the updated Grade type
+import type { StudentTermGrade } from "@/types"; // Using the updated Grade type
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge"; // Import Badge
 
 // Mock Data - Replace with API call to get grades for the logged-in student
-// Data should now align with the Grade type (subject, grade, remarks)
-const getStudentGrades = async (): Promise<Grade[]> => {
+// Data should now align with the StudentTermGrade type
+const getStudentGrades = async (): Promise<StudentTermGrade[]> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 600));
   // In real app, fetch from backend: /api/student/grades
-  // Remarks could be system-generated (Passed/Failed/INC) or teacher's notes
+  // Remarks could be system-generated (Passed/Failed) or teacher's notes
+  // Status is derived based on whether all grades are submitted
   return [
-    { subject: "Mathematics 101", grade: "A-", remarks: "Passed - Excellent work!" },
-    { subject: "Physics 202", grade: 85, remarks: "Passed - Good understanding of concepts." },
-    { subject: "English Literature", grade: "B+", remarks: "Passed" },
-    { subject: "History 101", grade: "INC", remarks: "Failed - Missing final paper." }, // INC is a failing grade here
-    { subject: "Physical Education", grade: "P", remarks: "Passed" },
-    { subject: "Introduction to Programming", grade: 72, remarks: "Failed - Requires Improvement" }, // Example numeric failed grade
+    { id: "MATH101", subjectName: "Mathematics 101", prelimGrade: 92, midtermGrade: 88, finalGrade: 90, status: "Complete", finalRemarks: "Excellent work!" },
+    { id: "PHYS202", subjectName: "Physics 202", prelimGrade: 80, midtermGrade: 85, finalGrade: 85, status: "Complete" },
+    { id: "ENGL101", subjectName: "English Literature", prelimGrade: "B", midtermGrade: "B+", finalGrade: "B+", status: "Complete" },
+    { id: "HIST101", subjectName: "History 101", prelimGrade: "C", midtermGrade: "INC", finalGrade: "INC", status: "Complete", finalRemarks: "Missing final paper." }, // Final grade is INC (Failing)
+    { id: "PE101", subjectName: "Physical Education", prelimGrade: "P", midtermGrade: "P", finalGrade: "P", status: "Complete" },
+    { id: "CS101", subjectName: "Introduction to Programming", prelimGrade: 72, midtermGrade: 70, finalGrade: 72, status: "Complete", finalRemarks: "Requires Improvement" }, // Example numeric failed grade
+    { id: "IT101", subjectName: "Introduction to IT", prelimGrade: 88, midtermGrade: null, finalGrade: null, status: "Incomplete" }, // Missing grades
+    { id: "BA101", subjectName: "Introduction to Business", prelimGrade: null, midtermGrade: null, finalGrade: null, status: "Not Submitted" }, // No grades submitted
   ];
 };
 
 
 export default function ViewGradesPage() {
-  const [grades, setGrades] = React.useState<Grade[]>([]);
+  const [grades, setGrades] = React.useState<StudentTermGrade[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const { toast } = useToast(); // Use toast for potential errors
 
@@ -50,26 +54,78 @@ export default function ViewGradesPage() {
   }, [toast]);
 
 
-  // Define columns for the DataTable
-  const columns: ColumnDef<Grade>[] = React.useMemo(() => [
+  // Define columns for the DataTable, similar to teacher's view
+  const columns: ColumnDef<StudentTermGrade>[] = React.useMemo(() => [
     {
-        accessorKey: "subject",
-        header: ({ column }) => {
-          return <DataTableColumnHeader column={column} title="Subject" />;
-        },
-        cell: ({ row }) => <div className="font-medium">{row.getValue("subject")}</div>,
+        accessorKey: "subjectName",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Subject" />,
+        cell: ({ row }) => <div className="font-medium">{row.getValue("subjectName")}</div>,
     },
     {
-        accessorKey: "grade",
-        header: ({ column }) => {
-          return <DataTableColumnHeader column={column} title="Grade" />;
-        },
-        cell: ({ row }) => <div className="text-center font-semibold">{String(row.getValue("grade"))}</div>, // Ensure grade is string for display
+        accessorKey: "prelimGrade",
+        header: "Prelim",
+        cell: ({ row }) => row.original.prelimGrade ?? <span className="text-muted-foreground">-</span>,
     },
     {
-        accessorKey: "remarks",
-        header: "Remarks",
-        cell: ({ row }) => <div>{row.getValue("remarks") || <span className="text-muted-foreground italic">No remarks</span>}</div>,
+        accessorKey: "midtermGrade",
+        header: "Midterm",
+        cell: ({ row }) => row.original.midtermGrade ?? <span className="text-muted-foreground">-</span>,
+    },
+    {
+        accessorKey: "finalGrade",
+        header: "Final",
+        cell: ({ row }) => row.original.finalGrade ?? <span className="text-muted-foreground">-</span>,
+    },
+    {
+        accessorKey: "status", // Use status for internal logic
+        header: "Remarks", // Display "Passed"/"Failed" or progress
+        cell: ({ row }) => {
+            const gradeData = row.original;
+            const status = gradeData.status;
+            const finalGrade = gradeData.finalGrade;
+
+            if (status === 'Complete' && finalGrade !== null && finalGrade !== undefined && finalGrade !== "") {
+                let numericGrade: number | null = null;
+                let isLetterPassed = false;
+                let isLetterFailed = false;
+
+                if (typeof finalGrade === 'number') {
+                    numericGrade = finalGrade;
+                } else if (typeof finalGrade === 'string') {
+                    const upperGrade = finalGrade.toUpperCase();
+                    // Define passing letter grades
+                    if (['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'P'].includes(upperGrade)) {
+                        isLetterPassed = true;
+                    }
+                     // Define failing letter grades explicitly
+                    else if (['F', 'INC', 'DRP', 'W'].includes(upperGrade)) { // Added 'W' for Withdraw
+                         isLetterFailed = true;
+                    }
+                }
+
+                // Define passing criteria (numeric >= 75 OR passing letter grade)
+                const isPassed = (numericGrade !== null && numericGrade >= 75) || isLetterPassed;
+
+                return (
+                  <div className="flex flex-col items-start">
+                     <Badge variant={isPassed ? "default" : "destructive"}>
+                       {isPassed ? "Passed" : "Failed"}
+                     </Badge>
+                    {gradeData.finalRemarks && (
+                       <span className="text-xs text-muted-foreground mt-1 italic">"{gradeData.finalRemarks}"</span>
+                    )}
+                  </div>
+                );
+
+            } else if (status === 'Incomplete') {
+                return <Badge variant="secondary">In Progress</Badge>;
+            } else if (status === 'Not Submitted') {
+                return <Badge variant="outline">Not Submitted</Badge>;
+            } else {
+                return <span className="text-muted-foreground">-</span>;
+            }
+         },
+          enableSorting: false,
     },
   ], []);
 
@@ -84,8 +140,8 @@ export default function ViewGradesPage() {
 
       <Card>
          <CardHeader>
-            <CardTitle>Grade Summary</CardTitle>
-            <CardDescription>Overview of your academic performance. Remarks indicate the final status.</CardDescription>
+            <CardTitle>Grade Overview</CardTitle>
+            <CardDescription>Summary of your grades per term. Final remarks indicate Passed/Failed status.</CardDescription>
         </CardHeader>
          <CardContent>
             {isLoading ? (
@@ -103,18 +159,6 @@ export default function ViewGradesPage() {
             )}
          </CardContent>
       </Card>
-
-      {/* Maybe add GPA calculation section later */}
-        <Card>
-             <CardHeader>
-                 <CardTitle>GPA (Placeholder)</CardTitle>
-                 <CardDescription>Your calculated Grade Point Average.</CardDescription>
-             </CardHeader>
-             <CardContent>
-                 <p className="text-lg font-semibold text-primary">N/A</p>
-                 <p className="text-xs text-muted-foreground mt-1">GPA calculation is not yet implemented.</p>
-             </CardContent>
-        </Card>
     </div>
   );
 }

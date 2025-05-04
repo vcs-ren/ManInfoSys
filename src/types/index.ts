@@ -1,4 +1,5 @@
 
+
 // Shared types for the application
 
 export type StudentStatus = 'New' | 'Transferee' | 'Continuing' | 'Returnee';
@@ -37,12 +38,13 @@ export interface Teacher {
 export type Term = 'Prelim' | 'Midterm' | 'Final';
 
 // Represents a single grade entry for a specific student, subject, and term
-export interface StudentGrade {
+// This is likely more for backend/database structure
+export interface StudentGradeEntry {
     id?: string; // Optional: ID if stored in a DB
     studentId: number;
     subjectId: string;
     term: Term;
-    grade: number | string; // Can be numeric or letter grade
+    grade: number | string | null; // Can be numeric or letter grade, or null
     remarks?: string;
 }
 
@@ -125,11 +127,17 @@ export interface StudentSubjectAssignmentWithGrades {
     status: 'Not Submitted' | 'Incomplete' | 'Complete';
 }
 
-// Type representing the grades a student sees
-export interface Grade {
-    subject: string;
-    grade: number | string; // Numeric or letter grade
-    remarks?: string; // Any remarks from the teacher or system (e.g., "Passed", "Failed", "INC")
+// Type representing the grades a student sees (per subject across terms)
+// This replaces the previous simple Grade type
+export interface StudentTermGrade {
+    id: string; // Can be subjectId or a unique identifier for the row
+    subjectName: string;
+    prelimGrade?: number | string | null;
+    midtermGrade?: number | string | null;
+    finalGrade?: number | string | null;
+    finalRemarks?: string; // Optional final remark from teacher
+    status: 'Not Submitted' | 'Incomplete' | 'Complete'; // Derived status
 }
+
 
 // Define more types as needed (e.g., Course)
