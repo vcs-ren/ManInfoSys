@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -26,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Teacher } from "@/types";
 import { profileSchema } from "@/lib/schemas"; // Using profile schema, but will ignore emergency fields
 import { Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label"; // Ensure Label is imported
 
 // --- API Helpers ---
 const fetchData = async <T>(url: string): Promise<T> => {
@@ -56,6 +58,7 @@ const teacherEditableFieldsSchema = profileSchema.pick({
     lastName: true,
     email: true,
     phone: true,
+    // Exclude emergency contact fields for teachers
 });
 type ProfileFormValues = z.infer<typeof teacherEditableFieldsSchema>;
 
@@ -143,7 +146,7 @@ export default function TeacherProfilePage() {
      return <p className="text-destructive text-center mt-10">Failed to load profile data. Please try refreshing the page.</p>;
   }
 
-
+  // Corrected return statement structure
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">My Profile</h1>
@@ -213,7 +216,7 @@ export default function TeacherProfilePage() {
                             <Input type="tel" placeholder="Your phone number" {...field} value={field.value ?? ''} />
                             </FormControl>
                             <FormMessage />
-                        FormItem>
+                        </FormItem>
                         )}
                     />
 
@@ -224,7 +227,6 @@ export default function TeacherProfilePage() {
              </Form>
           </CardContent>
        </Card>
-
     </div>
   );
 }
