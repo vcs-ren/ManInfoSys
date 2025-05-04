@@ -45,8 +45,10 @@ const getTeacherProfile = async (): Promise<Teacher> => {
 
 // Define the schema specifically for the teacher profile form if needed,
 // or use the generic profileSchema and cast the type.
-// For this example, we use the generic profileSchema.
+// Teacher profile doesn't need emergency contacts, so filter profileSchema or use teacherSchema.
+// For simplicity, we'll reuse profileSchema but know only relevant fields apply.
 type ProfileFormValues = z.infer<typeof profileSchema>;
+
 
 export default function TeacherProfilePage() {
   const [teacherData, setTeacherData] = React.useState<Teacher | null>(null);
@@ -54,14 +56,14 @@ export default function TeacherProfilePage() {
   const { toast } = useToast();
 
   const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
+    resolver: zodResolver(profileSchema), // Still use profileSchema, but only teacher fields will be rendered/submitted
     defaultValues: { // Initialize with empty strings or fetched data later
         id: undefined,
         firstName: "",
         lastName: "",
         email: "",
         phone: "",
-        // department: "", // Add department if it's part of profileSchema and editable
+        // Emergency contact fields are in schema but won't be rendered or submitted here
     },
   });
 
@@ -71,13 +73,14 @@ export default function TeacherProfilePage() {
       try {
         const data = await getTeacherProfile();
         setTeacherData(data);
-        // Reset form with fetched data
+        // Reset form with fetched data - only teacher-relevant fields
         form.reset({
             id: data.id,
             firstName: data.firstName,
             lastName: data.lastName,
             email: data.email || "", // Handle potentially undefined optional fields
             phone: data.phone || "",
+            // Don't reset emergency contact fields
         });
       } catch (error) {
         console.error("Failed to fetch profile:", error);
@@ -91,17 +94,25 @@ export default function TeacherProfilePage() {
 
   // Mock Update Profile Function
   const onSubmit = async (values: ProfileFormValues) => {
-    console.log("Updating profile:", values);
+     // Only send teacher-relevant fields to the backend
+    const updateData = {
+        id: values.id,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        phone: values.phone,
+    }
+    console.log("Updating teacher profile:", updateData);
     // Simulate API call to update teacher profile
     await new Promise(resolve => setTimeout(resolve, 700));
     // Update local state optimistically or after confirmation
-    setTeacherData(prev => prev ? { ...prev, ...values } : null);
+    setTeacherData(prev => prev ? { ...prev, ...updateData } : null);
     toast({
       title: "Profile Updated",
       description: "Your profile information has been saved.",
     });
      // Optionally reset form state if needed, though usually we keep the updated values visible
-    // form.reset(values);
+     form.reset(values); // Reset with all values (including non-rendered ones) to keep form state consistent
   };
 
   if (isLoading) {
@@ -129,32 +140,34 @@ export default function TeacherProfilePage() {
           <CardContent>
              <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                        control={form.control}
-                        name="firstName"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>First Name</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Your first name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="lastName"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Last Name</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Your last name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="firstName"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>First Name</FormLabel>
+                                <FormControl>
+                                <Input placeholder="Your first name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="lastName"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Last Name</FormLabel>
+                                <FormControl>
+                                <Input placeholder="Your last name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                    </div>
                      <FormItem>
                         <FormLabel>Department</FormLabel>
                         <FormControl>
@@ -171,7 +184,7 @@ export default function TeacherProfilePage() {
                         <FormItem>
                             <FormLabel>Email Address</FormLabel>
                             <FormControl>
-                            <Input type="email" placeholder="your.email@example.com" {...field} />
+                            <Input type="email" placeholder="your.email@example.com" {...field} value={field.value ?? ''} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -184,7 +197,7 @@ export default function TeacherProfilePage() {
                         <FormItem>
                             <FormLabel>Phone Number</FormLabel>
                             <FormControl>
-                            <Input type="tel" placeholder="Your phone number" {...field} />
+                            <Input type="tel" placeholder="Your phone number" {...field} value={field.value ?? ''} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -199,17 +212,7 @@ export default function TeacherProfilePage() {
           </CardContent>
        </Card>
 
-       {/* Placeholder for password change functionality */}
-        <Card>
-             <CardHeader>
-                 <CardTitle>Security</CardTitle>
-                 <CardDescription>Manage your account password.</CardDescription>
-             </CardHeader>
-             <CardContent>
-                 <Button variant="outline" disabled>Change Password</Button>
-                 <p className="text-xs text-muted-foreground mt-2">Password change functionality is not yet implemented.</p>
-             </CardContent>
-        </Card>
+       {/* Password change card removed */}
     </div>
   );
 }

@@ -28,6 +28,8 @@ import type { Student } from "@/types";
 import { profileSchema } from "@/lib/schemas"; // Using a generic profile schema
 import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator"; // Import Separator
+import { Textarea } from "@/components/ui/textarea"; // Import Textarea
+
 
 // Mock function to get student data (replace with actual API call)
 // Assume it fetches data for the currently logged-in student
@@ -40,7 +42,8 @@ const getStudentProfile = async (): Promise<Student> => {
         lastName: "Doe",
         course: "Computer Science",
         status: "Continuing", // Replaced year with status
-        section: "A",
+        year: "2nd Year", // Need year for display
+        section: "20A", // Use generated section format
         email: "john.doe@example.com",
         phone: "123-456-7890",
         // Example detailed emergency contact
@@ -115,6 +118,8 @@ export default function StudentProfilePage() {
       title: "Profile Updated",
       description: "Your profile information has been saved.",
     });
+    // Refresh form state with the updated values to prevent showing old data if edit continues
+    form.reset(values);
   };
 
   if (isLoading) {
@@ -152,10 +157,10 @@ export default function StudentProfilePage() {
                                     <Input value={studentData.course} disabled readOnly className="bg-muted"/>
                                 </FormControl>
                             </FormItem>
-                             <FormItem>
-                                <FormLabel>Status</FormLabel>
+                              <FormItem>
+                                <FormLabel>Year Level</FormLabel>
                                 <FormControl>
-                                    <Input value={studentData.status} disabled readOnly className="bg-muted"/>
+                                    <Input value={studentData.year || studentData.status} disabled readOnly className="bg-muted"/>
                                 </FormControl>
                             </FormItem>
                              <FormItem>
@@ -207,7 +212,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Email Address</FormLabel>
                                 <FormControl>
-                                <Input type="email" placeholder="your.email@example.com" {...field} />
+                                <Input type="email" placeholder="your.email@example.com" {...field} value={field.value ?? ''} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -220,7 +225,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Phone Number</FormLabel>
                                 <FormControl>
-                                <Input type="tel" placeholder="Your phone number" {...field} />
+                                <Input type="tel" placeholder="Your phone number" {...field} value={field.value ?? ''}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -240,7 +245,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Contact Name</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Parent/Guardian Name" {...field} />
+                                    <Input placeholder="Parent/Guardian Name" {...field} value={field.value ?? ''} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -253,7 +258,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Relationship</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g., Mother, Father, Guardian" {...field} />
+                                    <Input placeholder="e.g., Mother, Father, Guardian" {...field} value={field.value ?? ''} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -266,7 +271,7 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Contact Phone</FormLabel>
                                 <FormControl>
-                                    <Input type="tel" placeholder="Emergency contact phone number" {...field} />
+                                    <Input type="tel" placeholder="Emergency contact phone number" {...field} value={field.value ?? ''} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -279,7 +284,8 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Contact Address</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Full Address" {...field} />
+                                     {/* Use Textarea for potentially longer address */}
+                                    <Textarea placeholder="Full Address" {...field} value={field.value ?? ''}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -296,17 +302,7 @@ export default function StudentProfilePage() {
           </CardContent>
        </Card>
 
-        {/* Placeholder for password change */}
-        <Card>
-             <CardHeader>
-                 <CardTitle>Security</CardTitle>
-                 <CardDescription>Manage your account password.</CardDescription>
-             </CardHeader>
-             <CardContent>
-                 <Button variant="outline" disabled>Change Password</Button>
-                 <p className="text-xs text-muted-foreground mt-2">Password change functionality is not yet implemented.</p>
-             </CardContent>
-        </Card>
+        {/* Password change card removed */}
     </div>
   );
 }
