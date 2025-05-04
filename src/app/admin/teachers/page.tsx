@@ -1,9 +1,8 @@
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react"; // Added Loader2
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -23,19 +22,51 @@ import {
 } from "@/components/ui/alert-dialog"
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils"; // Import cn utility if needed
+import { cn } from "@/lib/utils";
 
-// Mock Data - Replace with API call
-const getTeachers = async (): Promise<Teacher[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return [
-    { id: 1, teacherId: "t1001", firstName: "Alice", lastName: "Johnson", department: "Mathematics", email: "alice.j@example.com" },
-    { id: 2, teacherId: "t1002", firstName: "Bob", lastName: "Williams", department: "Science", email: "bob.w@example.com" },
-    { id: 3, teacherId: "t1003", firstName: "Charlie", lastName: "Davis", department: "English" },
-    { id: 4, teacherId: "t1004", firstName: "Diana", lastName: "Miller", department: "Science", email: "diana.m@example.com" },
-  ];
+// --- API Helper Functions (Assumed - Implement based on your backend) ---
+const fetchData = async <T>(url: string): Promise<T> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
 };
+
+const postData = async <T, R>(url: string, data: T): Promise<R> => {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+         let errorData; try { errorData = await response.json(); } catch (e) {}
+         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+};
+
+const putData = async <T, R>(url: string, data: T): Promise<R> => {
+    const response = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+     if (!response.ok) {
+         let errorData; try { errorData = await response.json(); } catch (e) {}
+         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+};
+
+
+const deleteData = async (url: string): Promise<void> => {
+    const response = await fetch(url, { method: 'DELETE' });
+     if (!response.ok) {
+         let errorData; try { errorData = await response.json(); } catch (e) {}
+         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+    }
+};
+// --- End API Helpers ---
+
 
 // Define form fields for the UserForm component
 const teacherFormFields = [
@@ -52,6 +83,7 @@ export default function ManageTeachersPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedTeacher, setSelectedTeacher] = React.useState<Teacher | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false); // For delete confirmation
    const { toast } = useToast();
 
 
@@ -59,8 +91,9 @@ export default function ManageTeachersPage() {
     const fetchTeachers = async () => {
       setIsLoading(true);
        try {
-        const data = await getTeachers();
-        setTeachers(data);
+         // Replace with your actual API endpoint
+        const data = await fetchData<{ records: Teacher[] }>('/api/teachers'); // Assuming API returns { records: [] }
+        setTeachers(data.records || []);
       } catch (error) {
         console.error("Failed to fetch teachers:", error);
         toast({ variant: "destructive", title: "Error", description: "Failed to load teacher data." });
@@ -71,47 +104,74 @@ export default function ManageTeachersPage() {
     fetchTeachers();
   }, [toast]);
 
-  // Mock Add Teacher Function
-  const handleAddTeacher = async (values: Teacher) => {
-    console.log("Adding teacher:", values);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const newId = Math.max(0, ...teachers.map(t => t.id)) + 1;
-    const newTeacherId = `t100${newId}`; // Simulate ID generation
-    const newTeacher: Teacher = { ...values, id: newId, teacherId: newTeacherId };
-    setTeachers(prev => [...prev, newTeacher]);
-     toast({ title: "Teacher Added", description: `${values.firstName} ${values.lastName} has been added.` });
+  // Add Teacher Function (API Call)
+  const handleAddTeacher = async (values: Omit<Teacher, 'id' | 'teacherId'>) => {
+     // API should handle ID and teacherId generation, and password hashing
+     console.log("Attempting to add teacher:", values);
+     try {
+        // Replace with your actual POST endpoint
+         const newTeacher = await postData<typeof values, Teacher>('/api/teachers', values);
+         setTeachers(prev => [...prev, newTeacher]); // Add returned teacher to state
+         toast({ title: "Teacher Added", description: `${newTeacher.firstName} ${newTeacher.lastName} has been added.` });
+     } catch (error: any) {
+         console.error("Failed to add teacher:", error);
+         toast({ variant: "destructive", title: "Error Adding Teacher", description: error.message || "Could not add teacher." });
+         throw error; // Re-throw for UserForm
+     }
   };
 
-   // Mock Edit Teacher Function
+   // Edit Teacher Function (API Call)
   const handleEditTeacher = async (values: Teacher) => {
-    console.log("Editing teacher:", values);
      if (!selectedTeacher) return;
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setTeachers(prev => prev.map(t => t.id === selectedTeacher.id ? { ...t, ...values } : t));
-     toast({ title: "Teacher Updated", description: `${values.firstName} ${values.lastName} has been updated.` });
-    closeEditModal(); // Close modal after successful edit
+
+     // Ensure ID is included
+     const payload = { ...values, id: selectedTeacher.id };
+     console.log("Attempting to edit teacher:", payload);
+
+     try {
+         // Replace with your actual PUT/PATCH endpoint (e.g., /api/teachers/{id})
+         const updatedTeacher = await putData<typeof payload, Teacher>(`/api/teachers/${selectedTeacher.id}`, payload);
+         setTeachers(prev => prev.map(t => t.id === updatedTeacher.id ? updatedTeacher : t));
+         toast({ title: "Teacher Updated", description: `${updatedTeacher.firstName} ${updatedTeacher.lastName} has been updated.` });
+         closeEditModal();
+     } catch (error: any) {
+         console.error("Failed to update teacher:", error);
+         toast({ variant: "destructive", title: "Error Updating Teacher", description: error.message || "Could not update teacher." });
+         throw error; // Re-throw for UserForm
+     }
   };
 
-   // Mock Delete Teacher Function
+   // Delete Teacher Function (API Call)
   const handleDeleteTeacher = async (teacherId: number) => {
-      console.log("Deleting teacher with ID:", teacherId);
-        // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setTeachers(prev => prev.filter(t => t.id !== teacherId));
-      toast({ title: "Teacher Deleted", description: `Teacher record has been removed.` });
+      setIsSubmitting(true);
+      try {
+          // Replace with your actual DELETE endpoint
+          await deleteData(`/api/teachers/${teacherId}`);
+          setTeachers(prev => prev.filter(t => t.id !== teacherId));
+          toast({ title: "Teacher Deleted", description: `Teacher record has been removed.` });
+      } catch (error: any) {
+          console.error("Failed to delete teacher:", error);
+          toast({ variant: "destructive", title: "Error Deleting Teacher", description: error.message || "Could not remove teacher." });
+      } finally {
+          setIsSubmitting(false);
+      }
   };
 
   const handleRowClick = (teacher: Teacher) => {
     setSelectedTeacher(teacher);
-    setIsEditModalOpen(true); // Open the edit modal on row click
+    setIsEditModalOpen(true);
   };
 
    const closeEditModal = () => {
     setSelectedTeacher(null);
     setIsEditModalOpen(false);
   };
+
+    // Define dynamic department options for filter
+    const departmentOptions = React.useMemo(() => {
+        const distinctDepartments = [...new Set(teachers.map(t => t.department).filter(Boolean))].sort();
+        return distinctDepartments.map(dep => ({ label: dep, value: dep }));
+    }, [teachers]);
 
 
     // Define columns for the DataTable
@@ -133,29 +193,27 @@ export default function ManageTeachersPage() {
         },
          {
             accessorKey: "department",
-             header: ({ column }) => ( // Use implicit return
+             header: ({ column }) => (
                  <DataTableFilterableColumnHeader
-                     column={column} // Pass column object
+                     column={column}
                      title="Department"
-                     options={[ // Example options - fetch dynamically if needed
-                         { label: "Mathematics", value: "Mathematics" },
-                         { label: "Science", value: "Science" },
-                         { label: "English", value: "English" },
-                     ]}
+                     options={departmentOptions} // Use dynamic options
                  />
              ),
             cell: ({ row }) => <div>{row.getValue("department")}</div>,
-             filterFn: (row, id, value) => {
-                 return value.includes(row.getValue(id))
-             },
+             filterFn: (row, id, value) => value.includes(row.getValue(id)),
         },
          {
             accessorKey: "email",
             header: "Email",
-            cell: ({ row }) => <div className="lowercase">{row.getValue("email") || '-'}</div>, // Handle missing email
+            cell: ({ row }) => <div className="lowercase">{row.getValue("email") || '-'}</div>,
         },
-         // Actions column is added dynamically in the DataTable component
-    ], []); // Empty dependency array
+         {
+            accessorKey: "phone",
+            header: "Phone",
+            cell: ({ row }) => <div>{row.getValue("phone") || '-'}</div>,
+        },
+    ], [departmentOptions]); // Dependency on dynamic options
 
 
       // Function to generate dropdown menu items for each row
@@ -182,11 +240,13 @@ export default function ManageTeachersPage() {
                     </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={() => handleDeleteTeacher(teacher.id)}
-                         className={buttonVariants({ variant: "destructive" })} // Use buttonVariants
+                         className={buttonVariants({ variant: "destructive" })}
+                         disabled={isSubmitting}
                         >
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Yes, delete teacher
                     </AlertDialogAction>
                     </AlertDialogFooter>
@@ -200,7 +260,6 @@ export default function ManageTeachersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Manage Teachers</h1>
-        {/* Add Teacher Form - Trigger controls visibility */}
         <UserForm<Teacher>
           trigger={
             <Button>
@@ -210,13 +269,17 @@ export default function ManageTeachersPage() {
           formSchema={teacherSchema}
           onSubmit={handleAddTeacher}
           title="Add New Teacher"
-          description="Fill in the details below to add a new teacher."
-          formFields={teacherFormFields} // Pass the defined fields
+          description="Fill in the details below. Credentials are generated upon creation."
+          formFields={teacherFormFields}
         />
       </div>
 
       {isLoading ? (
-         <p>Loading teacher data...</p> // Replace with Skeleton loader if desired
+          <div className="flex justify-center items-center py-10">
+             <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" /> Loading teacher data...
+         </div>
+       ) : teachers.length === 0 ? (
+             <p className="text-center text-muted-foreground py-10">No teachers found.</p>
        ) : (
             <DataTable
                 columns={columns}
@@ -232,13 +295,13 @@ export default function ManageTeachersPage() {
       {/* Edit Modal - Controlled externally */}
        {selectedTeacher && (
            <UserForm<Teacher>
-              isOpen={isEditModalOpen} // Control dialog via state
-              onOpenChange={setIsEditModalOpen} // Pass the state setter
+              isOpen={isEditModalOpen}
+              onOpenChange={setIsEditModalOpen}
               formSchema={teacherSchema}
               onSubmit={handleEditTeacher}
               title={`Edit Teacher: ${selectedTeacher.firstName} ${selectedTeacher.lastName}`}
-              description="Update the teacher's information below. Username and password are auto-generated and cannot be changed here."
-              formFields={teacherFormFields.map(f => ({...f, disabled: false }))} // Ensure fields are enabled
+              description="Update the teacher's information below. Username and password are auto-generated and managed by the system."
+              formFields={teacherFormFields.map(f => ({...f, disabled: false }))}
               isEditMode={true}
               initialData={selectedTeacher}
             />

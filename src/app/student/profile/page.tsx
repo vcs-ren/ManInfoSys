@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -30,33 +29,28 @@ import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator"; // Import Separator
 import { Textarea } from "@/components/ui/textarea"; // Import Textarea
 
-
-// Mock function to get student data (replace with actual API call)
-// Assume it fetches data for the currently logged-in student
-const getStudentProfile = async (): Promise<Student> => {
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
-    return {
-        id: 1, // Example ID
-        studentId: "s1001",
-        firstName: "John",
-        lastName: "Doe",
-        course: "Computer Science",
-        status: "Continuing", // Replaced year with status
-        year: "2nd Year", // Need year for display
-        section: "20A", // Use generated section format
-        email: "john.doe@example.com",
-        phone: "123-456-7890",
-        // Example detailed emergency contact
-        emergencyContactName: "Jane Doe",
-        emergencyContactRelationship: "Mother",
-        emergencyContactPhone: "987-654-3210",
-        emergencyContactAddress: "123 Main St, Anytown, USA",
-    };
+// --- API Helpers ---
+const fetchData = async <T>(url: string): Promise<T> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
 };
 
-// Define the schema specifically for the student profile form if needed,
-// or use the generic profileSchema and cast the type.
-// For this example, we use the generic profileSchema.
+const putData = async <T, R>(url: string, data: T): Promise<R> => {
+    const response = await fetch(url, {
+        method: 'PUT', // Or PATCH
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+     if (!response.ok) {
+         let errorData; try { errorData = await response.json(); } catch (e) {}
+         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+};
+// --- End API Helpers ---
+
+
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function StudentProfilePage() {
@@ -66,7 +60,7 @@ export default function StudentProfilePage() {
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { // Initialize with empty strings or fetched data later
+    defaultValues: {
         id: undefined,
         firstName: "",
         lastName: "",
@@ -80,17 +74,18 @@ export default function StudentProfilePage() {
   });
 
  React.useEffect(() => {
-    const fetchData = async () => {
+    const loadProfile = async () => {
       setIsLoading(true);
       try {
-        const data = await getStudentProfile();
+        // Replace with your actual API endpoint for fetching the logged-in student's profile
+        const data = await fetchData<Student>('/api/student/profile');
         setStudentData(data);
         // Reset form with fetched data
         form.reset({
             id: data.id,
             firstName: data.firstName,
             lastName: data.lastName,
-            email: data.email || "", // Handle potentially undefined optional fields
+            email: data.email || "",
             phone: data.phone || "",
             emergencyContactName: data.emergencyContactName || "",
             emergencyContactRelationship: data.emergencyContactRelationship || "",
@@ -104,35 +99,52 @@ export default function StudentProfilePage() {
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, [form, toast]);
+    loadProfile();
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Fetch only once on mount
 
-  // Mock Update Profile Function
+
+  // Update Profile Function (API Call)
   const onSubmit = async (values: ProfileFormValues) => {
-    console.log("Updating profile:", values);
-    // Simulate API call to update student profile
-    await new Promise(resolve => setTimeout(resolve, 700));
-    // Update local state optimistically or after confirmation
-    setStudentData(prev => prev ? { ...prev, ...values } : null);
-    toast({
-      title: "Profile Updated",
-      description: "Your profile information has been saved.",
-    });
-    // Refresh form state with the updated values to prevent showing old data if edit continues
-    form.reset(values);
+    if (!studentData) return; // Should not happen if loaded
+
+     const payload = {
+         ...values, // Includes all editable fields + id
+     };
+    console.log("Updating profile:", payload);
+
+    try {
+        // Replace with your actual PUT/PATCH endpoint (e.g., /api/student/profile)
+        // The backend should identify the user via session/token, not rely solely on ID in payload
+        const updatedProfile = await putData<typeof payload, Student>('/api/student/profile', payload);
+        // Update local state optimistically or with the response
+        setStudentData(prev => ({ ...prev, ...updatedProfile })); // Merge updates
+        toast({
+            title: "Profile Updated",
+            description: "Your profile information has been saved.",
+        });
+        form.reset(updatedProfile); // Reset form with the confirmed updated values
+    } catch (error: any) {
+        console.error("Failed to update profile:", error);
+        toast({
+            variant: "destructive",
+            title: "Update Failed",
+            description: error.message || "Could not save profile changes.",
+        });
+    }
   };
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-40">
+      <div className="flex justify-center items-center h-60">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading Profile...</span>
+        <span className="ml-3 text-lg">Loading Profile...</span>
       </div>
     );
   }
 
   if (!studentData) {
-     return <p className="text-destructive">Failed to load profile data.</p>;
+     return <p className="text-destructive text-center mt-10">Failed to load profile data. Please try refreshing the page.</p>;
   }
 
 
@@ -284,7 +296,6 @@ export default function StudentProfilePage() {
                             <FormItem>
                                 <FormLabel>Contact Address</FormLabel>
                                 <FormControl>
-                                     {/* Use Textarea for potentially longer address */}
                                     <Textarea placeholder="Full Address" {...field} value={field.value ?? ''}/>
                                 </FormControl>
                                 <FormMessage />
@@ -302,8 +313,6 @@ export default function StudentProfilePage() {
           </CardContent>
        </Card>
 
-        {/* Password change card removed */}
     </div>
   );
 }
-

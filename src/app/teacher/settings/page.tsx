@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -29,6 +28,22 @@ import { passwordChangeSchema } from "@/lib/schemas";
 
 type PasswordFormValues = z.infer<typeof passwordChangeSchema>;
 
+// --- API Helper ---
+const postData = async <T, R>(url: string, data: T): Promise<R> => {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+     if (!response.ok) {
+         let errorData; try { errorData = await response.json(); } catch (e) {}
+         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+};
+// --- End API Helper ---
+
+
 export default function TeacherSettingsPage() {
   const { toast } = useToast();
 
@@ -41,28 +56,36 @@ export default function TeacherSettingsPage() {
     },
   });
 
-  // Mock Update Password Function
+  // Update Password Function (API Call)
   const onSubmit = async (values: PasswordFormValues) => {
-    console.log("Attempting teacher password change:", values);
-    // Simulate API call - replace with actual backend interaction
-    // Check if currentPassword is correct (mock check)
-    if (values.currentPassword !== 'teacherpassword') { // Replace with actual check
+    console.log("Attempting teacher password change...");
+     const payload = {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+    };
+
+    try {
+        // Replace with your actual API endpoint for changing teacher password
+        // Backend verifies currentPassword against the logged-in teacher's hash
+        await postData('/api/teacher/change-password', payload);
+
+        toast({
+            title: "Password Updated",
+            description: "Your password has been changed successfully.",
+        });
+        form.reset(); // Reset form fields
+    } catch (error: any) {
+        console.error("Password change error:", error);
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Incorrect current password.",
+          description: error.message || "Failed to change password. Please check your current password and try again.",
         });
-         form.setError("currentPassword", { message: "Incorrect current password" });
-        return;
+         // Set form error if specific message indicates incorrect current password
+         if (error.message && error.message.toLowerCase().includes("incorrect current password")) {
+             form.setError("currentPassword", { message: "Incorrect current password" });
+         }
     }
-
-    await new Promise(resolve => setTimeout(resolve, 700));
-
-    toast({
-      title: "Password Updated",
-      description: "Your password has been changed successfully.",
-    });
-    form.reset(); // Reset form fields
   };
 
   return (
@@ -122,7 +145,7 @@ export default function TeacherSettingsPage() {
 
                      <Button type="submit" disabled={form.formState.isSubmitting}>
                          {form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</> : 'Update Password'}
-                     </Button>
+                     Button>
                 </form>
              </Form>
           </CardContent>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -25,29 +24,40 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { Teacher } from "@/types";
-import { profileSchema } from "@/lib/schemas"; // Using a generic profile schema
+import { profileSchema } from "@/lib/schemas"; // Using profile schema, but will ignore emergency fields
 import { Loader2 } from "lucide-react";
 
-// Mock function to get teacher data (replace with actual API call)
-// Assume it fetches data for the currently logged-in teacher
-const getTeacherProfile = async (): Promise<Teacher> => {
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
-    return {
-        id: 2, // Example ID
-        teacherId: "t1002",
-        firstName: "Bob",
-        lastName: "Williams",
-        department: "Science",
-        email: "bob.w@example.com",
-        phone: "987-654-3210"
-    };
+// --- API Helpers ---
+const fetchData = async <T>(url: string): Promise<T> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
 };
 
-// Define the schema specifically for the teacher profile form if needed,
-// or use the generic profileSchema and cast the type.
-// Teacher profile doesn't need emergency contacts, so filter profileSchema or use teacherSchema.
-// For simplicity, we'll reuse profileSchema but know only relevant fields apply.
-type ProfileFormValues = z.infer<typeof profileSchema>;
+const putData = async <T, R>(url: string, data: T): Promise<R> => {
+    const response = await fetch(url, {
+        method: 'PUT', // Or PATCH
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+     if (!response.ok) {
+         let errorData; try { errorData = await response.json(); } catch (e) {}
+         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+};
+// --- End API Helpers ---
+
+// Use a subset of profileSchema relevant to teachers, or create teacherProfileSchema
+// For simplicity, we adapt using profileSchema but only render/submit teacher fields.
+const teacherEditableFieldsSchema = profileSchema.pick({
+    id: true,
+    firstName: true,
+    lastName: true,
+    email: true,
+    phone: true,
+});
+type ProfileFormValues = z.infer<typeof teacherEditableFieldsSchema>;
 
 
 export default function TeacherProfilePage() {
@@ -56,31 +66,30 @@ export default function TeacherProfilePage() {
   const { toast } = useToast();
 
   const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema), // Still use profileSchema, but only teacher fields will be rendered/submitted
-    defaultValues: { // Initialize with empty strings or fetched data later
+    resolver: zodResolver(teacherEditableFieldsSchema),
+    defaultValues: {
         id: undefined,
         firstName: "",
         lastName: "",
         email: "",
         phone: "",
-        // Emergency contact fields are in schema but won't be rendered or submitted here
     },
   });
 
  React.useEffect(() => {
-    const fetchData = async () => {
+    const loadProfile = async () => {
       setIsLoading(true);
       try {
-        const data = await getTeacherProfile();
+        // Replace with your actual API endpoint for fetching the logged-in teacher's profile
+        const data = await fetchData<Teacher>('/api/teacher/profile');
         setTeacherData(data);
-        // Reset form with fetched data - only teacher-relevant fields
+        // Reset form with fetched data
         form.reset({
             id: data.id,
             firstName: data.firstName,
             lastName: data.lastName,
-            email: data.email || "", // Handle potentially undefined optional fields
+            email: data.email || "",
             phone: data.phone || "",
-            // Don't reset emergency contact fields
         });
       } catch (error) {
         console.error("Failed to fetch profile:", error);
@@ -89,43 +98,49 @@ export default function TeacherProfilePage() {
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, [form, toast]); // Add form and toast to dependency array
+    loadProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Fetch only once
 
-  // Mock Update Profile Function
+  // Update Profile Function (API Call)
   const onSubmit = async (values: ProfileFormValues) => {
-     // Only send teacher-relevant fields to the backend
-    const updateData = {
-        id: values.id,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        email: values.email,
-        phone: values.phone,
-    }
-    console.log("Updating teacher profile:", updateData);
-    // Simulate API call to update teacher profile
-    await new Promise(resolve => setTimeout(resolve, 700));
-    // Update local state optimistically or after confirmation
-    setTeacherData(prev => prev ? { ...prev, ...updateData } : null);
-    toast({
-      title: "Profile Updated",
-      description: "Your profile information has been saved.",
-    });
-     // Optionally reset form state if needed, though usually we keep the updated values visible
-     form.reset(values); // Reset with all values (including non-rendered ones) to keep form state consistent
+     if (!teacherData) return;
+
+     const payload = { ...values }; // Already contains only the editable fields + id
+     console.log("Updating teacher profile:", payload);
+
+     try {
+        // Replace with your actual PUT/PATCH endpoint (e.g., /api/teacher/profile)
+        // Backend identifies user via session/token
+        const updatedProfile = await putData<typeof payload, Teacher>('/api/teacher/profile', payload);
+
+        setTeacherData(prev => ({ ...prev, ...updatedProfile })); // Merge updates
+        toast({
+            title: "Profile Updated",
+            description: "Your profile information has been saved.",
+        });
+        form.reset(updatedProfile); // Reset with confirmed updated values
+     } catch (error: any) {
+        console.error("Failed to update profile:", error);
+        toast({
+            variant: "destructive",
+            title: "Update Failed",
+            description: error.message || "Could not save profile changes.",
+        });
+     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-40">
+      <div className="flex justify-center items-center h-60">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading Profile...</span>
+        <span className="ml-3 text-lg">Loading Profile...</span>
       </div>
     );
   }
 
   if (!teacherData) {
-     return <p className="text-destructive">Failed to load profile data.</p>;
+     return <p className="text-destructive text-center mt-10">Failed to load profile data. Please try refreshing the page.</p>;
   }
 
 
@@ -135,7 +150,7 @@ export default function TeacherProfilePage() {
        <Card>
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
-            <CardDescription>View and update your personal details. Username ({teacherData.teacherId}) cannot be changed.</CardDescription>
+            <CardDescription>View and update your personal details. Username ({teacherData.teacherId}) and Department are managed by the admin.</CardDescription>
           </CardHeader>
           <CardContent>
              <Form {...form}>
@@ -173,8 +188,6 @@ export default function TeacherProfilePage() {
                         <FormControl>
                             <Input value={teacherData.department} disabled readOnly className="bg-muted"/>
                         </FormControl>
-                         <FormMessage />
-                         <p className="text-xs text-muted-foreground">Department is managed by the admin.</p>
                     </FormItem>
 
                     <FormField
@@ -200,7 +213,7 @@ export default function TeacherProfilePage() {
                             <Input type="tel" placeholder="Your phone number" {...field} value={field.value ?? ''} />
                             </FormControl>
                             <FormMessage />
-                        </FormItem>
+                        FormItem>
                         )}
                     />
 
@@ -212,7 +225,6 @@ export default function TeacherProfilePage() {
           </CardContent>
        </Card>
 
-       {/* Password change card removed */}
     </div>
   );
 }

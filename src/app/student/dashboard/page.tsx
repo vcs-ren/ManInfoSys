@@ -1,24 +1,65 @@
+"use client"; // Mark as Client Component
 
+import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Megaphone, Bell } from "lucide-react";
+import { Megaphone, Bell, Loader2 } from "lucide-react";
+import type { Announcement, ScheduleEntry } from "@/types"; // Assuming ScheduleEntry type exists
 
-// Mock data - replace with actual data fetching for the logged-in student
-const getStudentAnnouncements = async () => {
-    await new Promise(resolve => setTimeout(resolve, 300)); // Simulate fetch delay
-    // Fetch announcements relevant to the student (e.g., general or course/section specific)
-    return [
-        { id: 1, type: 'admin', title: "Campus Event: Tech Fest 2024", content: "Join us for Tech Fest next week! Workshops, competitions, and more.", date: "2024-07-28" },
-        { id: 3, type: 'teacher', title: "Assignment 3 Reminder (Math 101 - Section A)", content: "Don't forget Assignment 3 is due this Friday.", date: "2024-07-29" },
-    ];
+// --- API Helper ---
+const fetchData = async <T>(url: string): Promise<T> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
+};
+// --- End API Helper ---
+
+interface UpcomingItem { // Define a basic type for upcoming items
+    id: string;
+    title: string;
+    date?: Date;
+    type: 'assignment' | 'event' | 'class'; // Example types
 }
 
+export default function StudentDashboardPage() {
+    const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
+    const [upcomingItems, setUpcomingItems] = React.useState<UpcomingItem[]>([]);
+    const [isLoadingAnnouncements, setIsLoadingAnnouncements] = React.useState(true);
+    const [isLoadingUpcoming, setIsLoadingUpcoming] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
 
-export default async function StudentDashboardPage() {
-   const announcements = await getStudentAnnouncements();
+    React.useEffect(() => {
+        const loadDashboardData = async () => {
+            setIsLoadingAnnouncements(true);
+            setIsLoadingUpcoming(true);
+            setError(null);
+            try {
+                // Fetch announcements targeted to the student (e.g., /api/student/announcements)
+                const announcementsData = await fetchData<Announcement[]>('/api/student/announcements'); // Replace with actual endpoint
+                setAnnouncements(announcementsData || []);
+
+                // Fetch upcoming items (e.g., /api/student/upcoming)
+                const upcomingData = await fetchData<UpcomingItem[]>('/api/student/upcoming'); // Replace with actual endpoint
+                setUpcomingItems(upcomingData || []);
+
+            } catch (err) {
+                console.error("Failed to load dashboard data:", err);
+                setError("Could not load dashboard information. Please try again later.");
+                // Optionally use toast here
+            } finally {
+                setIsLoadingAnnouncements(false);
+                setIsLoadingUpcoming(false);
+            }
+        };
+
+        loadDashboardData();
+    }, []); // Empty dependency array runs once on mount
+
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Student Dashboard</h1>
+
+        {error && <p className="text-destructive">{error}</p>}
 
         <Card>
             <CardHeader className="flex flex-row items-center space-x-4 space-y-0">
@@ -29,26 +70,32 @@ export default async function StudentDashboardPage() {
                  </div>
             </CardHeader>
             <CardContent className="space-y-4">
-                {announcements.length > 0 ? (
+                 {isLoadingAnnouncements ? (
+                     <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" /> Loading announcements...
+                     </div>
+                 ) : announcements.length > 0 ? (
                     announcements.map(announcement => (
-                        <div key={announcement.id} className={`p-3 border rounded-md ${announcement.type === 'admin' ? 'bg-accent/50' : 'bg-secondary'}`}>
+                        <div key={announcement.id} className={`p-3 border rounded-md ${announcement.author === 'Admin' ? 'bg-accent/50' : 'bg-secondary'}`}>
                              <p className="font-semibold">
-                                <span className={`text-xs font-medium mr-2 px-1.5 py-0.5 rounded ${announcement.type === 'admin' ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground text-background'}`}>
-                                    {announcement.type === 'admin' ? 'ADMIN' : 'TEACHER'}
+                                <span className={`text-xs font-medium mr-2 px-1.5 py-0.5 rounded ${announcement.author === 'Admin' ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground text-background'}`}>
+                                    {announcement.author || 'SYSTEM'} {/* Show author or SYSTEM */}
                                 </span>
                                 {announcement.title}
-                                <span className="text-xs text-muted-foreground font-normal ml-2">- {announcement.date}</span>
+                                 {/* Format date safely */}
+                                 <span className="text-xs text-muted-foreground font-normal ml-2">
+                                     - {announcement.date ? new Date(announcement.date).toLocaleDateString() : 'No Date'}
+                                 </span>
                             </p>
                             <p className="text-sm text-muted-foreground mt-1">{announcement.content}</p>
                         </div>
                     ))
                 ) : (
-                    <p className="text-sm text-muted-foreground">No current announcements.</p>
+                    <p className="text-sm text-muted-foreground text-center py-4">No current announcements.</p>
                 )}
             </CardContent>
         </Card>
 
-         {/* Placeholder for other relevant student info like upcoming deadlines or schedule summary */}
          <Card>
             <CardHeader className="flex flex-row items-center space-x-4 space-y-0">
                  <Bell className="h-6 w-6 text-primary" />
@@ -58,8 +105,23 @@ export default async function StudentDashboardPage() {
                  </div>
             </CardHeader>
             <CardContent>
-                 <p className="text-sm text-muted-foreground">Upcoming deadlines and schedule items will appear here.</p>
-                 {/* Example: List next 2 classes or assignment deadlines */}
+                 {isLoadingUpcoming ? (
+                     <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" /> Loading upcoming items...
+                    </div>
+                 ) : upcomingItems.length > 0 ? (
+                     <ul className="space-y-2">
+                         {upcomingItems.map(item => (
+                             <li key={item.id} className="text-sm p-2 border-l-4 border-primary bg-secondary rounded">
+                                 <span className="font-medium">{item.title}</span>
+                                 {item.date && <span className="text-xs text-muted-foreground ml-2">({new Date(item.date).toLocaleDateString()})</span>}
+                                 <span className="text-xs bg-primary/20 text-primary font-semibold px-1.5 py-0.5 rounded ml-2 capitalize">{item.type}</span>
+                             </li>
+                         ))}
+                     </ul>
+                 ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No upcoming deadlines or events found.</p>
+                 )}
             </CardContent>
          </Card>
     </div>

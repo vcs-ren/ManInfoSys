@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -29,6 +28,22 @@ import { passwordChangeSchema } from "@/lib/schemas";
 
 type PasswordFormValues = z.infer<typeof passwordChangeSchema>;
 
+// --- API Helper ---
+const postData = async <T, R>(url: string, data: T): Promise<R> => {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+     if (!response.ok) {
+         let errorData; try { errorData = await response.json(); } catch (e) {}
+         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+    }
+    // Assuming successful password change returns simple success message or status
+    return response.json(); // Adjust based on actual API response
+};
+// --- End API Helper ---
+
 export default function StudentSettingsPage() {
   const { toast } = useToast();
 
@@ -41,29 +56,37 @@ export default function StudentSettingsPage() {
     },
   });
 
-  // Mock Update Password Function
+  // Update Password Function (API Call)
   const onSubmit = async (values: PasswordFormValues) => {
-    console.log("Attempting student password change:", values);
-    // Simulate API call - replace with actual backend interaction
-    // Check if currentPassword is correct (mock check)
-    // In a real app, this would involve verifying against the stored hash
-    if (values.currentPassword !== 'studentpassword') { // Replace with actual check
+    console.log("Attempting student password change...");
+    const payload = {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+        // No need to send confirmPassword, validation is frontend only
+    };
+
+    try {
+        // Replace with your actual API endpoint for changing student password
+        // Backend should verify currentPassword against the logged-in user's hash
+        await postData('/api/student/change-password', payload);
+
+        toast({
+        title: "Password Updated",
+        description: "Your password has been changed successfully.",
+        });
+        form.reset(); // Reset form fields
+    } catch (error: any) {
+        console.error("Password change error:", error);
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Incorrect current password.",
+          description: error.message || "Failed to change password. Please check your current password and try again.",
         });
-        form.setError("currentPassword", { message: "Incorrect current password" });
-        return;
+         // Optionally set form error if specific field is wrong (e.g., current password)
+         if (error.message && error.message.toLowerCase().includes("incorrect current password")) {
+             form.setError("currentPassword", { message: "Incorrect current password" });
+         }
     }
-
-    await new Promise(resolve => setTimeout(resolve, 700));
-
-    toast({
-      title: "Password Updated",
-      description: "Your password has been changed successfully.",
-    });
-    form.reset(); // Reset form fields
   };
 
   return (

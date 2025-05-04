@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Edit, Filter } from "lucide-react";
+import { Edit, Filter, Loader2 } from "lucide-react"; // Added Loader2
 
 import { Button } from "@/components/ui/button";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table"; // Removed unused DataTableFilterableColumnHeader
-import { SubmitGradesModal } from "@/components/submit-grades-modal"; // Import the new grade form modal
-import type { StudentSubjectAssignmentWithGrades, Subject } from "@/types"; // Use the new type, Removed unused Term
+import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import { SubmitGradesModal } from "@/components/submit-grades-modal";
+import type { StudentSubjectAssignmentWithGrades, Subject } from "@/types";
 import {
   Select,
   SelectContent,
@@ -18,44 +18,30 @@ import {
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge"; // Import Badge
+import { Badge } from "@/components/ui/badge";
 
-
-// Mock Data - Replace with API calls based on teacher's assigned subjects/students
-// This function should fetch student assignments for the logged-in teacher, including grade placeholders
-const getTeacherStudentAssignments = async (): Promise<StudentSubjectAssignmentWithGrades[]> => {
-  console.log(`Fetching student assignments for teacher...`);
-  await new Promise(resolve => setTimeout(resolve, 600)); // Simulate fetch delay
-
-  // In real app, fetch from backend: /api/teacher/assignments/grades
-  // Data should include student info, subject info, and potentially existing grades
-  // Update grades to be numbers or null
-  return [
-    // Student 1 - Subject A
-    { assignmentId: "ssa-1-CS101", studentId: 1, studentName: "John Doe", subjectId: "CS101", subjectName: "Intro to Programming", section: "10A", year: "1st Year", prelimGrade: 85, midtermGrade: 88, finalGrade: 90, status: "Complete" },
-    // Student 1 - Subject B
-    { assignmentId: "ssa-1-MATH101", studentId: 1, studentName: "John Doe", subjectId: "MATH101", subjectName: "Mathematics 101", section: "10A", year: "1st Year", prelimGrade: 92, midtermGrade: null, finalGrade: null, status: "Incomplete", prelimRemarks: "Excellent start!" }, // Missing midterm/final
-    // Student 2 - Subject A
-    { assignmentId: "ssa-2-CS101", studentId: 3, studentName: "Peter Jones", subjectId: "CS101", subjectName: "Intro to Programming", section: "10A", year: "1st Year", prelimGrade: 78, midtermGrade: 82, finalGrade: 80, status: "Complete" },
-    // Student 3 - Subject C (Different Year/Section)
-    { assignmentId: "ssa-3-IT202", studentId: 5, studentName: "David Wilson", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "20B", year: "2nd Year", prelimGrade: null, midtermGrade: null, finalGrade: null, status: "Not Submitted" }, // No grades submitted
-     // Student 4 - Subject C
-    { assignmentId: "ssa-4-IT202", studentId: 2, studentName: "Jane Smith", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "20B", year: "2nd Year", prelimGrade: 90, midtermGrade: 85, finalGrade: 88, status: "Complete" }, // Numeric grades
-    { assignmentId: "ssa-5-BA301", studentId: 4, studentName: "Mary Brown", subjectId: "BA301", subjectName: "Marketing Principles", section: "30C", year: "3rd Year", prelimGrade: 70, midtermGrade: 80, finalGrade: null, status: "Incomplete", prelimRemarks: "Missing Prelim Paper" }, // Incomplete grade
-    { assignmentId: "ssa-6-CS101", studentId: 10, studentName: "Alice Wonder", subjectId: "CS101", subjectName: "Intro to Programming", section: "10A", year: "1st Year", prelimGrade: 70, midtermGrade: 65, finalGrade: 72, status: "Complete" }, // Example Failed
-  ];
+// --- API Helper Functions ---
+const fetchData = async <T>(url: string): Promise<T> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return response.json();
 };
 
-// Mock subjects taught by the teacher
-const getTeacherSubjects = async (): Promise<Subject[]> => {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    return [
-        { id: "CS101", name: "Intro to Programming" },
-        { id: "MATH101", name: "Mathematics 101" },
-        { id: "IT202", name: "Networking Fundamentals" },
-        { id: "BA301", name: "Marketing Principles" },
-    ];
+const postData = async <T, R>(url: string, data: T): Promise<R> => {
+    const response = await fetch(url, {
+        method: 'POST', // Or PUT/PATCH depending on the endpoint for updating grades
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+     if (!response.ok) {
+         let errorData; try { errorData = await response.json(); } catch (e) {}
+         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+    }
+    // Assuming API returns the updated assignment or a success message
+    return response.json();
 };
+// --- End API Helpers ---
+
 
 // Define valid year levels for filtering
 const yearLevelOptions = [
@@ -68,8 +54,8 @@ const yearLevelOptions = [
 
 // Helper to get distinct values for filtering
 const getDistinctValues = (data: any[], key: keyof any): { value: string; label: string }[] => {
+    if (!data) return [];
     const distinct = [...new Set(data.map(item => item[key]).filter(Boolean))];
-    // Sort sections numerically then alphabetically (e.g., 10A, 10B, 20A)
     distinct.sort((a, b) => {
         const numA = parseInt(a.match(/\d+/)?.[0] || '0');
         const numB = parseInt(b.match(/\d+/)?.[0] || '0');
@@ -84,52 +70,44 @@ export default function SubmitGradesPage() {
   const [allAssignments, setAllAssignments] = React.useState<StudentSubjectAssignmentWithGrades[]>([]);
   const [filteredAssignments, setFilteredAssignments] = React.useState<StudentSubjectAssignmentWithGrades[]>([]);
   const [subjects, setSubjects] = React.useState<Subject[]>([]);
-  const [selectedSubjectId, setSelectedSubjectId] = React.useState<string>("all"); // State for subject filter
+  const [selectedSubjectId, setSelectedSubjectId] = React.useState<string>("all");
   const [selectedYearLevel, setSelectedYearLevel] = React.useState<string>("all");
-  const [selectedSection, setSelectedSection] = React.useState<string>("all"); // State for section filter
+  const [selectedSection, setSelectedSection] = React.useState<string>("all");
   const [isLoading, setIsLoading] = React.useState(true);
   const [isGradeModalOpen, setIsGradeModalOpen] = React.useState(false);
   const [selectedAssignment, setSelectedAssignment] = React.useState<StudentSubjectAssignmentWithGrades | null>(null);
   const { toast } = useToast();
 
-  // Fetch initial data (all assignments and subjects for the teacher)
+  // Fetch initial data
   React.useEffect(() => {
-      const fetchData = async () => {
+      const fetchDataAndSubjects = async () => {
           setIsLoading(true);
           try {
-              const [assignmentsData, subjectsData] = await Promise.all([
-                  getTeacherStudentAssignments(),
-                  getTeacherSubjects(),
-              ]);
-              setAllAssignments(assignmentsData);
-              setFilteredAssignments(assignmentsData); // Initially show all
-              setSubjects([{ id: "all", name: "All Subjects" }, ...subjectsData]); // Add "all" option
+              // Replace with actual API endpoints
+              // Fetch assignments including existing grades for the logged-in teacher
+              const assignmentsData = await fetchData<StudentSubjectAssignmentWithGrades[]>('/api/teacher/assignments/grades');
+              // Fetch subjects taught by the teacher
+              const subjectsData = await fetchData<Subject[]>('/api/teacher/subjects');
+
+              setAllAssignments(assignmentsData || []);
+              setFilteredAssignments(assignmentsData || []); // Initially show all
+              setSubjects([{ id: "all", name: "All Subjects" }, ...(subjectsData || [])]); // Add "all" option
           } catch (error) {
               console.error("Failed to fetch grading data:", error);
-              toast({ variant: "destructive", title: "Error", description: "Could not load necessary data." });
+              toast({ variant: "destructive", title: "Error", description: "Could not load grading data. Please refresh." });
           } finally {
               setIsLoading(false);
           }
       };
-      fetchData();
+      fetchDataAndSubjects();
   }, [toast]);
 
-  // Filter assignments based on selected subject, year level, and section
+  // Filter assignments based on selections
   React.useEffect(() => {
       let filtered = allAssignments;
-
-      if (selectedSubjectId !== "all") {
-          filtered = filtered.filter(a => a.subjectId === selectedSubjectId);
-      }
-
-      if (selectedYearLevel !== "all") {
-          filtered = filtered.filter(a => a.year === selectedYearLevel);
-      }
-
-      if (selectedSection !== "all") {
-          filtered = filtered.filter(a => a.section === selectedSection);
-      }
-
+      if (selectedSubjectId !== "all") filtered = filtered.filter(a => a.subjectId === selectedSubjectId);
+      if (selectedYearLevel !== "all") filtered = filtered.filter(a => a.year === selectedYearLevel);
+      if (selectedSection !== "all") filtered = filtered.filter(a => a.section === selectedSection);
       setFilteredAssignments(filtered);
   }, [selectedSubjectId, selectedYearLevel, selectedSection, allAssignments]);
 
@@ -140,40 +118,49 @@ export default function SubmitGradesPage() {
     setIsGradeModalOpen(true);
   };
 
-  // Mock Submit Grade Function (called from SubmitGradesModal)
+  // Submit Grade Function (API Call)
   const handleGradeSubmit = async (values: Omit<StudentSubjectAssignmentWithGrades, 'studentName' | 'subjectName' | 'section' | 'year' | 'status'>) => {
     if (!selectedAssignment) return;
-    console.log(`Submitting grades for assignment: ${values.assignmentId}`, values);
-    // Simulate API call to save the grades for all terms
-    await new Promise(resolve => setTimeout(resolve, 600));
 
-    // Update the local state to reflect the submitted grades
-    const updateAssignment = (prev: StudentSubjectAssignmentWithGrades[]) =>
-        prev.map(assign =>
-            assign.assignmentId === values.assignmentId
-            ? {
-                ...assign,
-                prelimGrade: values.prelimGrade,
-                prelimRemarks: values.prelimRemarks,
-                midtermGrade: values.midtermGrade,
-                midtermRemarks: values.midtermRemarks,
-                finalGrade: values.finalGrade,
-                finalRemarks: values.finalRemarks,
-                // Recalculate status based on submitted grades
-                status: (values.prelimGrade !== null && values.midtermGrade !== null && values.finalGrade !== null)
-                        ? 'Complete'
-                        : (values.prelimGrade !== null || values.midtermGrade !== null || values.finalGrade !== null)
-                            ? 'Incomplete'
-                            : 'Not Submitted' as 'Complete' | 'Incomplete' | 'Not Submitted'
-              }
-            : assign
+    // Prepare payload - ensure numeric grades are numbers, nulls are null
+    const payload = {
+        ...values,
+        prelimGrade: values.prelimGrade === "" || values.prelimGrade === null ? null : Number(values.prelimGrade),
+        midtermGrade: values.midtermGrade === "" || values.midtermGrade === null ? null : Number(values.midtermGrade),
+        finalGrade: values.finalGrade === "" || values.finalGrade === null ? null : Number(values.finalGrade),
+    };
+     console.log(`Submitting grades for assignment: ${values.assignmentId}`, payload);
+
+    try {
+        // Replace with your actual endpoint for submitting/updating grades
+        // Example: POST /api/grades or PUT /api/assignments/{assignmentId}/grades
+        const updatedAssignment = await postData<typeof payload, StudentSubjectAssignmentWithGrades>(
+            `/api/assignments/${values.assignmentId}/grades`, // Example endpoint structure
+            payload
         );
 
-     setAllAssignments(updateAssignment);
-    // The useEffect for filtering will update filteredAssignments automatically
+        // Update the local state with the response from the API
+         const updateState = (prev: StudentSubjectAssignmentWithGrades[]) =>
+            prev.map(assign =>
+                assign.assignmentId === updatedAssignment.assignmentId
+                ? updatedAssignment // Use the updated data from the server
+                : assign
+            );
 
-    toast({ title: "Grades Submitted", description: `Grades for ${selectedAssignment.subjectName} submitted for ${selectedAssignment.studentName}.` });
-    // Modal is closed by the modal component itself on success
+        setAllAssignments(updateState);
+        // Filtered list will update automatically via useEffect
+
+        toast({ title: "Grades Submitted", description: `Grades for ${selectedAssignment.subjectName} submitted for ${selectedAssignment.studentName}.` });
+        // Modal is closed by the modal component itself on success
+    } catch (error: any) {
+        console.error("Grade submission error:", error);
+        toast({
+            variant: "destructive",
+            title: "Error Submitting Grades",
+            description: error.message || `Failed to submit grades. Please try again.`,
+        });
+         throw error; // Re-throw for SubmitGradesModal to handle
+    }
   };
 
 
@@ -183,13 +170,14 @@ export default function SubmitGradesPage() {
         accessorKey: "studentName",
         header: ({ column }) => <DataTableColumnHeader column={column} title="Student Name" />,
     },
-    {
+    // Subject column only needed if "All Subjects" is selected
+    ...(selectedSubjectId === 'all' ? [{
         accessorKey: "subjectName",
         header: ({ column }) => <DataTableColumnHeader column={column} title="Subject" />,
-    },
+    } as ColumnDef<StudentSubjectAssignmentWithGrades>] : []), // Type assertion needed
      {
         accessorKey: "year",
-         header: "Year", // Keep simple header for display
+         header: "Year",
          cell: ({ row }) => row.original.year,
     },
     {
@@ -213,36 +201,29 @@ export default function SubmitGradesPage() {
          cell: ({ row }) => row.original.finalGrade ?? <span className="text-muted-foreground">-</span>,
     },
     {
-        accessorKey: "status", // Keep accessorKey as status for data access
-        header: "Remarks", // Change header label
+        accessorKey: "status",
+        header: "Remarks",
          cell: ({ row }) => {
             const assignment = row.original;
             const status = assignment.status;
             const finalGrade = assignment.finalGrade;
 
-            // Only show remarks if status is 'Complete' and finalGrade is a number
             if (status === 'Complete' && typeof finalGrade === 'number') {
-
-                // Define passing criteria (numeric >= 75)
-                const isPassed = finalGrade >= 75;
-
+                const isPassed = finalGrade >= 75; // Assuming 75 is passing
                 return (
                      <Badge variant={isPassed ? "default" : "destructive"}>
                         {isPassed ? "Passed" : "Failed"}
                     </Badge>
                 );
-
             } else if (status === 'Incomplete') {
                  return <Badge variant="secondary">In Progress</Badge>;
             } else if (status === 'Not Submitted') {
                  return <Badge variant="outline">Not Submitted</Badge>;
             } else {
-                // If status is not 'Complete' or final grade is missing/not a number, show nothing or a placeholder
-                 return <span className="text-muted-foreground">-</span>; // Or return null to show nothing
+                 return <span className="text-muted-foreground">-</span>;
             }
          },
-          enableSorting: false, // Disable sorting for this complex cell
-         enableHiding: false, // Keep visible
+          enableSorting: false,
     },
     {
       id: "actions",
@@ -256,14 +237,22 @@ export default function SubmitGradesPage() {
         </Button>
       ),
     },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], []); // Empty dependency array
+  ], [selectedSubjectId]); // Dependency added for conditional column
 
-   // Calculate section options dynamically
-    const sectionOptions = React.useMemo(() => [
-        { value: 'all', label: 'All Sections' },
-        ...getDistinctValues(allAssignments, 'section') // Use helper to get unique sections
-    ], [allAssignments]);
+   // Calculate section options dynamically based on filtered assignments
+    const sectionOptions = React.useMemo(() => {
+         let relevantAssignments = allAssignments;
+         if (selectedSubjectId !== "all") {
+             relevantAssignments = relevantAssignments.filter(a => a.subjectId === selectedSubjectId);
+         }
+          if (selectedYearLevel !== "all") {
+             relevantAssignments = relevantAssignments.filter(a => a.year === selectedYearLevel);
+         }
+        return [
+            { value: 'all', label: 'All Sections' },
+            ...getDistinctValues(relevantAssignments, 'section')
+        ];
+    }, [allAssignments, selectedSubjectId, selectedYearLevel]);
 
 
   return (
@@ -279,7 +268,7 @@ export default function SubmitGradesPage() {
                  {/* Subject Filter */}
                  <div className="flex-1 space-y-1">
                     <Label htmlFor="subject-filter">Subject</Label>
-                    <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId}>
+                    <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={isLoading}>
                         <SelectTrigger id="subject-filter">
                             <SelectValue placeholder="Select subject..." />
                         </SelectTrigger>
@@ -289,14 +278,14 @@ export default function SubmitGradesPage() {
                                 {sub.name}
                             </SelectItem>
                             ))}
-                            {subjects.length === 0 && <SelectItem value="loading" disabled>Loading subjects...</SelectItem>}
+                            {isLoading && <SelectItem value="loading" disabled>Loading...</SelectItem>}
                         </SelectContent>
                     </Select>
                 </div>
                  {/* Year Level Filter */}
                  <div className="flex-1 space-y-1">
                     <Label htmlFor="year-filter">Year Level</Label>
-                    <Select value={selectedYearLevel} onValueChange={setSelectedYearLevel}>
+                    <Select value={selectedYearLevel} onValueChange={setSelectedYearLevel} disabled={isLoading}>
                         <SelectTrigger id="year-filter">
                             <SelectValue placeholder="Select year level..." />
                         </SelectTrigger>
@@ -312,7 +301,7 @@ export default function SubmitGradesPage() {
                   {/* Section Filter */}
                  <div className="flex-1 space-y-1">
                     <Label htmlFor="section-filter">Section</Label>
-                    <Select value={selectedSection} onValueChange={setSelectedSection}>
+                    <Select value={selectedSection} onValueChange={setSelectedSection} disabled={isLoading}>
                         <SelectTrigger id="section-filter">
                             <SelectValue placeholder="Select section..." />
                         </SelectTrigger>
@@ -322,6 +311,8 @@ export default function SubmitGradesPage() {
                                 {opt.label}
                             </SelectItem>
                             ))}
+                             {isLoading && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                             {!isLoading && sectionOptions.length <= 1 && <SelectItem value="no-sections" disabled>No sections found</SelectItem>}
                         </SelectContent>
                     </Select>
                  </div>
@@ -341,15 +332,18 @@ export default function SubmitGradesPage() {
             </CardHeader>
              <CardContent>
                 {isLoading ? (
-                    <p>Loading student assignments...</p>
-                ) : (
+                    <div className="flex justify-center items-center py-10">
+                         <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" /> Loading assignments...
+                    </div>
+                ) : filteredAssignments.length > 0 ? (
                      <DataTable
                         columns={columns}
                         data={filteredAssignments}
                         searchPlaceholder="Search by student name..."
                         searchColumnId="studentName"
-                         // Removed filterableColumnHeaders for the status/remarks column
                      />
+                ) : (
+                    <p className="text-center text-muted-foreground py-10">No students found matching the selected filters.</p>
                 )}
              </CardContent>
          </Card>
