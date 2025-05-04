@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { StudentStatus } from "@/types"; // Import the status type
 
 const studentStatusEnum: [StudentStatus, ...StudentStatus[]] = ['New', 'Transferee', 'Continuing', 'Returnee'];
+const yearLevelEnum = ['1st Year', '2nd Year', '3rd Year', '4th Year'] as const; // Define valid year levels
 
 
 // Schema for adding/editing a student
@@ -11,7 +12,8 @@ export const studentSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   course: z.string().min(1, "Course is required"),
-  status: z.enum(studentStatusEnum, { required_error: "Status is required"}), // Added status validation
+  status: z.enum(studentStatusEnum, { required_error: "Status is required"}),
+  year: z.enum(yearLevelEnum).optional(), // Year is optional initially
   section: z.string().optional(), // Section is now optional in the form, will be auto-assigned
   email: z.string().email("Invalid email address").optional().or(z.literal('')), // Optional email
   phone: z.string().optional().or(z.literal('')), // Optional phone
@@ -22,7 +24,19 @@ export const studentSchema = z.object({
   emergencyContactAddress: z.string().optional().or(z.literal('')),
   // Generated fields - not part of the form input, but part of the type
   studentId: z.string().optional(),
+}).superRefine((data, ctx) => {
+    // If status is 'Continuing', 'Transferee', or 'Returnee', year is required.
+    if (['Continuing', 'Transferee', 'Returnee'].includes(data.status) && !data.year) {
+        ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Year level is required for this status.",
+        path: ["year"],
+        });
+    }
+    // If status is 'New', year should not be provided or will be ignored/overwritten.
+    // No explicit validation needed here as it's handled in the submission logic.
 });
+
 
 // Schema for adding/editing a teacher
 export const teacherSchema = z.object({
@@ -77,4 +91,5 @@ export const scheduleEntrySchema = z.object({
     message: "End date cannot be before start date",
     path: ["end"], // Point error to 'end' field
 });
+
 

@@ -31,11 +31,11 @@ const getStudents = async (): Promise<Student[]> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 500));
   return [
-    { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", status: "Continuing", section: "A", email: "john.doe@example.com", phone: "111-222-3333", emergencyContactPhone: "999-888-7777", emergencyContactName: "Jane Doe", emergencyContactRelationship: "Mother" },
-    { id: 2, studentId: "s1002", firstName: "Jane", lastName: "Smith", course: "Information Technology", status: "New", section: "B", email: "jane.smith@example.com" },
-    { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", status: "Continuing", section: "A", emergencyContactPhone: "123-123-1234", emergencyContactName: "Mary Jones", emergencyContactRelationship: "Sister" },
-    { id: 4, studentId: "s1004", firstName: "Mary", lastName: "Brown", course: "Business Administration", status: "Transferee", section: "C", email: "mary.brown@example.com", phone: "444-555-6666" },
-    { id: 5, studentId: "s1005", firstName: "David", lastName: "Wilson", course: "Information Technology", status: "Returnee", section: "B" },
+    { id: 1, studentId: "s1001", firstName: "John", lastName: "Doe", course: "Computer Science", status: "Continuing", year: "2nd Year", section: "A", email: "john.doe@example.com", phone: "111-222-3333", emergencyContactPhone: "999-888-7777", emergencyContactName: "Jane Doe", emergencyContactRelationship: "Mother" },
+    { id: 2, studentId: "s1002", firstName: "Jane", lastName: "Smith", course: "Information Technology", status: "New", year: "1st Year", section: "B", email: "jane.smith@example.com" },
+    { id: 3, studentId: "s1003", firstName: "Peter", lastName: "Jones", course: "Computer Science", status: "Continuing", year: "1st Year", section: "A", emergencyContactPhone: "123-123-1234", emergencyContactName: "Mary Jones", emergencyContactRelationship: "Sister" },
+    { id: 4, studentId: "s1004", firstName: "Mary", lastName: "Brown", course: "Business Administration", status: "Transferee", year: "3rd Year", section: "C", email: "mary.brown@example.com", phone: "444-555-6666" },
+    { id: 5, studentId: "s1005", firstName: "David", lastName: "Wilson", course: "Information Technology", status: "Returnee", year: "2nd Year", section: "B" },
   ];
 };
 
@@ -55,6 +55,14 @@ const statusOptions: { value: StudentStatus; label: string }[] = [
     { value: "Returnee", label: "Returnee" },
 ];
 
+// Define year level options
+const yearLevelOptions = [
+    { value: "1st Year", label: "1st Year" },
+    { value: "2nd Year", label: "2nd Year" },
+    { value: "3rd Year", label: "3rd Year" },
+    { value: "4th Year", label: "4th Year" },
+];
+
 
 // Define form fields for the UserForm component
 const studentFormFields: FormFieldConfig<Student>[] = [
@@ -62,6 +70,7 @@ const studentFormFields: FormFieldConfig<Student>[] = [
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true },
   { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true }, // Use select type
   { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true }, // Use select type for status
+  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, condition: (data) => ['Continuing', 'Transferee', 'Returnee'].includes(data?.status) }, // Conditional Year Level
   // Section field removed - will be assigned randomly
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
   { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
@@ -69,7 +78,7 @@ const studentFormFields: FormFieldConfig<Student>[] = [
   { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text" },
   { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father, Guardian (optional)", type: "text" },
   { name: "emergencyContactPhone", label: "Emergency Contact Phone", placeholder: "Contact Number (optional)", type: "tel" },
-  { name: "emergencyContactAddress", label: "Emergency Contact Address", placeholder: "Full Address (optional)", type: "text" }, // Use text for address for simplicity
+  { name: "emergencyContactAddress", label: "Emergency Contact Address", placeholder: "Full Address (optional)", type: "textarea" },
 ];
 
 
@@ -105,12 +114,17 @@ export default function ManageStudentsPage() {
     const newId = Math.max(0, ...students.map(s => s.id)) + 1;
     const newStudentId = `s100${newId}`; // Simulate ID generation
     const randomSection = ['A', 'B', 'C'][Math.floor(Math.random() * 3)]; // Assign random section
+
+    // Set year to '1st Year' if status is 'New', otherwise use the value from the form
+    const year = values.status === 'New' ? '1st Year' : values.year;
+
     const newStudent: Student = {
         ...values,
         id: newId,
         studentId: newStudentId,
         section: randomSection, // Add the generated section
         status: values.status, // Ensure status is included
+        year: year, // Add the determined year
         emergencyContactName: values.emergencyContactName,
         emergencyContactRelationship: values.emergencyContactRelationship,
         emergencyContactPhone: values.emergencyContactPhone,
@@ -118,7 +132,7 @@ export default function ManageStudentsPage() {
     };
     setStudents(prev => [...prev, newStudent]);
     // In real app: POST to PHP backend, get back the full student object with ID/studentId/section
-     toast({ title: "Student Added", description: `${values.firstName} ${values.lastName} (Section ${randomSection}) has been added.` });
+     toast({ title: "Student Added", description: `${values.firstName} ${values.lastName} (${year}, Section ${randomSection}) has been added.` });
   };
 
    // Mock Edit Student Function
@@ -129,10 +143,15 @@ export default function ManageStudentsPage() {
     await new Promise(resolve => setTimeout(resolve, 500));
      // Note: In this mock, we don't re-assign section on edit, keeping the original.
      // If section *should* change on edit based on some logic, implement here.
+
+     // Set year to '1st Year' if status is 'New', otherwise use the value from the form
+     const year = values.status === 'New' ? '1st Year' : values.year;
+
      const updatedStudent = {
          ...selectedStudent, // Start with original data
          ...values, // Apply form changes
          status: values.status, // Ensure status is included
+         year: year, // Set the determined year
          emergencyContactName: values.emergencyContactName,
          emergencyContactRelationship: values.emergencyContactRelationship,
          emergencyContactPhone: values.emergencyContactPhone,
@@ -208,6 +227,22 @@ export default function ManageStudentsPage() {
                      />
             ),
             cell: ({ row }) => <div className="text-center">{row.getValue("status")}</div>,
+            filterFn: (row, id, value) => {
+                return value.includes(row.getValue(id))
+            },
+        },
+        {
+            accessorKey: "year",
+            header: ({ column }) => { // Use explicit return
+                 return (
+                    <DataTableFilterableColumnHeader
+                        column={column} // Pass column object
+                        title="Year"
+                        options={yearLevelOptions} // Use defined year options
+                    />
+                 );
+            },
+            cell: ({ row }) => <div className="text-center">{row.getValue("year") || '-'}</div>, // Handle potentially missing year
             filterFn: (row, id, value) => {
                 return value.includes(row.getValue(id))
             },
@@ -322,7 +357,7 @@ export default function ManageStudentsPage() {
           // Adjust onSubmit type to match the form values (without section)
           onSubmit={handleAddStudent as any}
           title="Add New Student"
-          description="Fill in the details below to add a new student. Section will be assigned automatically."
+          description="Fill in the details below. Section & Year (for New status) are assigned automatically."
           formFields={studentFormFields} // Pass the updated fields
         />
       </div>
@@ -350,7 +385,7 @@ export default function ManageStudentsPage() {
               formSchema={studentSchema}
               onSubmit={handleEditStudent}
               title={`Edit Student: ${selectedStudent.firstName} ${selectedStudent.lastName}`}
-              description="Update the student's information below. Username, password, and section are managed by the system."
+              description="Update info. Username, password, section & year (for New status) are managed by the system."
               formFields={studentFormFields.map(f => ({...f, disabled: false }))} // Ensure fields are initially enabled
               isEditMode={true}
               initialData={selectedStudent} // Pass current data

@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form"; // Import useWatch
 import type { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Student, Teacher } from "@/types";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea"; // Import Textarea
 
 interface UserFormProps<T extends Student | Teacher> {
   trigger?: React.ReactNode; // Trigger is now optional
@@ -56,10 +57,11 @@ export type FormFieldConfig<T> = {
   name: keyof T;
   label: string;
   placeholder?: string;
-  type?: React.HTMLInputTypeAttribute | "select"; // "text", "email", "number", "select" etc.
+  type?: React.HTMLInputTypeAttribute | "select" | "textarea"; // Added "textarea"
   required?: boolean; // For frontend indication, validation is via schema
   disabled?: boolean; // Make field read-only
   options?: { value: string | number; label: string }[]; // Options for select dropdown
+  condition?: (data: Partial<T> | null | undefined) => boolean; // Conditional rendering
 };
 
 export function UserForm<T extends Student | Teacher>({
@@ -92,6 +94,8 @@ export function UserForm<T extends Student | Teacher>({
         defaultValues: isEditMode ? (initialData as any) : (defaultValues as any), // Use initialData if editing
     });
 
+    // Watch the status field to conditionally show the year field
+    const watchedStatus = useWatch({ control: form.control, name: 'status' as any });
 
     // Reset form when dialog opens/closes or mode changes
     React.useEffect(() => {
@@ -100,9 +104,25 @@ export function UserForm<T extends Student | Teacher>({
         }
     }, [isOpen, isEditMode, initialData, defaultValues, form]);
 
+   // Effect to set year to '1st Year' if status becomes 'New'
+   React.useEffect(() => {
+       if (watchedStatus === 'New') {
+           form.setValue('year' as any, '1st Year', { shouldValidate: false }); // Set year, avoid immediate validation
+       } else if (initialData && !isEditMode) { // Reset year if status changes from New on ADD mode
+            form.setValue('year' as any, initialData.year || '', { shouldValidate: false });
+       } else if (!isEditMode && !initialData) { // Reset year if status changes on ADD mode (no initial data)
+            form.setValue('year' as any, '', { shouldValidate: true }); // Clear year if not New
+       }
+       // If editing, let the user control the year if status is not 'New'
+   }, [watchedStatus, form, isEditMode, initialData]);
+
 
   const handleFormSubmit = async (values: T) => {
     try {
+       // Override year if status is 'New' just before submitting
+        if (values.status === 'New') {
+            values.year = '1st Year' as any;
+        }
        console.log("Submitting values:", values);
       await onSubmit(values); // Call the provided onSubmit function
       toast({
@@ -121,6 +141,9 @@ export function UserForm<T extends Student | Teacher>({
     }
   };
 
+  // Get current form values to pass to condition function
+  const currentFormValues = useWatch({ control: form.control });
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {/* Render DialogTrigger only if trigger is provided and not controlled externally */}
@@ -134,60 +157,81 @@ export function UserForm<T extends Student | Teacher>({
           <form onSubmit={form.handleSubmit(handleFormSubmit)}>
             <ScrollArea className="max-h-[60vh] p-1 pr-6"> {/* Added ScrollArea */}
               <div className="grid gap-4 py-4">
-                {formFields.map((fieldConfig) => (
-                  <FormField
-                    key={String(fieldConfig.name)}
-                    control={form.control}
-                    name={fieldConfig.name as any} // Cast needed due to complex typing
-                    render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-4">
-                        <FormLabel className="text-right">{fieldConfig.label}{fieldConfig.required ? '*' : ''}</FormLabel>
-                        <FormControl className="col-span-3">
-                            {fieldConfig.type === 'select' ? (
-                                 <Select
-                                    onValueChange={field.onChange}
-                                    // Ensure the value passed to Select is always a string
-                                    value={field.value ? String(field.value) : undefined}
-                                    disabled={fieldConfig.disabled || form.formState.isSubmitting}
-                                >
-                                    {/* Apply w-full to the trigger */}
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
-                                    </SelectTrigger>
-                                    {/* Ensure SelectContent pops over other elements */}
-                                    <SelectContent>
-                                        {(fieldConfig.options || []).map((option) => (
-                                            <SelectItem key={option.value} value={String(option.value)}>
-                                            {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            ) : (
-                                <Input
-                                    placeholder={fieldConfig.placeholder}
-                                    type={fieldConfig.type || "text"}
-                                    disabled={fieldConfig.disabled || form.formState.isSubmitting}
-                                    {...field}
-                                    // Handle number input type properly
-                                    value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value ?? '')} // Use nullish coalescing
-                                     onChange={(e) => {
-                                        if (fieldConfig.type === 'number') {
-                                        const numericValue = e.target.value === '' ? '' : Number(e.target.value);
-                                        field.onChange(isNaN(numericValue as number) ? '' : numericValue); // Handle NaN
-                                        } else {
-                                        field.onChange(e.target.value);
-                                        }
-                                    }}
-                                />
-                            )}
+                {formFields.map((fieldConfig) => {
+                    // Check condition if it exists
+                    if (fieldConfig.condition && !fieldConfig.condition(currentFormValues)) {
+                        return null; // Don't render field if condition is not met
+                    }
 
-                        </FormControl>
-                        <FormMessage className="col-span-3 col-start-2" />
-                      </FormItem>
-                    )}
-                  />
-                ))}
+                    // Special handling for year field when status is 'New'
+                    const isYearField = fieldConfig.name === 'year';
+                    const disableYearField = isYearField && watchedStatus === 'New';
+
+                    return (
+                        <FormField
+                            key={String(fieldConfig.name)}
+                            control={form.control}
+                            name={fieldConfig.name as any} // Cast needed due to complex typing
+                            render={({ field }) => (
+                            <FormItem className="grid grid-cols-4 items-center gap-4">
+                                <FormLabel className="text-right">{fieldConfig.label}{fieldConfig.required && !disableYearField ? '*' : ''}</FormLabel>
+                                <FormControl className="col-span-3">
+                                    {fieldConfig.type === 'select' ? (
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            // Ensure the value passed to Select is always a string
+                                            value={field.value ? String(field.value) : undefined}
+                                            disabled={fieldConfig.disabled || disableYearField || form.formState.isSubmitting}
+                                        >
+                                            {/* Apply w-full to the trigger */}
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
+                                            </SelectTrigger>
+                                            {/* Ensure SelectContent pops over other elements */}
+                                            <SelectContent>
+                                                {(fieldConfig.options || []).map((option) => (
+                                                    <SelectItem key={option.value} value={String(option.value)}>
+                                                    {option.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : fieldConfig.type === 'textarea' ? ( // Handle textarea
+                                        <Textarea
+                                            placeholder={fieldConfig.placeholder}
+                                            disabled={fieldConfig.disabled || form.formState.isSubmitting}
+                                            {...field}
+                                            value={field.value ?? ''}
+                                        />
+                                    ) : (
+                                        <Input
+                                            placeholder={fieldConfig.placeholder}
+                                            type={fieldConfig.type || "text"}
+                                            disabled={fieldConfig.disabled || disableYearField || form.formState.isSubmitting}
+                                            {...field}
+                                            // Handle number input type properly
+                                            value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value ?? '')} // Use nullish coalescing
+                                            onChange={(e) => {
+                                                if (fieldConfig.type === 'number') {
+                                                const numericValue = e.target.value === '' ? '' : Number(e.target.value);
+                                                field.onChange(isNaN(numericValue as number) ? '' : numericValue); // Handle NaN
+                                                } else {
+                                                field.onChange(e.target.value);
+                                                }
+                                            }}
+                                        />
+                                    )}
+
+                                </FormControl>
+                                {isYearField && disableYearField && (
+                                     <p className="col-span-3 col-start-2 text-xs text-muted-foreground">Set to 1st Year for New students.</p>
+                                )}
+                                <FormMessage className="col-span-3 col-start-2" />
+                            </FormItem>
+                            )}
+                        />
+                    );
+                })}
                  {/* Display generated username/password/section only in edit mode */}
                   {isEditMode && initialData && (
                       <>

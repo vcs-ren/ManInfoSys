@@ -10,6 +10,7 @@ export interface Student {
   lastName: string;
   course: string;
   status: StudentStatus; // Replaces year level
+  year?: string; // Optional year level (e.g., '1st Year', '2nd Year')
   section: string;
   email?: string; // Optional fields
   phone?: string;
@@ -50,4 +51,5 @@ export interface ScheduleEntry {
 }
 
 // Define more types as needed (e.g., Course, Section, Announcement)
+
 
