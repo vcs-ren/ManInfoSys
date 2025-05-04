@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react"; // Added Loader2
+import { PlusCircle, Edit, Trash2, Loader2, RotateCcw } from "lucide-react"; // Added RotateCcw for Reset Password
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -25,7 +25,7 @@ import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdow
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-// --- API Helper Functions (Assumed - Implement based on your backend) ---
+// --- API Helper Functions (Implement based on your backend) ---
 const fetchData = async <T>(url: string): Promise<T> => {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -98,7 +98,7 @@ const studentFormFields: FormFieldConfig<Student>[] = [
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true },
   { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true },
   { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true },
-  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, condition: (data) => ['Continuing', 'Transferee', 'Returnee'].includes(data?.status ?? '') },
+  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, condition: (data) => data?.status ? ['Continuing', 'Transferee', 'Returnee'].includes(data.status) : false }, // Updated condition check
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
   { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
   // Emergency Contact Fields
@@ -113,13 +113,15 @@ export default function ManageStudentsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // For delete confirmation
+  const [isSubmitting, setIsSubmitting] = React.useState(false); // For delete/reset password confirmation
   const { toast } = useToast();
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
     emergencyContactName: false,
     emergencyContactRelationship: false,
     emergencyContactPhone: false,
     emergencyContactAddress: false,
+    email: false,
+    phone: false,
   });
 
   // Fetch students from API on component mount
@@ -127,8 +129,7 @@ export default function ManageStudentsPage() {
     const fetchStudents = async () => {
       setIsLoading(true);
       try {
-        // Replace with your actual API endpoint for fetching students
-        const data = await fetchData<{ records: Student[] }>('/api/students'); // Assuming API returns { records: [] }
+        const data = await fetchData<{ records: Student[] }>('/api/students');
         setStudents(data.records || []);
       } catch (error) {
         console.error("Failed to fetch students:", error);
@@ -142,8 +143,6 @@ export default function ManageStudentsPage() {
 
   // Add Student Function (API Call)
   const handleAddStudent = async (values: Omit<Student, 'id' | 'studentId' | 'section'>) => {
-     // API should handle ID, studentId, section generation, and password hashing
-     // Determine year based on status
     const year = values.status === 'New' ? '1st Year' : values.year;
 
     if (['Continuing', 'Transferee', 'Returnee'].includes(values.status) && !year) {
@@ -158,14 +157,13 @@ export default function ManageStudentsPage() {
 
     console.log("Attempting to add student:", payload);
     try {
-        // Replace with your actual POST endpoint
         const newStudent = await postData<typeof payload, Student>('/api/students', payload);
-        setStudents(prev => [...prev, newStudent]); // Add the returned student (with generated fields) to state
-        toast({ title: "Student Added", description: `${newStudent.firstName} ${newStudent.lastName} (${newStudent.year}, Section ${newStudent.section}) has been added.` });
+        setStudents(prev => [...prev, newStudent]);
+        toast({ title: "Student Added", description: `${newStudent.firstName} ${newStudent.lastName} (${newStudent.year || newStudent.status}, Section ${newStudent.section}) has been added.` });
     } catch (error: any) {
         console.error("Failed to add student:", error);
         toast({ variant: "destructive", title: "Error Adding Student", description: error.message || "Could not add student. Please try again." });
-         throw error; // Re-throw error to indicate submission failure in UserForm
+         throw error;
     }
   };
 
@@ -173,33 +171,29 @@ export default function ManageStudentsPage() {
   const handleEditStudent = async (values: Student) => {
      if (!selectedStudent) return;
 
-     // Ensure ID is included in the payload for update
      const payload = {
          ...values,
          id: selectedStudent.id,
-         // Year might need adjustment based on status, API might handle this or client can enforce
          year: values.status === 'New' ? '1st Year' : values.year,
      };
       console.log("Attempting to edit student:", payload);
 
      try {
-         // Replace with your actual PUT/PATCH endpoint (e.g., /api/students/{id})
          const updatedStudent = await putData<typeof payload, Student>(`/api/students/${selectedStudent.id}`, payload);
          setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
          toast({ title: "Student Updated", description: `${updatedStudent.firstName} ${updatedStudent.lastName} has been updated.` });
-         closeEditModal(); // Close modal after successful edit
+         closeEditModal();
      } catch (error: any) {
          console.error("Failed to update student:", error);
          toast({ variant: "destructive", title: "Error Updating Student", description: error.message || "Could not update student. Please try again." });
-         throw error; // Re-throw to indicate failure
+         throw error;
      }
   };
 
    // Delete Student Function (API Call)
   const handleDeleteStudent = async (studentId: number) => {
-      setIsSubmitting(true); // Indicate loading state for delete action
+      setIsSubmitting(true);
       try {
-          // Replace with your actual DELETE endpoint (e.g., /api/students/{id})
           await deleteData(`/api/students/${studentId}`);
           setStudents(prev => prev.filter(s => s.id !== studentId));
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
@@ -210,6 +204,30 @@ export default function ManageStudentsPage() {
            setIsSubmitting(false);
       }
   };
+
+  // --- Reset Password Function ---
+  const handleResetPassword = async (userId: number, lastName: string) => {
+      setIsSubmitting(true);
+      try {
+           // Call the generic reset password endpoint
+           await postData('/api/admin/reset-password', { userId, userType: 'student' });
+           const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
+           toast({
+                title: "Password Reset Successful",
+                description: `Password for student ID ${userId} has been reset. Default password: ${defaultPassword}`, // Mention default format
+           });
+      } catch (error: any) {
+           console.error("Failed to reset password:", error);
+           toast({
+                variant: "destructive",
+                title: "Password Reset Failed",
+                description: error.message || "Could not reset student password.",
+           });
+      } finally {
+           setIsSubmitting(false);
+      }
+  };
+
 
   const handleOpenEditModal = (student: Student) => {
     setSelectedStudent(student);
@@ -272,8 +290,11 @@ export default function ManageStudentsPage() {
                     options={yearLevelOptions}
                  />
             ),
-            cell: ({ row }) => <div className="text-center">{row.getValue("year") || '-'}</div>,
-            filterFn: (row, id, value) => value.includes(row.getValue(id)),
+            cell: ({ row }) => <div className="text-center">{row.original.year || '-'}</div>, // Display original.year
+            filterFn: (row, id, value) => {
+                 const rowValue = row.original.year; // Filter based on original.year
+                 return rowValue ? value.includes(rowValue) : value.includes('-'); // Handle '-' case if needed
+             },
         },
         {
             accessorKey: "section",
@@ -281,11 +302,10 @@ export default function ManageStudentsPage() {
                  <DataTableFilterableColumnHeader
                     column={column}
                     title="Section"
-                    // Dynamically generate section options from current data if needed
                     options={React.useMemo(() => {
                          const distinctSections = [...new Set(students.map(s => s.section).filter(Boolean))].sort();
                          return distinctSections.map(sec => ({ label: sec, value: sec }));
-                     }, [students])} // Regenerate if students change
+                     }, [students])}
                  />
             ),
             cell: ({ row }) => <div className="text-center">{row.getValue("section")}</div>,
@@ -295,11 +315,13 @@ export default function ManageStudentsPage() {
             accessorKey: "email",
             header: "Email",
             cell: ({ row }) => <div className="lowercase">{row.getValue("email") || '-'}</div>,
+             enableHiding: true, // Enable hiding
         },
         {
             accessorKey: "phone",
             header: "Phone",
             cell: ({ row }) => <div>{row.getValue("phone") || '-'}</div>,
+            enableHiding: true, // Enable hiding
         },
          {
             accessorKey: "emergencyContactName",
@@ -326,7 +348,7 @@ export default function ManageStudentsPage() {
             enableHiding: true,
         },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [students]); // Add students as dependency for dynamic section options
+    ], [students]); // Add students dependency
 
 
       // Function to generate dropdown menu items for each row
@@ -337,39 +359,68 @@ export default function ManageStudentsPage() {
             Edit / View Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+         {/* Reset Password Action */}
          <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    {/* Ensure the trigger is clickable */}
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                         <Trash2 className="mr-2 h-4 w-4" />
-                         Delete
-                    </DropdownMenuItem>
-                </AlertDialogTrigger>
-                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the student
-                        record for {student.firstName} {student.lastName}.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                        // Directly call handleDeleteStudent when action is clicked
-                        onClick={async (e) => {
-                             e.stopPropagation(); // Prevent triggering other actions if necessary
-                             await handleDeleteStudent(student.id);
-                        }}
-                        className={buttonVariants({ variant: "destructive" })}
-                        disabled={isSubmitting}
-                        >
-                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Yes, delete student
-                    </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+             <AlertDialogTrigger asChild>
+                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-orange-600 focus:text-orange-600 focus:bg-orange-100">
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Reset Password
+                 </DropdownMenuItem>
+             </AlertDialogTrigger>
+             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                 <AlertDialogHeader>
+                     <AlertDialogTitle>Reset Password?</AlertDialogTitle>
+                     <AlertDialogDescription>
+                          This will reset the password for {student.firstName} {student.lastName} to the default format (first 2 letters of last name + 1000). Are you sure?
+                     </AlertDialogDescription>
+                 </AlertDialogHeader>
+                 <AlertDialogFooter>
+                     <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                     <AlertDialogAction
+                          onClick={async (e) => {
+                              e.stopPropagation();
+                              await handleResetPassword(student.id, student.lastName);
+                         }}
+                          className={buttonVariants({ variant: "destructive" })} // Use destructive style for reset confirmation
+                          disabled={isSubmitting}
+                     >
+                          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Yes, reset password
+                     </AlertDialogAction>
+                 </AlertDialogFooter>
+             </AlertDialogContent>
+         </AlertDialog>
+         {/* Delete Action */}
+         <AlertDialog>
+             <AlertDialogTrigger asChild>
+                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                 </DropdownMenuItem>
+             </AlertDialogTrigger>
+             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                 <AlertDialogHeader>
+                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                     <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the student record for {student.firstName} {student.lastName}.
+                     </AlertDialogDescription>
+                 </AlertDialogHeader>
+                 <AlertDialogFooter>
+                     <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                     <AlertDialogAction
+                          onClick={async (e) => {
+                              e.stopPropagation();
+                              await handleDeleteStudent(student.id);
+                         }}
+                          className={buttonVariants({ variant: "destructive" })}
+                          disabled={isSubmitting}
+                     >
+                          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Yes, delete student
+                     </AlertDialogAction>
+                 </AlertDialogFooter>
+             </AlertDialogContent>
+         </AlertDialog>
         </>
     );
 
@@ -404,8 +455,6 @@ export default function ManageStudentsPage() {
                 data={students}
                 searchPlaceholder="Search by first name..."
                 searchColumnId="firstName"
-                // Remove onRowClick to disable opening modal on row click
-                // onRowClick={handleOpenEditModal}
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
@@ -430,5 +479,3 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-
-    

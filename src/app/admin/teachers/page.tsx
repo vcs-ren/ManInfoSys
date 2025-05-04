@@ -3,11 +3,11 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react"; // Added Loader2
+import { PlusCircle, Edit, Trash2, Loader2, RotateCcw } from "lucide-react"; // Added RotateCcw for Reset Password
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
-import { UserForm } from "@/components/user-form";
+import { UserForm, type FormFieldConfig } from "@/components/user-form"; // Import FormFieldConfig
 import { teacherSchema } from "@/lib/schemas";
 import type { Teacher } from "@/types"; // Import Teacher type
 import {
@@ -25,7 +25,7 @@ import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdow
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-// --- API Helper Functions (Assumed - Implement based on your backend) ---
+// --- API Helper Functions (Implement based on your backend) ---
 const fetchData = async <T>(url: string): Promise<T> => {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -69,13 +69,13 @@ const deleteData = async (url: string): Promise<void> => {
 // --- End API Helpers ---
 
 
-// Define form fields for the UserForm component
-const teacherFormFields = [
-  { name: "firstName" as const, label: "First Name", placeholder: "Enter first name", required: true },
-  { name: "lastName" as const, label: "Last Name", placeholder: "Enter last name", required: true },
-  { name: "department" as const, label: "Department", placeholder: "Enter department", required: true },
-  { name: "email" as const, label: "Email", placeholder: "Enter email (optional)", type: "email" },
-  { name: "phone" as const, label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
+// Define form fields for the UserForm component using FormFieldConfig
+const teacherFormFields: FormFieldConfig<Teacher>[] = [
+  { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true },
+  { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true },
+  { name: "department", label: "Department", placeholder: "Enter department", required: true },
+  { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
+  { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
 ];
 
 
@@ -84,7 +84,7 @@ export default function ManageTeachersPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedTeacher, setSelectedTeacher] = React.useState<Teacher | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // For delete confirmation
+  const [isSubmitting, setIsSubmitting] = React.useState(false); // For delete/reset password confirmation
    const { toast } = useToast();
 
 
@@ -92,8 +92,7 @@ export default function ManageTeachersPage() {
     const fetchTeachers = async () => {
       setIsLoading(true);
        try {
-         // Replace with your actual API endpoint
-        const data = await fetchData<{ records: Teacher[] }>('/api/teachers'); // Assuming API returns { records: [] }
+        const data = await fetchData<{ records: Teacher[] }>('/api/teachers');
         setTeachers(data.records || []);
       } catch (error) {
         console.error("Failed to fetch teachers:", error);
@@ -107,17 +106,15 @@ export default function ManageTeachersPage() {
 
   // Add Teacher Function (API Call)
   const handleAddTeacher = async (values: Omit<Teacher, 'id' | 'teacherId'>) => {
-     // API should handle ID and teacherId generation, and password hashing
      console.log("Attempting to add teacher:", values);
      try {
-        // Replace with your actual POST endpoint
          const newTeacher = await postData<typeof values, Teacher>('/api/teachers', values);
-         setTeachers(prev => [...prev, newTeacher]); // Add returned teacher to state
+         setTeachers(prev => [...prev, newTeacher]);
          toast({ title: "Teacher Added", description: `${newTeacher.firstName} ${newTeacher.lastName} has been added.` });
      } catch (error: any) {
          console.error("Failed to add teacher:", error);
          toast({ variant: "destructive", title: "Error Adding Teacher", description: error.message || "Could not add teacher." });
-         throw error; // Re-throw for UserForm
+         throw error;
      }
   };
 
@@ -125,12 +122,10 @@ export default function ManageTeachersPage() {
   const handleEditTeacher = async (values: Teacher) => {
      if (!selectedTeacher) return;
 
-     // Ensure ID is included
      const payload = { ...values, id: selectedTeacher.id };
      console.log("Attempting to edit teacher:", payload);
 
      try {
-         // Replace with your actual PUT/PATCH endpoint (e.g., /api/teachers/{id})
          const updatedTeacher = await putData<typeof payload, Teacher>(`/api/teachers/${selectedTeacher.id}`, payload);
          setTeachers(prev => prev.map(t => t.id === updatedTeacher.id ? updatedTeacher : t));
          toast({ title: "Teacher Updated", description: `${updatedTeacher.firstName} ${updatedTeacher.lastName} has been updated.` });
@@ -138,7 +133,7 @@ export default function ManageTeachersPage() {
      } catch (error: any) {
          console.error("Failed to update teacher:", error);
          toast({ variant: "destructive", title: "Error Updating Teacher", description: error.message || "Could not update teacher." });
-         throw error; // Re-throw for UserForm
+         throw error;
      }
   };
 
@@ -146,7 +141,6 @@ export default function ManageTeachersPage() {
   const handleDeleteTeacher = async (teacherId: number) => {
       setIsSubmitting(true);
       try {
-          // Replace with your actual DELETE endpoint
           await deleteData(`/api/teachers/${teacherId}`);
           setTeachers(prev => prev.filter(t => t.id !== teacherId));
           toast({ title: "Teacher Deleted", description: `Teacher record has been removed.` });
@@ -157,6 +151,29 @@ export default function ManageTeachersPage() {
           setIsSubmitting(false);
       }
   };
+
+    // --- Reset Password Function ---
+    const handleResetPassword = async (userId: number, lastName: string) => {
+        setIsSubmitting(true);
+        try {
+             // Call the generic reset password endpoint
+             await postData('/api/admin/reset-password', { userId, userType: 'teacher' });
+             const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
+             toast({
+                  title: "Password Reset Successful",
+                  description: `Password for teacher ID ${userId} has been reset. Default password: ${defaultPassword}`, // Mention default format
+             });
+        } catch (error: any) {
+             console.error("Failed to reset password:", error);
+             toast({
+                  variant: "destructive",
+                  title: "Password Reset Failed",
+                  description: error.message || "Could not reset teacher password.",
+             });
+        } finally {
+             setIsSubmitting(false);
+        }
+    };
 
   const handleOpenEditModal = (teacher: Teacher) => {
     setSelectedTeacher(teacher);
@@ -208,11 +225,13 @@ export default function ManageTeachersPage() {
             accessorKey: "email",
             header: "Email",
             cell: ({ row }) => <div className="lowercase">{row.getValue("email") || '-'}</div>,
+             enableHiding: true,
         },
          {
             accessorKey: "phone",
             header: "Phone",
             cell: ({ row }) => <div>{row.getValue("phone") || '-'}</div>,
+             enableHiding: true,
         },
     ], [departmentOptions]); // Dependency on dynamic options
 
@@ -225,37 +244,69 @@ export default function ManageTeachersPage() {
             Edit / View Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+          {/* Reset Password Action */}
          <AlertDialog>
-                <AlertDialogTrigger asChild>
-                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                    </DropdownMenuItem>
-                </AlertDialogTrigger>
-                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the teacher
-                        record for {teacher.firstName} {teacher.lastName}.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                         onClick={async (e) => {
-                             e.stopPropagation();
-                             await handleDeleteTeacher(teacher.id);
-                        }}
-                         className={buttonVariants({ variant: "destructive" })}
-                         disabled={isSubmitting}
-                        >
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Yes, delete teacher
-                    </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+             <AlertDialogTrigger asChild>
+                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-orange-600 focus:text-orange-600 focus:bg-orange-100">
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Reset Password
+                 </DropdownMenuItem>
+             </AlertDialogTrigger>
+             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                 <AlertDialogHeader>
+                     <AlertDialogTitle>Reset Password?</AlertDialogTitle>
+                     <AlertDialogDescription>
+                          This will reset the password for {teacher.firstName} {teacher.lastName} to the default format (first 2 letters of last name + 1000). Are you sure?
+                     </AlertDialogDescription>
+                 </AlertDialogHeader>
+                 <AlertDialogFooter>
+                     <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                     <AlertDialogAction
+                          onClick={async (e) => {
+                              e.stopPropagation();
+                              await handleResetPassword(teacher.id, teacher.lastName);
+                         }}
+                          className={buttonVariants({ variant: "destructive" })} // Use destructive style for reset confirmation
+                          disabled={isSubmitting}
+                     >
+                          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Yes, reset password
+                     </AlertDialogAction>
+                 </AlertDialogFooter>
+             </AlertDialogContent>
+         </AlertDialog>
+         {/* Delete Action */}
+         <AlertDialog>
+             <AlertDialogTrigger asChild>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                     <Trash2 className="mr-2 h-4 w-4" />
+                     Delete
+                 </DropdownMenuItem>
+             </AlertDialogTrigger>
+             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                 <AlertDialogHeader>
+                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                 <AlertDialogDescription>
+                     This action cannot be undone. This will permanently delete the teacher
+                     record for {teacher.firstName} {teacher.lastName}.
+                 </AlertDialogDescription>
+                 </AlertDialogHeader>
+                 <AlertDialogFooter>
+                 <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                 <AlertDialogAction
+                      onClick={async (e) => {
+                          e.stopPropagation();
+                          await handleDeleteTeacher(teacher.id);
+                     }}
+                      className={buttonVariants({ variant: "destructive" })}
+                      disabled={isSubmitting}
+                     >
+                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                     Yes, delete teacher
+                 </AlertDialogAction>
+                 </AlertDialogFooter>
+             </AlertDialogContent>
+         </AlertDialog>
         </>
     );
 
@@ -290,8 +341,6 @@ export default function ManageTeachersPage() {
                 data={teachers}
                 searchPlaceholder="Search by first name..."
                 searchColumnId="firstName"
-                // Remove onRowClick
-                // onRowClick={handleOpenEditModal}
                  actionMenuItems={generateActionMenuItems}
             />
         )}
@@ -314,5 +363,3 @@ export default function ManageTeachersPage() {
     </div>
   );
 }
-
-    
