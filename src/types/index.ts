@@ -32,11 +32,19 @@ export interface Teacher {
   // Add other relevant teacher fields
 }
 
-export interface Grade {
-    subject: string;
+// Defines the grading periods
+export type Term = 'Prelim' | 'Midterm' | 'Final';
+
+// Represents a single grade entry for a specific student, subject, and term
+export interface StudentGrade {
+    id?: string; // Optional: ID if stored in a DB
+    studentId: number;
+    subjectId: string;
+    term: Term;
     grade: number | string; // Can be numeric or letter grade
     remarks?: string;
 }
+
 
 // Represents a specific class section
 export interface Section {
@@ -93,5 +101,27 @@ export interface ScheduleEntry {
     teacher?: string; // For student view
     section?: string; // For teacher view
 }
+
+
+// Type for displaying student-subject assignments in the teacher's grade submission table
+// Includes placeholder grades for each term.
+export interface StudentSubjectAssignmentWithGrades {
+    assignmentId: string; // Unique ID combining student and subject for this context
+    studentId: number;
+    studentName: string;
+    subjectId: string;
+    subjectName: string;
+    section: string;
+    year: string; // Add year level for filtering
+    prelimGrade?: number | string | null; // Grade for the term, null if not submitted
+    prelimRemarks?: string;
+    midtermGrade?: number | string | null;
+    midtermRemarks?: string;
+    finalGrade?: number | string | null;
+    finalRemarks?: string;
+    // Status calculated based on term grades
+    status: 'Not Submitted' | 'Incomplete' | 'Complete';
+}
+
 
 // Define more types as needed (e.g., Course)

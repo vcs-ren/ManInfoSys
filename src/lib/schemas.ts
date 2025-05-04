@@ -49,14 +49,26 @@ export const teacherSchema = z.object({
   teacherId: z.string().optional(),
 });
 
-// Schema for grade submission
-export const gradeSchema = z.object({
-    subject: z.string().min(1, "Subject name is required"),
-    grade: z.union([
-        z.coerce.number().min(0, "Grade cannot be negative").max(100, "Grade seems too high"), // Assuming 0-100 scale
-        z.string().regex(/^[A-F][+-]?$|^P$|^F$|^INC$|^DRP$/, "Invalid grade format (e.g., A+, B, 75, P, F)") // Allow letter grades, P/F, INC, DRP
-    ]).refine(value => value !== '', { message: "Grade is required" }), // Ensure not empty string
-    remarks: z.string().optional(),
+// Schema for validating a single grade value (numeric or specific strings)
+const gradeValueSchema = z.union([
+    z.coerce.number().min(0, "Min 0").max(100, "Max 100").optional(), // Numeric 0-100
+    z.string().regex(/^[A-F][+-]?$|^P$|^F$|^INC$|^DRP$/, "Invalid (A+/B-/P/INC)").optional(), // Letter grades, P/F, INC, DRP
+    z.literal(""), // Allow empty string
+    z.null(), // Allow null
+]).nullable(); // Allow null
+
+
+// Schema for submitting grades for all terms at once
+export const submitGradesSchema = z.object({
+    assignmentId: z.string(), // ID linking student and subject
+    studentId: z.number(),
+    subjectId: z.string(),
+    prelimGrade: gradeValueSchema,
+    prelimRemarks: z.string().optional(),
+    midtermGrade: gradeValueSchema,
+    midtermRemarks: z.string().optional(),
+    finalGrade: gradeValueSchema,
+    finalRemarks: z.string().optional(),
 });
 
 

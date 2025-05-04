@@ -15,7 +15,7 @@ import {
   useReactTable,
    Column, // Import Column type
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
+import { ArrowUpDown, ChevronDown, Filter, MoreHorizontal } from "lucide-react"; // Added Filter icon
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import {
@@ -39,6 +39,13 @@ import {
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils"; // Import cn utility
 
+// Interface for defining filterable column headers
+interface FilterableColumnHeaderProps {
+    columnId: string;
+    title: string;
+    options: { label: string; value: string }[];
+}
+
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -49,6 +56,7 @@ interface DataTableProps<TData, TValue> {
   actionMenuItems?: (row: TData) => React.ReactNode; // Function to generate dropdown items
   columnVisibility?: VisibilityState; // Optional: Control visibility state externally
   setColumnVisibility?: React.Dispatch<React.SetStateAction<VisibilityState>>; // Optional: Setter for external control
+  filterableColumnHeaders?: FilterableColumnHeaderProps[]; // Optional: Define filterable columns
 }
 
 export function DataTable<TData, TValue>({
@@ -60,6 +68,7 @@ export function DataTable<TData, TValue>({
   actionMenuItems,
   columnVisibility: controlledColumnVisibility, // Rename for clarity
   setColumnVisibility: controlledSetColumnVisibility, // Rename for clarity
+  filterableColumnHeaders = [], // Default to empty array
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -118,11 +127,18 @@ export function DataTable<TData, TValue>({
       columnVisibility, // Use the determined visibility state
       rowSelection,
     },
+     // Enable multi-column filtering
+    filterFns: {
+      // Define custom filter functions if needed, or use default
+    },
+    // Ensure filterFromLeafRows is true if using nested data
+    filterFromLeafRows: true,
   });
 
   return (
     <div className="w-full space-y-4">
       <div className="flex items-center py-4 gap-2 flex-wrap">
+        {/* Global Search Input */}
         {searchColumnId && (
           <Input
             placeholder={searchPlaceholder}
@@ -130,21 +146,46 @@ export function DataTable<TData, TValue>({
             onChange={(event) =>
               table.getColumn(searchColumnId)?.setFilterValue(event.target.value)
             }
-            className="max-w-sm"
+            className="max-w-sm h-9" // Adjust size
           />
         )}
-        {/* Filter components rendered within headers now */}
+
+         {/* Filter Dropdowns */}
+        {filterableColumnHeaders.map(({ columnId, title, options }) => {
+             const column = table.getColumn(columnId);
+             if (!column) return null; // Skip if column doesn't exist
+             return (
+                <DataTableFilterableColumnHeader
+                    key={columnId}
+                    column={column}
+                    title={title}
+                    options={options}
+                 />
+             );
+        })}
+
+        {/* Column Visibility Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns <ChevronDown className="ml-2 h-4 w-4" />
+            <Button variant="outline" size="sm" className="ml-auto h-9"> {/* Adjust size */}
+               <Filter className="mr-2 h-4 w-4"/> {/* Added Filter icon */}
+              View
+              {/* <ChevronDown className="ml-2 h-4 w-4" /> */}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+             <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+             <DropdownMenuSeparator />
             {table
               .getAllColumns()
               .filter((column) => column.getCanHide())
               .map((column) => {
+                // Generate a more readable label from the column ID
+                const formattedLabel = column.id
+                    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+                    .replace(/_/g, ' ') // Replace underscores with spaces
+                    .replace(/^./, str => str.toUpperCase()); // Capitalize first letter
+
                 return (
                   <DropdownMenuCheckboxItem
                     key={column.id}
@@ -154,8 +195,7 @@ export function DataTable<TData, TValue>({
                       column.toggleVisibility(!!value)
                     }
                   >
-                    {/* Improve label generation for camelCase IDs */}
-                    {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                    {formattedLabel}
                   </DropdownMenuCheckboxItem>
                 );
               })}
@@ -214,7 +254,7 @@ export function DataTable<TData, TValue>({
                   colSpan={tableColumns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  No results found.
                 </TableCell>
               </TableRow>
             )}
@@ -226,7 +266,7 @@ export function DataTable<TData, TValue>({
         <div className="flex-1 text-sm text-muted-foreground">
           {/* Row selection display removed for simplicity, enable if needed */}
           {/* {table.getFilteredSelectedRowModel().rows.length} of{" "} */}
-          Total {table.getFilteredRowModel().rows.length} row(s).
+          {table.getFilteredRowModel().rows.length} row(s) found.
         </div>
         <div className="space-x-2">
           <Button
@@ -291,8 +331,8 @@ export const DataTableColumnHeader = <TData, TValue>({
 };
 
 
-// Helper for filterable dropdown header
-// Usage: header: ({ column }) => <DataTableFilterableColumnHeader column={column} title="Status" options={...} />
+// Helper for filterable dropdown header used within DataTable
+// Usage: Rendered via the `filterableColumnHeaders` prop in DataTable
 export function DataTableFilterableColumnHeader<TData>({
   column, // Expect the column object directly
   title,
@@ -310,17 +350,20 @@ export function DataTableFilterableColumnHeader<TData>({
     <div className={cn("flex items-center space-x-2", className)}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="-ml-3 h-8 data-[state=open]:bg-accent">
-            <span>{title}</span>
+          <Button variant="outline" size="sm" className="h-9"> {/* Adjust size */}
+            <Filter className="mr-2 h-4 w-4" /> {/* Added Filter icon */}
+            {title}
             {selectedValues?.size > 0 && (
-              <span className="ml-2 rounded-md bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">
+              <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
                 {selectedValues.size}
               </span>
             )}
-            <ChevronDown className="ml-2 h-4 w-4" />
+             {/* <ChevronDown className="ml-2 h-4 w-4 opacity-50" /> */}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
+            <DropdownMenuLabel>{title}</DropdownMenuLabel>
+             <DropdownMenuSeparator />
           {options.map((option) => {
             const isSelected = selectedValues?.has(option.value);
             return (
@@ -351,7 +394,7 @@ export function DataTableFilterableColumnHeader<TData>({
                 onSelect={() => column?.setFilterValue(undefined)}
                 className="justify-center text-center"
               >
-                Clear filters
+                Clear filter
               </DropdownMenuItem>
             </>
           )}
@@ -360,4 +403,3 @@ export function DataTableFilterableColumnHeader<TData>({
     </div>
   );
 }
-
