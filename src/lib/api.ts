@@ -26,22 +26,31 @@ const handleFetchError = (error: any, url: string, method: string): never => {
     console.error(`Fetch error during ${method} request to ${url}:`, error);
 
     let errorMessage = `Failed to fetch data from the API. Please check the browser console for more details.`;
+    let detailedLog = `API Request Details:
+    - Method: ${method}
+    - URL: ${url}
+    - Frontend Origin: ${typeof window !== 'undefined' ? window.location.origin : 'N/A (Server-side?)'}
+    - Error Type: ${error?.constructor?.name || typeof error}
+    - Error Message: ${error?.message || String(error)}
+    `;
 
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        // This is often a network error (server down, DNS) OR a CORS issue.
-        errorMessage = `Network error or CORS issue accessing API at ${url}. ` +
-                       `Potential causes:\n` +
-                       `1. PHP backend server is not running at ${API_BASE_URL}.\n` +
-                       `2. Incorrect API path requested: ${url.replace(API_BASE_URL, '')}\n` +
-                       `3. CORS policy on the PHP server is blocking the request from origin ${window.location.origin}. Check server headers (Access-Control-Allow-Origin).\n` +
-                       `4. Browser blocking mixed content (HTTPS frontend accessing HTTP backend).\n` +
-                       `Check the browser's Network tab and Console for more specific errors.`;
-        console.error("Detailed check: Is the PHP server running? Is the URL correct? Check CORS headers in PHP and any server configuration (Apache/Nginx).");
+        errorMessage = `Network error or CORS issue accessing API at ${url}.`;
+        detailedLog += `
+        Possible Causes:
+        1. Backend Down: PHP server is not running or crashed at ${API_BASE_URL}.
+        2. Incorrect URL/Path: The requested path "${url.replace(API_BASE_URL, '')}" might be wrong.
+        3. CORS Policy: Backend isn't sending correct 'Access-Control-Allow-Origin' header for origin ${window.location.origin}. Check PHP headers (especially for OPTIONS preflight requests if using custom headers/methods).
+        4. Mixed Content: Browser blocking HTTP request from HTTPS page.
+        5. Network Issue: General connectivity problem.
+        `;
+         console.error("Detailed Network/CORS Check: Is the PHP server running? Is the URL correct? Check CORS headers in PHP output (Network tab) and server config (Apache/Nginx/PHP Dev Server). Is the Access-Control-Allow-Origin header present and correct?");
     } else if (error instanceof Error) {
         // Use the message from standard Error objects
         errorMessage = error.message;
     }
 
+    console.error("Detailed Fetch Error Log:", detailedLog);
     // Re-throw a new error with the processed message
     throw new Error(errorMessage);
 };
@@ -62,21 +71,26 @@ export const fetchData = async <T>(path: string): Promise<T> => {
         if (!response.ok) {
              let errorData;
              let errorMessage = `API Error! Status: ${response.status}`;
+             let responseText = ''; // Initialize responseText
              try {
-                  const text = await response.text(); // Try reading text first
+                  responseText = await response.text(); // Try reading text first
                    try {
-                        errorData = JSON.parse(text);
+                        errorData = JSON.parse(responseText);
                         errorMessage = errorData?.message || errorMessage;
                    } catch (jsonError) {
                         // If parsing JSON fails, use the raw text (if not empty)
-                        errorMessage = text || errorMessage;
+                        errorMessage = responseText || errorMessage;
                    }
              } catch (e) {
                    console.error("Failed to parse error response", e);
              }
-             console.error(`HTTP error fetching from ${url}! Status: ${response.status}`, errorData || `Raw response: ${errorMessage}`);
+             console.error(`HTTP error fetching from ${url}! Status: ${response.status}`, errorData || `Raw response: ${responseText}`);
              throw new Error(errorMessage);
         }
+         // Only attempt to parse JSON if the response is likely to have content
+         if (response.status === 204) { // No Content
+             return null as T; // Or handle as needed
+         }
         return response.json();
     } catch (error) {
         handleFetchError(error, url, 'GET');
@@ -96,7 +110,10 @@ export const postData = async <T, R>(path: string, data: T): Promise<R> => {
     try {
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                // Add other headers like Authorization if needed
+            },
             body: JSON.stringify(data),
         });
 
@@ -104,8 +121,8 @@ export const postData = async <T, R>(path: string, data: T): Promise<R> => {
         let responseText = '';
         try {
              responseText = await response.text();
-             // Attempt to parse only if there's content
-             if (responseText) {
+             // Attempt to parse only if there's content and response was OK
+             if (responseText && response.ok) {
                  responseData = JSON.parse(responseText);
              } else if (response.ok) {
                 // Handle cases like 204 No Content or empty successful response
@@ -123,8 +140,9 @@ export const postData = async <T, R>(path: string, data: T): Promise<R> => {
         }
 
         if (!response.ok) {
-            console.error(`HTTP error posting to ${url}! Status: ${response.status}`, responseData || `Raw response: ${responseText}`);
-            throw new Error(responseData?.message || `API error! Status: ${response.status}`);
+            const errorPayload = responseData || { message: `API Error: Status ${response.status}. Raw: ${responseText}` };
+            console.error(`HTTP error posting to ${url}! Status: ${response.status}`, errorPayload);
+            throw new Error(errorPayload?.message || `API error! Status: ${response.status}`);
         }
         return responseData;
      } catch (error) {
@@ -152,7 +170,7 @@ export const putData = async <T, R>(path: string, data: T): Promise<R> => {
          let responseText = '';
          try {
             responseText = await response.text();
-             if (responseText) {
+             if (responseText && response.ok) {
                 responseData = JSON.parse(responseText);
              } else if (response.ok) {
                  return null as R;
@@ -168,8 +186,9 @@ export const putData = async <T, R>(path: string, data: T): Promise<R> => {
          }
 
         if (!response.ok) {
-             console.error(`HTTP error putting to ${url}! Status: ${response.status}`, responseData || `Raw response: ${responseText}`);
-            throw new Error(responseData?.message || `API error! Status: ${response.status}`);
+             const errorPayload = responseData || { message: `API Error: Status ${response.status}. Raw: ${responseText}` };
+             console.error(`HTTP error putting to ${url}! Status: ${response.status}`, errorPayload);
+            throw new Error(errorPayload?.message || `API error! Status: ${response.status}`);
         }
         return responseData;
      } catch (error) {
@@ -195,7 +214,7 @@ export const deleteData = async (path: string): Promise<void> => {
              try {
                   responseText = await response.text();
                    try {
-                        errorData = JSON.parse(responseText);
+                        if (responseText) errorData = JSON.parse(responseText);
                         errorMessage = errorData?.message || errorMessage;
                    } catch (jsonError) {
                         errorMessage = responseText || errorMessage;
@@ -211,3 +230,5 @@ export const deleteData = async (path: string): Promise<void> => {
         handleFetchError(error, url, 'DELETE');
     }
 };
+
+        
