@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Includes
 // Place includes after headers are sent
 include_once './config/database.php';
+include_once './models/admin.php'; // Include Admin model for DB auth
 
 // --- Function to send JSON response and exit ---
 function sendJsonResponse($statusCode, $data) {
@@ -44,20 +45,21 @@ $password = $data->password; // Keep the plain text password for verification
 $role = null;
 $redirectPath = null;
 $table = null;
-$id_column = null; // Column name for username (student_id or teacher_id)
+$id_column = null; // Column name for username (student_id, teacher_id, or username for admin)
 $user_id = null; // Store the actual DB user ID (pk)
 
 // --- Determine User Type and Authenticate ---
 try {
-    if ($username === 'admin') {
+    if (strtolower($username) === 'admin') {
         // --- Admin Login ---
-        // **IMPORTANT:** Replace with your actual secure admin credential check
-        $admin_password_hash = '$2y$10$yJgS.gXwz.Q6iP5tYhR8nOeJy.ZkL6Tq.u7W1p.O3eG9cX5rF0eDq'; // Hash for 'adminpassword'
-
-        if (password_verify($password, $admin_password_hash)) {
-            $role = "Admin";
-            $redirectPath = "/admin/dashboard";
-            $user_id = 0; // Assign a nominal ID for admin if needed
+        $adminModel = new Admin($db); // Use Admin model for DB check
+        if ($adminModel->authenticate($username, $password)) {
+             $role = "Admin";
+             $redirectPath = "/admin/dashboard";
+             $user_id = $adminModel->id ?? 0; // Use ID from model if fetched, or 0 as nominal
+        } else {
+            // Admin authentication failed
+             sendJsonResponse(401, ["success" => false, "message" => "Invalid admin username or password."]);
         }
     } elseif (strpos($username, 's') === 0 && ctype_digit(substr($username, 1))) {
         // --- Student Login ---
@@ -72,12 +74,13 @@ try {
         $role = "Teacher";
         $redirectPath = "/teacher/dashboard";
     } else {
-         // Invalid username format
+         // Invalid username format (not admin, not sXXXX, not tXXXX)
          sendJsonResponse(401, ["success" => false, "message" => "Invalid username format."]);
     }
 
     // If role is student or teacher, query the database
     if ($table && $id_column && $role && $redirectPath) {
+        // Query uses the ID column (student_id or teacher_id)
         $query = "SELECT id, password_hash FROM " . $table . " WHERE " . $id_column . " = :username LIMIT 1";
         $stmt = $db->prepare($query);
 
@@ -112,7 +115,8 @@ try {
             "success" => true,
             "message" => "Login successful.",
             "role" => $role,
-            "redirectPath" => $redirectPath
+            "redirectPath" => $redirectPath,
+            "userId" => $user_id // Optionally return user ID
             // Optional: "token" => $jwt_token
         ]);
     } else {
@@ -129,5 +133,3 @@ try {
 }
 
 ?>
-
-    
