@@ -72,11 +72,13 @@ export default function LoginPage() {
             // Example: localStorage.setItem('userRole', response.role);
             router.push(response.redirectPath);
         } else {
-            // Use the message from the API response
+            // Handle cases where success is true but role/path might be missing, or explicit failure
+            const failureMessage = response?.message || "Invalid username or password.";
+            console.warn("Login failed or response format incorrect:", response);
             toast({
                 variant: "destructive",
                 title: "Login Failed",
-                description: response.message || "Invalid username or password.",
+                description: failureMessage,
             });
         }
     } catch (error: any) {

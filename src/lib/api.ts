@@ -6,7 +6,7 @@
 // Example using environment variable (requires setup):
 // const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'; // Default fallback
 // Make sure your PHP server (e.g., using `php -S localhost:8000 -t src/api`) is running and accessible at this address.
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8000'; // Assuming PHP dev server is running here
 
 /**
  * Constructs the full API URL.
@@ -25,7 +25,7 @@ const getApiUrl = (path: string): string => {
 const handleFetchError = (error: any, url: string, method: string): never => {
     console.error(`Fetch error during ${method} request to ${url}:`, error);
 
-    let errorMessage = `Failed to fetch data from the API. Please check the browser console for more details.`;
+    let errorMessage = `API Error: Failed to fetch data.`;
     let detailedLog = `API Request Details:
     - Method: ${method}
     - URL: ${url}
@@ -34,24 +34,28 @@ const handleFetchError = (error: any, url: string, method: string): never => {
     - Error Message: ${error?.message || String(error)}
     `;
 
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        errorMessage = `Network error or CORS issue accessing API at ${url}.`;
+    // Specific check for network/CORS related errors
+    if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
+        errorMessage = `Network Error: Could not connect to the API backend at ${url}. Please ensure the PHP server is running and accessible. Check for CORS issues in the browser console.`;
         detailedLog += `
         Possible Causes:
-        1. Backend Down: PHP server is not running or crashed at ${API_BASE_URL}.
-        2. Incorrect URL/Path: The requested path "${url.replace(API_BASE_URL, '')}" might be wrong.
-        3. CORS Policy: Backend isn't sending correct 'Access-Control-Allow-Origin' header for origin ${window.location.origin}. Check PHP headers (especially for OPTIONS preflight requests if using custom headers/methods).
-        4. Mixed Content: Browser blocking HTTP request from HTTPS page.
-        5. Network Issue: General connectivity problem.
+        1. Backend Server Not Running: The PHP development server might not be started at ${API_BASE_URL}. Run 'php -S localhost:8000 -t src/api' in your terminal.
+        2. Incorrect URL/Path: Verify the API path "${url.replace(API_BASE_URL, '')}" is correct.
+        3. CORS Policy: The PHP backend isn't sending the correct 'Access-Control-Allow-Origin' header for your frontend origin (${typeof window !== 'undefined' ? window.location.origin : 'unknown'}). Check PHP headers.
+        4. Firewall/Network Issue: Network configuration might be blocking the request.
+        5. Mixed Content: Requesting HTTP from an HTTPS page (less likely in local dev).
         `;
-         console.error("Detailed Network/CORS Check: Is the PHP server running? Is the URL correct? Check CORS headers in PHP output (Network tab) and server config (Apache/Nginx/PHP Dev Server). Is the Access-Control-Allow-Origin header present and correct?");
+         console.error("Detailed Network/CORS Check: Is the PHP server running at the correct address? Is the endpoint path correct? Check the browser's Network tab for the failed request and look for CORS errors in the Console tab.");
     } else if (error instanceof Error) {
-        // Use the message from standard Error objects
-        errorMessage = error.message;
+        // Use the message from standard Error objects if available
+        errorMessage = `API Error: ${error.message}`;
+    } else {
+         errorMessage = `API Error: An unknown error occurred during the fetch request.`;
     }
 
+
     console.error("Detailed Fetch Error Log:", detailedLog);
-    // Re-throw a new error with the processed message
+    // Re-throw a new error with the processed, more user-friendly message
     throw new Error(errorMessage);
 };
 
@@ -130,7 +134,7 @@ export const postData = async <T, R>(path: string, data: T): Promise<R> => {
              }
         } catch (e) {
              if (!response.ok) {
-                 const errorMessage = `API Error! Status: ${response.status}. Response not valid JSON: ${responseText}`;
+                 const errorMessage = `API Error! Status: ${response.status}. Response not valid JSON: ${responseText || '(empty response)'}`;
                  console.error(`HTTP error posting to ${url}! Status: ${response.status}. Raw Response: ${responseText}`);
                  throw new Error(errorMessage);
              }
@@ -140,7 +144,7 @@ export const postData = async <T, R>(path: string, data: T): Promise<R> => {
         }
 
         if (!response.ok) {
-            const errorPayload = responseData || { message: `API Error: Status ${response.status}. Raw: ${responseText}` };
+            const errorPayload = responseData || { message: `API Error: Status ${response.status}. Response: ${responseText || '(empty response)'}` };
             console.error(`HTTP error posting to ${url}! Status: ${response.status}`, errorPayload);
             throw new Error(errorPayload?.message || `API error! Status: ${response.status}`);
         }
@@ -177,7 +181,7 @@ export const putData = async <T, R>(path: string, data: T): Promise<R> => {
              }
          } catch (e) {
               if (!response.ok) {
-                 const errorMessage = `API Error! Status: ${response.status}. Response not valid JSON: ${responseText}`;
+                 const errorMessage = `API Error! Status: ${response.status}. Response not valid JSON: ${responseText || '(empty response)'}`;
                  console.error(`HTTP error putting to ${url}! Status: ${response.status}. Raw Response: ${responseText}`);
                  throw new Error(errorMessage);
              }
@@ -186,7 +190,7 @@ export const putData = async <T, R>(path: string, data: T): Promise<R> => {
          }
 
         if (!response.ok) {
-             const errorPayload = responseData || { message: `API Error: Status ${response.status}. Raw: ${responseText}` };
+             const errorPayload = responseData || { message: `API Error: Status ${response.status}. Response: ${responseText || '(empty response)'}` };
              console.error(`HTTP error putting to ${url}! Status: ${response.status}`, errorPayload);
             throw new Error(errorPayload?.message || `API error! Status: ${response.status}`);
         }
@@ -230,5 +234,3 @@ export const deleteData = async (path: string): Promise<void> => {
         handleFetchError(error, url, 'DELETE');
     }
 };
-
-        
