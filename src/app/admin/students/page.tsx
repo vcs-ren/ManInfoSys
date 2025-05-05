@@ -145,8 +145,8 @@ export default function ManageStudentsPage() {
   const handleDeleteStudent = async (studentId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`/api/students/delete.php/${studentId}`);
-          setStudents(prev => prev.filter(s => s.id !== studentId));
+          await deleteData(`/api/students/delete.php/${studentId}`); // Ensure correct endpoint with ID
+          setStudents(prev => prev.filter(s => s.id !== studentId)); // Update state on success
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
       } catch (error: any) {
            console.error("Failed to delete student:", error);
@@ -378,7 +378,7 @@ export default function ManageStudentsPage() {
                      <AlertDialogAction
                           onClick={async (e) => {
                               e.stopPropagation();
-                              await handleDeleteStudent(student.id);
+                              await handleDeleteStudent(student.id); // Use the correct delete handler
                          }}
                           className={cn(buttonVariants({ variant: "destructive" }))}
                           disabled={isSubmitting}

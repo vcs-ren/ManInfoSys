@@ -96,8 +96,8 @@ export default function ManageTeachersPage() {
   const handleDeleteTeacher = async (teacherId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`/api/teachers/delete.php/${teacherId}`);
-          setTeachers(prev => prev.filter(t => t.id !== teacherId));
+          await deleteData(`/api/teachers/delete.php/${teacherId}`); // Ensure correct endpoint with ID
+          setTeachers(prev => prev.filter(t => t.id !== teacherId)); // Update state on success
           toast({ title: "Teacher Deleted", description: `Teacher record has been removed.` });
       } catch (error: any) {
           console.error("Failed to delete teacher:", error);
@@ -262,7 +262,7 @@ export default function ManageTeachersPage() {
                  <AlertDialogAction
                       onClick={async (e) => {
                           e.stopPropagation();
-                          await handleDeleteTeacher(teacher.id);
+                          await handleDeleteTeacher(teacher.id); // Use the correct delete handler
                      }}
                       className={cn(buttonVariants({ variant: "destructive" }))}
                       disabled={isSubmitting}

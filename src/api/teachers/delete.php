@@ -30,9 +30,18 @@ if ($id && is_numeric($id)) {
         // Set response code - 204 No Content
         http_response_code(204);
     } else {
-        // Set response code - 503 Service Unavailable
-        http_response_code(503);
-        echo json_encode(array("message" => "Unable to delete teacher."));
+        // Check if the teacher was not found
+        $checkTeacher = new Teacher($db);
+        $checkTeacher->id = $teacher->id;
+        if (!$checkTeacher->readOne()) {
+            http_response_code(404);
+            echo json_encode(array("message" => "Teacher not found."));
+        } else {
+            // Set response code - 503 Service Unavailable
+            http_response_code(503);
+            error_log("Failed to delete teacher with ID: {$teacher->id}"); // Log the error
+            echo json_encode(array("message" => "Unable to delete teacher."));
+        }
     }
 } else {
     // Set response code - 400 Bad Request

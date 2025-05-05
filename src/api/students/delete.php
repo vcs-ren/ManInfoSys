@@ -17,14 +17,10 @@ $database = new Database();
 $db = $database->getConnection();
 $student = new Student($db);
 
-// Get ID from URL path or query parameter
-// This part depends on how your routing/server handles the URL.
+// Get ID from URL path
 // Assuming the ID is the last part of the URL path, e.g., /api/students/123
 $url_parts = explode('/', $_SERVER['REQUEST_URI']);
 $id = end($url_parts);
-
-// Alternative: Get ID from query parameter like /api/students/delete.php?id=123
-// $id = isset($_GET['id']) ? $_GET['id'] : null;
 
 // Validate ID
 if ($id && is_numeric($id)) {
@@ -36,10 +32,18 @@ if ($id && is_numeric($id)) {
         http_response_code(204);
         // No body needed for 204 response
     } else {
-        // Set response code - 503 Service Unavailable
-        http_response_code(503);
-        // Send error response
-        echo json_encode(array("message" => "Unable to delete student."));
+        // Check if the student was not found
+        $checkStudent = new Student($db);
+        $checkStudent->id = $student->id;
+        if (!$checkStudent->readOne()) {
+            http_response_code(404);
+            echo json_encode(array("message" => "Student not found."));
+        } else {
+            // Set response code - 503 Service Unavailable (deletion failed for other reasons)
+            http_response_code(503);
+            error_log("Failed to delete student with ID: {$student->id}"); // Log the error
+            echo json_encode(array("message" => "Unable to delete student."));
+        }
     }
 } else {
     // Set response code - 400 Bad Request
