@@ -4,7 +4,14 @@
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 // Includes
 include_once '../../config/database.php';
@@ -22,6 +29,8 @@ $teacherDepartment = null;
 //     // $teacherDetails = fetchTeacherDetails($loggedInTeacherId); // Implement this
 //     // if ($teacherDetails) {
 //     //     $teacherDepartment = $teacherDetails['department'];
+//     // } else {
+//     //      http_response_code(404); echo json_encode(array("message" => "Teacher details not found.")); exit();
 //     // }
 // } else {
 //     http_response_code(401); // Unauthorized
@@ -32,61 +41,56 @@ $teacherDepartment = null;
 
 // ** Temporary Hardcoding for Testing (REMOVE IN PRODUCTION) **
 $loggedInTeacherId = 1; // Example teacher ID
-$teacherDepartment = 'Computer Science'; // Example Department
+$teacherDepartment = 'Computer Science'; // Example Department - Fetch this dynamically
 // ** REMOVE Hardcoding Above **
 
-
-// Instantiate DB
-$database = new Database();
-$db = $database->getConnection();
-
-// Query to fetch announcements relevant to the teacher
-// This logic needs refinement. How are announcements targeted to teachers?
-// Option 1: Announcements specifically for their department?
-// Option 2: Announcements for courses/years/sections they teach? (More complex)
-// Option 3: Only show Admin announcements ('all' targets)?
-
-// Simple Approach: Show 'Admin' announcements targeted to 'all' or the teacher's department (if relevant)
-// + Announcements authored by the teacher themselves (if applicable, not standard)
-
-$query = "SELECT
-            a.id,
-            a.title,
-            a.content,
-            a.created_at AS date,
-            a.target_course,
-            a.target_year_level,
-            a.target_section,
-            a.author_type,
-            CASE
-                WHEN a.author_type = 'Admin' THEN 'Admin'
-                WHEN a.author_type = 'Teacher' THEN CONCAT(t.first_name, ' ', t.last_name)
-                ELSE 'System'
-            END AS author
-          FROM
-            announcements a
-          LEFT JOIN
-            teachers t ON a.author_id = t.id AND a.author_type = 'Teacher'
-          WHERE
-            -- Show 'Admin' announcements targeted broadly
-            (a.author_type = 'Admin' AND
-                (a.target_course IS NULL OR a.target_course = 'all') AND
-                (a.target_year_level IS NULL OR a.target_year_level = 'all') AND
-                (a.target_section IS NULL OR a.target_section = 'all')
-            )
-            -- OR potentially show announcements for the teacher's department if such targeting exists
-            -- OR (a.target_department = :teacherDepartment) -- Requires target_department field
-            -- OR show announcements authored by this teacher (if needed)
-            -- OR (a.author_type = 'Teacher' AND a.author_id = :teacherId)
-          ORDER BY
-            a.created_at DESC"; // Fetch newest first
+if (!$loggedInTeacherId) {
+     http_response_code(401);
+     echo json_encode(array("message" => "Missing teacher authentication details."));
+     exit();
+}
 
 try {
+    // Instantiate DB
+    $database = new Database();
+    $db = $database->getConnection();
+
+    // Query to fetch announcements relevant to the teacher
+    // Logic: Show 'Admin' announcements targeted to 'all' OR announcements created by this teacher
+    $query = "SELECT
+                a.id,
+                a.title,
+                a.content,
+                a.created_at AS date,
+                a.target_course,
+                a.target_year_level,
+                a.target_section,
+                a.author_type,
+                CASE
+                    WHEN a.author_type = 'Admin' THEN 'Admin'
+                    WHEN a.author_type = 'Teacher' THEN CONCAT(t.first_name, ' ', t.last_name)
+                    ELSE 'System'
+                END AS author
+              FROM
+                announcements a
+              LEFT JOIN
+                teachers t ON a.author_id = t.id AND a.author_type = 'Teacher'
+              WHERE
+                -- Show 'Admin' announcements targeted broadly (to everyone)
+                (a.author_type = 'Admin' AND
+                    (a.target_course IS NULL OR a.target_course = 'all') AND
+                    (a.target_year_level IS NULL OR a.target_year_level = 'all') AND
+                    (a.target_section IS NULL OR a.target_section = 'all')
+                )
+                -- OR show announcements authored by this specific teacher
+                OR (a.author_type = 'Teacher' AND a.author_id = :teacherId)
+              ORDER BY
+                a.created_at DESC"; // Fetch newest first
+
     $stmt = $db->prepare($query);
 
-    // Bind parameters if needed (e.g., :teacherDepartment, :teacherId)
-    // $stmt->bindParam(':teacherDepartment', $teacherDepartment);
-    // $stmt->bindParam(':teacherId', $loggedInTeacherId);
+    // Bind teacher ID for filtering own announcements
+    $stmt->bindParam(':teacherId', $loggedInTeacherId, PDO::PARAM_INT);
 
     $stmt->execute();
     $num = $stmt->rowCount();
@@ -127,6 +131,10 @@ try {
     // Log the error
     error_log("Error fetching teacher announcements: " . $exception->getMessage());
     // Send error response
-    echo json_encode(array("message" => "Unable to fetch announcements. " . $exception->getMessage()));
+    echo json_encode(array("message" => "Unable to fetch announcements. Database error: " . $exception->getMessage()));
+} catch (Exception $e) {
+     error_log("General error fetching teacher announcements: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred while fetching announcements."));
 }
 ?>

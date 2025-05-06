@@ -2,6 +2,15 @@
 // --- api/students/read.php --- (GET /api/students)
 header("Access-Control-Allow-Origin: *"); // Allow requests (adjust in production)
 header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, OPTIONS"); // Allow GET and OPTIONS
+header("Access-Control-Max-Age: 3600");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 // Includes
 include_once '../config/database.php';
@@ -12,49 +21,54 @@ $database = new Database();
 $db = $database->getConnection();
 $student = new Student($db);
 
-// Query students using the model's read method
-$stmt = $student->read();
-$num = $stmt->rowCount();
+try {
+    // Query students using the model's read method
+    $stmt = $student->read();
+    $num = $stmt->rowCount();
 
-// Check if any students found
-if ($num > 0) {
     // Students array
     $students_arr = array();
-    $students_arr["records"] = array();
 
-    // Retrieve table contents
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        // Extract row (this will make $id, $firstName, etc. available)
-        // Note: We use the aliases defined in the model's read() query
-        extract($row);
+    // Check if any students found
+    if ($num > 0) {
+        // Retrieve table contents
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            // Extract row (this will make $id, $firstName, etc. available)
+            // Note: We use the aliases defined in the model's read() query
+            extract($row);
 
-        $student_item = array(
-            "id" => $id,
-            "studentId" => $studentId, // Use the alias from the model query
-            "firstName" => $firstName, // Use the alias
-            "lastName" => $lastName,   // Use the alias
-            "course" => $course,
-            "status" => $status,
-            "year" => $year,
-            "section" => $section,
-            "email" => $email,
-            "phone" => $phone,
-            "emergencyContactName" => $emergencyContactName, // Use the alias
-            "emergencyContactRelationship" => $emergencyContactRelationship, // Use the alias
-            "emergencyContactPhone" => $emergencyContactPhone, // Use the alias
-            "emergencyContactAddress" => $emergencyContactAddress, // Use the alias
-        );
-        array_push($students_arr["records"], $student_item);
+            $student_item = array(
+                "id" => (int)$id, // Ensure ID is integer
+                "studentId" => $studentId, // Use the alias from the model query
+                "firstName" => $firstName, // Use the alias
+                "lastName" => $lastName,   // Use the alias
+                "course" => $course,
+                "status" => $status,
+                "year" => $year, // Include year
+                "section" => $section, // Include section
+                "email" => $email,
+                "phone" => $phone,
+                "emergencyContactName" => $emergencyContactName, // Use the alias
+                "emergencyContactRelationship" => $emergencyContactRelationship, // Use the alias
+                "emergencyContactPhone" => $emergencyContactPhone, // Use the alias
+                "emergencyContactAddress" => $emergencyContactAddress, // Use the alias
+            );
+            array_push($students_arr, $student_item);
+        }
     }
 
-    // Set response code - 200 OK
+    // Set response code - 200 OK (even if empty)
     http_response_code(200);
-    // Show students data in json format
+    // Show students data in json format (return the array directly)
     echo json_encode($students_arr);
-} else {
-    // Set response code - 404 Not found
-    http_response_code(404);
-    // Tell the user no students found
-    echo json_encode(array("message" => "No students found."));
+
+} catch (PDOException $exception) {
+    error_log("Error fetching students: " . $exception->getMessage());
+    http_response_code(500);
+    echo json_encode(array("message" => "Unable to fetch students. Database error."));
+} catch (Exception $e) {
+    error_log("General error fetching students: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(array("message" => "An unexpected error occurred while fetching students."));
 }
 ?>

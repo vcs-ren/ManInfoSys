@@ -42,10 +42,9 @@ try {
     $stmt->execute();
     $num = $stmt->rowCount();
 
+    $sections_arr = array();
     // Check if any sections found
     if ($num > 0) {
-        $sections_arr = array();
-
         // Retrieve table contents
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             // Extract row automatically creates variables like $id, $sectionCode etc.
@@ -63,23 +62,23 @@ try {
             );
             array_push($sections_arr, $section_item);
         }
-
-        // Set response code - 200 OK
-        http_response_code(200);
-        // Show sections data in json format
-        echo json_encode($sections_arr); // Return the array directly
-    } else {
-        // Set response code - 200 OK (It's not an error if there are no sections)
-        http_response_code(200);
-        // Return an empty array
-        echo json_encode(array());
     }
+
+    // Set response code - 200 OK (even if empty)
+    http_response_code(200);
+    // Show sections data in json format
+    echo json_encode($sections_arr); // Return the array directly
+
 } catch (PDOException $exception) {
     // Set response code - 500 Internal Server Error
     http_response_code(500);
     // Log the error
     error_log("Error fetching sections: " . $exception->getMessage());
     // Send error response
-    echo json_encode(array("message" => "Unable to fetch sections. " . $exception->getMessage()));
+    echo json_encode(array("message" => "Unable to fetch sections. Database error: " . $exception->getMessage()));
+} catch (Exception $e) {
+     error_log("General error fetching sections: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred while fetching sections."));
 }
 ?>

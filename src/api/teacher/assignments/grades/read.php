@@ -4,7 +4,14 @@
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 // Includes
 include_once '../../config/database.php';
@@ -27,49 +34,47 @@ $loggedInTeacherId = null;
 $loggedInTeacherId = 1; // Example: Assume teacher with ID 1 is logged in. REMOVE THIS.
 
 
-// Instantiate DB
-$database = new Database();
-$db = $database->getConnection();
-
-// Query to fetch student assignments for the logged-in teacher,
-// joining students, subjects, sections, and grades.
-$query = "SELECT
-            ssa.id AS assignmentId, -- Use assignment ID as the unique key for this context
-            st.id AS studentId,
-            CONCAT(st.first_name, ' ', st.last_name) AS studentName,
-            sub.id AS subjectId,
-            sub.name AS subjectName,
-            sec.section_code AS section,
-            sec.year_level AS year,
-            -- Fetch grades using LEFT JOINs and aggregate MAX to get the latest grade per term
-            MAX(CASE WHEN g.term = 'Prelim' THEN g.grade ELSE NULL END) AS prelimGrade,
-            MAX(CASE WHEN g.term = 'Prelim' THEN g.remarks ELSE NULL END) AS prelimRemarks,
-            MAX(CASE WHEN g.term = 'Midterm' THEN g.grade ELSE NULL END) AS midtermGrade,
-            MAX(CASE WHEN g.term = 'Midterm' THEN g.remarks ELSE NULL END) AS midtermRemarks,
-            MAX(CASE WHEN g.term = 'Final' THEN g.grade ELSE NULL END) AS finalGrade,
-            MAX(CASE WHEN g.term = 'Final' THEN g.remarks ELSE NULL END) AS finalRemarks
-          FROM
-            section_subject_assignments ssa
-          JOIN
-            sections sec ON ssa.section_id = sec.id
-          JOIN
-            subjects sub ON ssa.subject_id = sub.id
-          JOIN
-            students st ON st.section = sec.section_code -- Assuming students are linked by section code
-                         -- Consider a more robust join if students can be in multiple sections
-                         -- or if section assignment is stored differently.
-          LEFT JOIN -- Use LEFT JOIN for grades as they might not exist yet
-            grades g ON g.student_id = st.id AND g.subject_id = ssa.subject_id
-                      -- Optionally link via assignment_id if available in grades: AND g.assignment_id = ssa.id
-          WHERE
-            ssa.teacher_id = :teacherId -- Filter by logged-in teacher
-          GROUP BY -- Group by student and assignment to consolidate grades
-            ssa.id, st.id, st.first_name, st.last_name, sub.id, sub.name, sec.section_code, sec.year_level
-          ORDER BY
-            sub.name ASC, sec.year_level ASC, sec.section_code ASC, st.last_name ASC, st.first_name ASC";
-
-
 try {
+    // Instantiate DB
+    $database = new Database();
+    $db = $database->getConnection();
+
+    // Query to fetch student assignments for the logged-in teacher,
+    // joining students, subjects, sections, and grades.
+    $query = "SELECT
+                ssa.id AS assignmentId, -- Use assignment ID as the unique key for this context
+                st.id AS studentId,
+                CONCAT(st.first_name, ' ', st.last_name) AS studentName,
+                sub.id AS subjectId,
+                sub.name AS subjectName,
+                sec.section_code AS section,
+                sec.year_level AS year,
+                -- Fetch grades using LEFT JOINs and aggregate MAX to get the latest grade per term
+                MAX(CASE WHEN g.term = 'Prelim' THEN g.grade ELSE NULL END) AS prelimGrade,
+                MAX(CASE WHEN g.term = 'Prelim' THEN g.remarks ELSE NULL END) AS prelimRemarks,
+                MAX(CASE WHEN g.term = 'Midterm' THEN g.grade ELSE NULL END) AS midtermGrade,
+                MAX(CASE WHEN g.term = 'Midterm' THEN g.remarks ELSE NULL END) AS midtermRemarks,
+                MAX(CASE WHEN g.term = 'Final' THEN g.grade ELSE NULL END) AS finalGrade,
+                MAX(CASE WHEN g.term = 'Final' THEN g.remarks ELSE NULL END) AS finalRemarks
+              FROM
+                section_subject_assignments ssa
+              JOIN
+                sections sec ON ssa.section_id = sec.id
+              JOIN
+                subjects sub ON ssa.subject_id = sub.id
+              JOIN -- Changed from LEFT JOIN to ensure only students in the assigned section are included
+                students st ON st.section = sec.id -- ** JOIN students based on section ID **
+              LEFT JOIN -- Use LEFT JOIN for grades as they might not exist yet
+                grades g ON g.student_id = st.id AND g.subject_id = ssa.subject_id
+                          -- Optionally link via assignment_id if available in grades: AND g.assignment_id = ssa.id
+              WHERE
+                ssa.teacher_id = :teacherId -- Filter by logged-in teacher
+              GROUP BY -- Group by student and assignment to consolidate grades
+                ssa.id, st.id, st.first_name, st.last_name, sub.id, sub.name, sec.section_code, sec.year_level
+              ORDER BY
+                sub.name ASC, sec.year_level ASC, sec.section_code ASC, st.last_name ASC, st.first_name ASC";
+
+
     $stmt = $db->prepare($query);
 
     // Bind logged-in teacher ID
@@ -128,6 +133,10 @@ try {
     // Log the error
     error_log("Error fetching teacher assignments/grades: " . $exception->getMessage());
     // Send error response
-    echo json_encode(array("message" => "Unable to fetch assignments and grades. " . $exception->getMessage()));
+    echo json_encode(array("message" => "Unable to fetch assignments and grades. Database error: " . $exception->getMessage()));
+} catch (Exception $e) {
+     error_log("General error fetching teacher assignments/grades: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred while fetching assignments/grades."));
 }
 ?>

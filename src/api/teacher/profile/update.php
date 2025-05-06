@@ -4,9 +4,15 @@
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: PUT");
+header("Access-Control-Allow-Methods: PUT, OPTIONS");
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 // Includes
 include_once '../../config/database.php';
@@ -35,12 +41,24 @@ $data = json_decode(file_get_contents("php://input"));
 
 // Validate required fields from payload (ensure ID matches logged-in user)
 if (
-    !empty($data->id) &&
-    $data->id == $loggedInTeacherId && // **Crucial security check**
-    !empty($data->firstName) &&
-    !empty($data->lastName)
+    empty($data->id) ||
+    $data->id != $loggedInTeacherId || // **Crucial security check**
+    empty($data->firstName) ||
+    empty($data->lastName)
     // Add validation for other required fields if necessary
 ) {
+    http_response_code(400); // Bad Request or 403 Forbidden
+     $errorMessage = "Unable to update profile. ";
+     if (empty($data->id) || $data->id != $loggedInTeacherId) {
+         $errorMessage .= "Invalid request or ID mismatch.";
+     } else {
+         $errorMessage .= "Required data is missing (firstName, lastName).";
+     }
+     echo json_encode(array("message" => $errorMessage));
+     exit();
+}
+
+try {
     // Instantiate DB and teacher object
     $database = new Database();
     $db = $database->getConnection();
@@ -59,12 +77,9 @@ if (
     // $teacher->department (usually admin controlled)
     // $teacher->passwordHash (handled via change password endpoint)
 
-    // --- Ensure the update method in the Teacher model only updates allowed fields ---
-    // Go to src/api/models/teacher.php and adjust the UPDATE query in the update() method
-    // to only include firstName, lastName, email, and phone.
-
-    // Attempt to update teacher profile using the (modified) model method
-    $updatedTeacherData = $teacher->update(); // Assumes update() is modified correctly
+    // Attempt to update teacher profile using the standard update() method
+    // (The model's update method was modified correctly)
+    $updatedTeacherData = $teacher->update();
 
     if ($updatedTeacherData) {
         // Set response code - 200 OK
@@ -79,20 +94,19 @@ if (
               http_response_code(404);
               echo json_encode(array("message" => "Teacher profile not found."));
          } else {
-            http_response_code(503); // Service Unavailable
             error_log("Failed to update teacher profile for ID: " . $teacher->id);
-            echo json_encode(array("message" => "Unable to update teacher profile."));
+            http_response_code(503); // Service Unavailable
+            echo json_encode(array("message" => "Unable to update teacher profile. Database operation failed."));
          }
     }
-} else if (empty($data->id) || $data->id != $loggedInTeacherId) {
-     http_response_code(403); // Forbidden
-     echo json_encode(array("message" => "Unauthorized: Payload ID does not match authenticated user."));
+} catch (PDOException $e) {
+     error_log("PDOException updating teacher profile: " . $e->getMessage());
+     http_response_code(503);
+     echo json_encode(array("message" => "Database error occurred while updating profile: " . $e->getMessage()));
+} catch (Exception $e) {
+      error_log("Exception updating teacher profile: " . $e->getMessage());
+      http_response_code(500);
+      echo json_encode(array("message" => "An unexpected error occurred: " . $e->getMessage()));
 }
-else {
-    // Set response code - 400 Bad Request
-    http_response_code(400);
-    // Send error response for missing data
-    $errorMessage = "Unable to update profile. Required data is missing (firstName, lastName).";
-    echo json_encode(array("message" => $errorMessage));
-}
+
 ?>

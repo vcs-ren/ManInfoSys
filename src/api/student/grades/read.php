@@ -4,7 +4,14 @@
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 // Includes
 include_once '../../config/database.php';
@@ -27,31 +34,31 @@ $loggedInStudentId = null;
 $loggedInStudentId = 1; // Example: Assume student with ID 1 is logged in. REMOVE THIS.
 
 
-// Instantiate DB
-$database = new Database();
-$db = $database->getConnection();
-
-// Query to fetch grades for the logged-in student, grouped by subject
-$query = "SELECT
-            sub.id AS subjectId, -- Use subject ID as the main ID for the row
-            sub.name AS subjectName,
-            -- Fetch grades using MAX aggregation within the group
-            MAX(CASE WHEN g.term = 'Prelim' THEN g.grade ELSE NULL END) AS prelimGrade,
-            MAX(CASE WHEN g.term = 'Midterm' THEN g.grade ELSE NULL END) AS midtermGrade,
-            MAX(CASE WHEN g.term = 'Final' THEN g.grade ELSE NULL END) AS finalGrade,
-            MAX(CASE WHEN g.term = 'Final' THEN g.remarks ELSE NULL END) AS finalRemarks
-          FROM
-            grades g
-          JOIN
-            subjects sub ON g.subject_id = sub.id
-          WHERE
-            g.student_id = :studentId
-          GROUP BY
-            sub.id, sub.name -- Group by subject to get one row per subject
-          ORDER BY
-            sub.name ASC"; // Order by subject name
-
 try {
+    // Instantiate DB
+    $database = new Database();
+    $db = $database->getConnection();
+
+    // Query to fetch grades for the logged-in student, grouped by subject
+    $query = "SELECT
+                sub.id AS subjectId, -- Use subject ID as the main ID for the row
+                sub.name AS subjectName,
+                -- Fetch grades using MAX aggregation within the group
+                MAX(CASE WHEN g.term = 'Prelim' THEN g.grade ELSE NULL END) AS prelimGrade,
+                MAX(CASE WHEN g.term = 'Midterm' THEN g.grade ELSE NULL END) AS midtermGrade,
+                MAX(CASE WHEN g.term = 'Final' THEN g.grade ELSE NULL END) AS finalGrade,
+                MAX(CASE WHEN g.term = 'Final' THEN g.remarks ELSE NULL END) AS finalRemarks
+              FROM
+                grades g
+              JOIN
+                subjects sub ON g.subject_id = sub.id
+              WHERE
+                g.student_id = :studentId
+              GROUP BY
+                sub.id, sub.name -- Group by subject to get one row per subject
+              ORDER BY
+                sub.name ASC"; // Order by subject name
+
     $stmt = $db->prepare($query);
 
     // Bind logged-in student ID
@@ -101,6 +108,10 @@ try {
     // Log the error
     error_log("Error fetching student grades: " . $exception->getMessage());
     // Send error response
-    echo json_encode(array("message" => "Unable to fetch grades. " . $exception->getMessage()));
+    echo json_encode(array("message" => "Unable to fetch grades. Database error: " . $exception->getMessage()));
+} catch (Exception $e) {
+     error_log("General error fetching student grades: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred while fetching grades."));
 }
 ?>

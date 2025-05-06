@@ -19,22 +19,12 @@ include_once '../../config/database.php';
 
 // Get Section ID from URL path
 // Assumes URL like /api/sections/CS-1-A/assignments
-$url_parts = explode('/', $_SERVER['REQUEST_URI']);
-// Find the index of 'sections' and get the next part as the ID
-$sections_index = array_search('sections', $url_parts);
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$parts = explode('/', trim($path, '/'));
+$sections_index = array_search('sections', $parts);
 $sectionId = null;
-if ($sections_index !== false && isset($url_parts[$sections_index + 1])) {
-    // Check if the next part is 'assignments'
-    if (isset($url_parts[$sections_index + 2]) && $url_parts[$sections_index + 2] === 'assignments') {
-         $sectionId = $url_parts[$sections_index + 1];
-    } else {
-         // Handle cases where the URL is just /api/sections/{id} without /assignments
-         // Or if there's something else after the ID
-         // For this endpoint, we require /assignments, so consider it an error if not present
-         http_response_code(400);
-         echo json_encode(array("message" => "Invalid URL format. Expected format: /api/sections/{sectionId}/assignments"));
-         exit();
-    }
+if ($sections_index !== false && isset($parts[$sections_index + 1]) && isset($parts[$sections_index + 2]) && $parts[$sections_index + 2] === 'assignments') {
+    $sectionId = $parts[$sections_index + 1];
 }
 
 // Validate Section ID
@@ -44,30 +34,30 @@ if (empty($sectionId)) {
     exit();
 }
 
-// Instantiate DB
-$database = new Database();
-$db = $database->getConnection(); // Handles connection errors internally
-
-// Query assignments for the given section ID, joining with subjects and teachers
-$query = "SELECT
-            ssa.id,
-            ssa.section_id AS sectionId,
-            ssa.subject_id AS subjectId,
-            sub.name AS subjectName,
-            ssa.teacher_id AS teacherId,
-            CONCAT(t.first_name, ' ', t.last_name) AS teacherName
-          FROM
-            section_subject_assignments ssa
-          JOIN
-            subjects sub ON ssa.subject_id = sub.id
-          JOIN
-            teachers t ON ssa.teacher_id = t.id
-          WHERE
-            ssa.section_id = :sectionId
-          ORDER BY
-            sub.name ASC"; // Order by subject name
-
 try {
+    // Instantiate DB
+    $database = new Database();
+    $db = $database->getConnection(); // Handles connection errors internally
+
+    // Query assignments for the given section ID, joining with subjects and teachers
+    $query = "SELECT
+                ssa.id,
+                ssa.section_id AS sectionId,
+                ssa.subject_id AS subjectId,
+                sub.name AS subjectName,
+                ssa.teacher_id AS teacherId,
+                CONCAT(t.first_name, ' ', t.last_name) AS teacherName
+              FROM
+                section_subject_assignments ssa
+              JOIN
+                subjects sub ON ssa.subject_id = sub.id
+              JOIN
+                teachers t ON ssa.teacher_id = t.id
+              WHERE
+                ssa.section_id = :sectionId
+              ORDER BY
+                sub.name ASC"; // Order by subject name
+
     $stmt = $db->prepare($query);
 
     // Sanitize and bind Section ID
@@ -106,6 +96,10 @@ try {
     // Log the error
     error_log("Error fetching assignments for section {$sectionId}: " . $exception->getMessage());
     // Send error response
-    echo json_encode(array("message" => "Unable to fetch assignments. " . $exception->getMessage()));
+    echo json_encode(array("message" => "Unable to fetch assignments. Database error: " . $exception->getMessage()));
+} catch (Exception $e) {
+     error_log("General error fetching assignments for section {$sectionId}: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred while fetching assignments."));
 }
 ?>

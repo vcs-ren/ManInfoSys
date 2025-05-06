@@ -31,10 +31,9 @@ try {
     $stmt->execute();
     $num = $stmt->rowCount();
 
+    $subjects_arr = array();
     // Check if any subjects found
     if ($num > 0) {
-        $subjects_arr = array();
-
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             extract($row); // $id, $name, $description
 
@@ -45,23 +44,23 @@ try {
             );
             array_push($subjects_arr, $subject_item);
         }
-
-        // Set response code - 200 OK
-        http_response_code(200);
-        // Show subjects data in json format
-        echo json_encode($subjects_arr); // Return the array directly
-    } else {
-        // Set response code - 200 OK (Not an error if empty)
-        http_response_code(200);
-        // Return an empty array
-        echo json_encode(array());
     }
+
+    // Set response code - 200 OK (even if empty)
+    http_response_code(200);
+    // Show subjects data in json format
+    echo json_encode($subjects_arr); // Return the array directly
+
 } catch (PDOException $exception) {
     // Set response code - 500 Internal Server Error
     http_response_code(500);
     // Log the error
     error_log("Error fetching subjects: " . $exception->getMessage());
     // Send error response
-    echo json_encode(array("message" => "Unable to fetch subjects. " . $exception->getMessage()));
+    echo json_encode(array("message" => "Unable to fetch subjects. Database error: " . $exception->getMessage()));
+} catch (Exception $e) {
+     error_log("General error fetching subjects: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred while fetching subjects."));
 }
 ?>

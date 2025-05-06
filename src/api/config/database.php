@@ -30,7 +30,7 @@ class Database {
 
              // Return a generic error response to the client
              http_response_code(503); // Service Unavailable
-             echo json_encode(array("message" => "Database connection error. Please try again later."));
+             echo json_encode(array("message" => "Database connection error. Check backend configuration and ensure the database server is running. Details: " . $exception->getMessage()));
              exit(); // Exit script on critical connection failure
         }
         return $this->conn;

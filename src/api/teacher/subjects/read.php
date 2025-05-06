@@ -4,7 +4,14 @@
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 // Includes
 include_once '../../config/database.php';
@@ -27,25 +34,25 @@ $loggedInTeacherId = null;
 $loggedInTeacherId = 1; // Example: Assume teacher with ID 1 is logged in. REMOVE THIS.
 
 
-// Instantiate DB
-$database = new Database();
-$db = $database->getConnection();
-
-// Query to fetch distinct subjects taught by the logged-in teacher
-$query = "SELECT DISTINCT
-            sub.id,
-            sub.name,
-            sub.description
-          FROM
-            subjects sub
-          JOIN
-            section_subject_assignments ssa ON sub.id = ssa.subject_id
-          WHERE
-            ssa.teacher_id = :teacherId
-          ORDER BY
-            sub.name ASC";
-
 try {
+    // Instantiate DB
+    $database = new Database();
+    $db = $database->getConnection();
+
+    // Query to fetch distinct subjects taught by the logged-in teacher
+    $query = "SELECT DISTINCT
+                sub.id,
+                sub.name,
+                sub.description
+              FROM
+                subjects sub
+              JOIN
+                section_subject_assignments ssa ON sub.id = ssa.subject_id
+              WHERE
+                ssa.teacher_id = :teacherId
+              ORDER BY
+                sub.name ASC";
+
     $stmt = $db->prepare($query);
 
     // Bind logged-in teacher ID
@@ -81,6 +88,10 @@ try {
     // Log the error
     error_log("Error fetching teacher subjects: " . $exception->getMessage());
     // Send error response
-    echo json_encode(array("message" => "Unable to fetch subjects. " . $exception->getMessage()));
+    echo json_encode(array("message" => "Unable to fetch subjects. Database error: " . $exception->getMessage()));
+} catch (Exception $e) {
+     error_log("General error fetching teacher subjects: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred while fetching subjects."));
 }
 ?>

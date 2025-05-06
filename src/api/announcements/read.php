@@ -49,9 +49,9 @@ try {
     $num = $stmt->rowCount();
 
     // Check if any announcements found
-    if ($num > 0) {
-        $announcements_arr = array();
+    $announcements_arr = array();
 
+    if ($num > 0) {
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             // Extract row automatically creates variables
             extract($row);
@@ -75,23 +75,23 @@ try {
             );
             array_push($announcements_arr, $announcement_item);
         }
-
-        // Set response code - 200 OK
-        http_response_code(200);
-        // Show announcements data in json format
-        echo json_encode($announcements_arr); // Return the array directly
-    } else {
-        // Set response code - 200 OK (Not an error if empty)
-        http_response_code(200);
-        // Return an empty array
-        echo json_encode(array());
     }
+
+    // Set response code - 200 OK (even if empty)
+    http_response_code(200);
+    // Show announcements data in json format
+    echo json_encode($announcements_arr); // Return the array directly
+
 } catch (PDOException $exception) {
     // Set response code - 500 Internal Server Error
     http_response_code(500);
     // Log the error
     error_log("Error fetching announcements: " . $exception->getMessage());
     // Send error response
-    echo json_encode(array("message" => "Unable to fetch announcements. " . $exception->getMessage()));
+    echo json_encode(array("message" => "Unable to fetch announcements. Database error: " . $exception->getMessage()));
+} catch (Exception $e) {
+     error_log("General error fetching announcements: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred while fetching announcements."));
 }
 ?>

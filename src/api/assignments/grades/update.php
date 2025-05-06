@@ -1,13 +1,20 @@
 <?php
-// --- api/assignments/grades/update.php --- (POST /api/assignments/{assignmentId}/grades)
+// --- api/assignments/grades/update.php --- (POST /api/assignments/grades) - Expects payload with assignmentId, studentId etc.
 // Using POST for simplicity, but PUT/PATCH might be more semantically correct for update
 
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: POST, PUT, PATCH");
+header("Access-Control-Allow-Methods: POST, PUT, PATCH, OPTIONS");
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
 
 // Includes
 include_once '../../config/database.php';
@@ -30,36 +37,21 @@ $loggedInTeacherId = null;
 $loggedInTeacherId = 1; // Example: Assume teacher with ID 1 is logged in. REMOVE THIS.
 
 
-// Get Assignment ID from URL path
-$url_parts = explode('/', $_SERVER['REQUEST_URI']);
-$assignments_index = array_search('assignments', $url_parts);
-$assignmentId = null;
-if ($assignments_index !== false && isset($url_parts[$assignments_index + 1]) && $url_parts[$assignments_index + 1] !== 'grades') {
-    $assignmentId = $url_parts[$assignments_index + 1];
-}
-
-// Validate Assignment ID from URL
-if (empty($assignmentId)) {
-    http_response_code(400);
-    echo json_encode(array("message" => "Missing Assignment ID in URL. Expected format: /api/assignments/{assignmentId}/grades"));
-    exit();
-}
-
 // Get posted data
 $data = json_decode(file_get_contents("php://input"));
 
 // Validate Payload
 if (
-    !isset($data->assignmentId) || $data->assignmentId !== $assignmentId || // Ensure URL ID matches payload
-    !isset($data->studentId) || !is_numeric($data->studentId) ||
-    !isset($data->subjectId) ||
+    empty($data->assignmentId) ||
+    empty($data->studentId) || !is_numeric($data->studentId) ||
+    empty($data->subjectId) ||
     // Grades can be null, so check existence but not emptiness if nullable
-    !array_key_exists('prelimGrade', (array)$data) ||
-    !array_key_exists('midtermGrade', (array)$data) ||
-    !array_key_exists('finalGrade', (array)$data)
+    !property_exists($data, 'prelimGrade') ||
+    !property_exists($data, 'midtermGrade') ||
+    !property_exists($data, 'finalGrade')
 ) {
     http_response_code(400);
-    echo json_encode(array("message" => "Invalid payload. Required fields: assignmentId, studentId, subjectId, prelimGrade, midtermGrade, finalGrade. URL assignmentId must match payload."));
+    echo json_encode(array("message" => "Invalid payload. Required fields: assignmentId, studentId, subjectId, prelimGrade, midtermGrade, finalGrade."));
     exit();
 }
 
@@ -69,26 +61,24 @@ $studentId = (int)$data->studentId;
 $subjectId = htmlspecialchars(strip_tags($data->subjectId));
 
 // Function to sanitize grade input (allow null or numeric 0-100)
-function sanitizeGrade($grade) {
+function sanitizeGrade($grade, $termName) {
     if ($grade === null || $grade === "") {
         return null;
     }
-    $numGrade = filter_var($grade, FILTER_VALIDATE_FLOAT);
-    if ($numGrade === false || $numGrade < 0 || $numGrade > 100) {
-        // Invalid grade format or out of range, treat as null or throw error?
-        // Let's treat as null for now to avoid blocking submission if one term is invalid.
-        // Alternatively, throw new Exception("Invalid grade value: {$grade}. Must be numeric between 0 and 100.");
-        return null;
+    // Check if it's numeric and within range
+    if (!is_numeric($grade) || $grade < 0 || $grade > 100) {
+        throw new Exception("Invalid grade value for {$termName}: '{$grade}'. Must be numeric between 0 and 100, or empty/null.");
     }
-    return (float)$numGrade;
+    // Return as float for consistency, database handles DECIMAL
+    return (float)$grade;
 }
 
 try {
-    $prelimGrade = sanitizeGrade($data->prelimGrade ?? null);
+    $prelimGrade = sanitizeGrade($data->prelimGrade, 'Prelim');
     $prelimRemarks = isset($data->prelimRemarks) ? htmlspecialchars(strip_tags($data->prelimRemarks)) : null;
-    $midtermGrade = sanitizeGrade($data->midtermGrade ?? null);
+    $midtermGrade = sanitizeGrade($data->midtermGrade, 'Midterm');
     $midtermRemarks = isset($data->midtermRemarks) ? htmlspecialchars(strip_tags($data->midtermRemarks)) : null;
-    $finalGrade = sanitizeGrade($data->finalGrade ?? null);
+    $finalGrade = sanitizeGrade($data->finalGrade, 'Final');
     $finalRemarks = isset($data->finalRemarks) ? htmlspecialchars(strip_tags($data->finalRemarks)) : null;
 } catch (Exception $e) {
     http_response_code(400);
@@ -96,34 +86,51 @@ try {
     exit();
 }
 
-// Instantiate DB
-$database = new Database();
-$db = $database->getConnection();
-
-// ** Authorization Check:** Verify the logged-in teacher is assigned to this subject/section
-$authQuery = "SELECT COUNT(*) FROM section_subject_assignments
-              WHERE id = :assignmentId AND teacher_id = :teacherId";
-$authStmt = $db->prepare($authQuery);
-$authStmt->bindParam(':assignmentId', $payloadAssignmentId);
-$authStmt->bindParam(':teacherId', $loggedInTeacherId);
-$authStmt->execute();
-if ($authStmt->fetchColumn() == 0) {
-     http_response_code(403); // Forbidden
-     echo json_encode(array("message" => "You are not authorized to submit grades for this assignment."));
-     exit();
-}
-
-
-// Upsert logic: Insert or update grades for each term
-$terms = [
-    'Prelim' => ['grade' => $prelimGrade, 'remarks' => $prelimRemarks],
-    'Midterm' => ['grade' => $midtermGrade, 'remarks' => $midtermRemarks],
-    'Final' => ['grade' => $finalGrade, 'remarks' => $finalRemarks],
-];
-
-$db->beginTransaction(); // Start transaction
 
 try {
+    // Instantiate DB
+    $database = new Database();
+    $db = $database->getConnection();
+
+    // ** Authorization Check:** Verify the logged-in teacher is assigned to this subject/section
+    // Check using the assignment ID which links section, subject, and teacher
+    $authQuery = "SELECT COUNT(*) FROM section_subject_assignments
+                  WHERE id = :assignmentId AND teacher_id = :teacherId";
+    $authStmt = $db->prepare($authQuery);
+    $authStmt->bindParam(':assignmentId', $payloadAssignmentId);
+    $authStmt->bindParam(':teacherId', $loggedInTeacherId);
+    $authStmt->execute();
+    if ($authStmt->fetchColumn() == 0) {
+         http_response_code(403); // Forbidden
+         echo json_encode(array("message" => "You are not authorized to submit grades for this assignment ({$payloadAssignmentId})."));
+         exit();
+    }
+
+    // ** Check if student belongs to the section of the assignment **
+    // This prevents submitting grades for students not in the assigned section
+    $studentCheckQuery = "SELECT COUNT(*) FROM students s
+                          JOIN section_subject_assignments ssa ON s.section = ssa.section_id -- Join based on section ID/code
+                          WHERE s.id = :studentId AND ssa.id = :assignmentId";
+    $studentCheckStmt = $db->prepare($studentCheckQuery);
+    $studentCheckStmt->bindParam(':studentId', $studentId);
+    $studentCheckStmt->bindParam(':assignmentId', $payloadAssignmentId);
+    $studentCheckStmt->execute();
+    if ($studentCheckStmt->fetchColumn() == 0) {
+         http_response_code(400); // Bad Request
+         echo json_encode(array("message" => "Student ID {$studentId} does not belong to the section associated with assignment ID {$payloadAssignmentId}."));
+         exit();
+    }
+
+
+    // Upsert logic: Insert or update grades for each term within a transaction
+    $terms = [
+        'Prelim' => ['grade' => $prelimGrade, 'remarks' => $prelimRemarks],
+        'Midterm' => ['grade' => $midtermGrade, 'remarks' => $midtermRemarks],
+        'Final' => ['grade' => $finalGrade, 'remarks' => $finalRemarks],
+    ];
+
+    $db->beginTransaction(); // Start transaction
+
     foreach ($terms as $term => $values) {
         $upsertQuery = "INSERT INTO grades (student_id, subject_id, term, grade, remarks, submitted_by_teacher_id, assignment_id)
                         VALUES (:studentId, :subjectId, :term, :grade, :remarks, :teacherId, :assignmentId)
@@ -138,7 +145,8 @@ try {
         $stmt->bindParam(':studentId', $studentId, PDO::PARAM_INT);
         $stmt->bindParam(':subjectId', $subjectId, PDO::PARAM_STR);
         $stmt->bindParam(':term', $term, PDO::PARAM_STR);
-        $stmt->bindParam(':grade', $values['grade'], $values['grade'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR); // Bind as string due to DECIMAL
+        // Bind grade as string for DECIMAL type, handle NULL explicitly
+        $stmt->bindValue(':grade', $values['grade'], ($values['grade'] === null) ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindParam(':remarks', $values['remarks'], $values['remarks'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindParam(':teacherId', $loggedInTeacherId, PDO::PARAM_INT);
         $stmt->bindParam(':assignmentId', $payloadAssignmentId, PDO::PARAM_STR); // Include assignment_id
@@ -147,8 +155,8 @@ try {
             // Rollback transaction on error
             $db->rollBack();
             http_response_code(503);
-            error_log("Failed to upsert grade for term {$term}, student {$studentId}, subject {$subjectId}: " . implode(" | ", $stmt->errorInfo()));
-            echo json_encode(array("message" => "Failed to submit grades for term: {$term}."));
+            error_log("Failed to upsert grade for term {$term}, student {$studentId}, subject {$subjectId}, assignment {$payloadAssignmentId}: " . implode(" | ", $stmt->errorInfo()));
+            echo json_encode(array("message" => "Failed to submit grades for term: {$term}. Database error."));
             exit();
         }
     }
@@ -173,7 +181,7 @@ try {
                   JOIN students st ON st.id = :studentId -- Join directly with student ID
                   LEFT JOIN grades g ON g.student_id = st.id AND g.subject_id = ssa.subject_id
                   WHERE ssa.id = :assignmentId
-                  GROUP BY ssa.id, st.id"; // Group by assignment and student
+                  GROUP BY ssa.id, st.id, st.first_name, st.last_name, sub.id, sub.name, sec.section_code, sec.year_level"; // Group by assignment and student details
       $fetchStmt = $db->prepare($fetchQuery);
       $fetchStmt->bindParam(':studentId', $studentId);
       $fetchStmt->bindParam(':assignmentId', $payloadAssignmentId);
@@ -200,15 +208,26 @@ try {
             http_response_code(200); // OK
             echo json_encode($updatedAssignment);
       } else {
+             error_log("Grades submitted successfully for assignment {$payloadAssignmentId}, student {$studentId}, but failed to fetch updated details.");
              http_response_code(500);
              echo json_encode(array("message" => "Grades submitted, but failed to fetch updated assignment details."));
       }
 
 } catch (PDOException $e) {
-    $db->rollBack(); // Rollback on any PDO exception during transaction
+    // Check if transaction was started before trying to rollback
+    if ($db->inTransaction()) {
+        $db->rollBack();
+    }
     http_response_code(503);
     error_log("PDOException submitting grades: " . $e->getMessage());
-    echo json_encode(array("message" => "Database error occurred while submitting grades. " . $e->getMessage()));
+    echo json_encode(array("message" => "Database error occurred while submitting grades: " . $e->getMessage()));
+} catch (Exception $e) {
+     if ($db->inTransaction()) {
+        $db->rollBack();
+     }
+     error_log("Exception submitting grades: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred: " . $e->getMessage()));
 }
 
 ?>

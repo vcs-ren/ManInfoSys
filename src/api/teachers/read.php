@@ -23,37 +23,42 @@ $database = new Database();
 $db = $database->getConnection(); // Handles connection errors internally
 $teacher = new Teacher($db);
 
-// Query teachers using the model's read method
-$stmt = $teacher->read();
-$num = $stmt->rowCount();
+try {
+    // Query teachers using the model's read method
+    $stmt = $teacher->read();
+    $num = $stmt->rowCount();
 
-// Check if any teachers found
-if ($num > 0) {
     $teachers_arr = array();
-    $teachers_arr["records"] = array();
 
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        extract($row); // Use aliases from model query
+    if ($num > 0) {
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            extract($row); // Use aliases from model query
 
-        $teacher_item = array(
-            "id" => $id,
-            "teacherId" => $teacherId,
-            "firstName" => $firstName,
-            "lastName" => $lastName,
-            "department" => $department,
-            "email" => $email,
-            "phone" => $phone,
-        );
-        array_push($teachers_arr["records"], $teacher_item);
+            $teacher_item = array(
+                "id" => (int)$id, // Ensure ID is integer
+                "teacherId" => $teacherId,
+                "firstName" => $firstName,
+                "lastName" => $lastName,
+                "department" => $department,
+                "email" => $email,
+                "phone" => $phone,
+            );
+            array_push($teachers_arr, $teacher_item);
+        }
     }
 
-    // Set response code - 200 OK
+    // Set response code - 200 OK (even if empty)
     http_response_code(200);
+    // Return the array directly
     echo json_encode($teachers_arr);
-} else {
-    // Set response code - 200 OK (Not an error if empty)
-    http_response_code(200);
-    // Return an empty array to signify no records found, instead of 404
-    echo json_encode(array("records" => array()));
+
+} catch (PDOException $exception) {
+    error_log("Error fetching teachers: " . $exception->getMessage());
+    http_response_code(500);
+    echo json_encode(array("message" => "Unable to fetch teachers. Database error."));
+} catch (Exception $e) {
+    error_log("General error fetching teachers: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(array("message" => "An unexpected error occurred while fetching teachers."));
 }
 ?>

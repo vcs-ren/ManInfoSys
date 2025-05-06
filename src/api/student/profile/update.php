@@ -4,9 +4,15 @@
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: PUT");
+header("Access-Control-Allow-Methods: PUT, OPTIONS");
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 // Includes
 include_once '../../config/database.php';
@@ -35,12 +41,24 @@ $data = json_decode(file_get_contents("php://input"));
 
 // Validate required fields from payload (ensure ID matches logged-in user)
 if (
-    !empty($data->id) &&
-    $data->id == $loggedInStudentId && // **Crucial security check**
-    !empty($data->firstName) &&
-    !empty($data->lastName)
+    empty($data->id) ||
+    $data->id != $loggedInStudentId || // **Crucial security check**
+    empty($data->firstName) ||
+    empty($data->lastName)
     // Add validation for other required fields if necessary
 ) {
+     http_response_code(400); // Bad Request or 403 Forbidden
+     $errorMessage = "Unable to update profile. ";
+     if (empty($data->id) || $data->id != $loggedInStudentId) {
+         $errorMessage .= "Invalid request or ID mismatch.";
+     } else {
+         $errorMessage .= "Required data is missing (firstName, lastName).";
+     }
+     echo json_encode(array("message" => $errorMessage));
+     exit();
+}
+
+try {
     // Instantiate DB and student object
     $database = new Database();
     $db = $database->getConnection();
@@ -66,17 +84,10 @@ if (
     // $student->section
     // $student->passwordHash (should be handled via change password endpoint)
 
-    // --- Adapt the update method or create a specific profile update method ---
-    // For now, we'll modify the existing update() method in the Student model
-    // to ONLY update the allowed fields.
-    // A better approach might be a dedicated updateProfile() method.
 
-    // --- Let's modify the query within the Student model's update method ---
-    // Go to src/api/models/student.php and adjust the UPDATE query in the update() method
-    // to only include firstName, lastName, email, phone, and emergency contact fields.
-
-    // Attempt to update student profile using the (modified) model method
-    $updatedStudentData = $student->update(); // Assumes update() is modified
+    // Attempt to update student profile using the standard update() method
+    // (The model's update method was modified to only update allowed fields)
+    $updatedStudentData = $student->update();
 
     if ($updatedStudentData) {
         // Set response code - 200 OK
@@ -91,20 +102,19 @@ if (
               http_response_code(404);
               echo json_encode(array("message" => "Student profile not found."));
          } else {
-            http_response_code(503); // Service Unavailable
             error_log("Failed to update student profile for ID: " . $student->id);
-            echo json_encode(array("message" => "Unable to update student profile."));
+            http_response_code(503); // Service Unavailable
+            echo json_encode(array("message" => "Unable to update student profile. Database operation failed."));
          }
     }
-} else if (empty($data->id) || $data->id != $loggedInStudentId) {
-     http_response_code(403); // Forbidden
-     echo json_encode(array("message" => "Unauthorized: Payload ID does not match authenticated user."));
+} catch (PDOException $e) {
+     error_log("PDOException updating student profile: " . $e->getMessage());
+     http_response_code(503);
+     echo json_encode(array("message" => "Database error occurred while updating profile: " . $e->getMessage()));
+} catch (Exception $e) {
+      error_log("Exception updating student profile: " . $e->getMessage());
+      http_response_code(500);
+      echo json_encode(array("message" => "An unexpected error occurred: " . $e->getMessage()));
 }
-else {
-    // Set response code - 400 Bad Request
-    http_response_code(400);
-    // Send error response for missing data
-    $errorMessage = "Unable to update profile. Required data is missing (firstName, lastName).";
-    echo json_encode(array("message" => $errorMessage));
-}
+
 ?>

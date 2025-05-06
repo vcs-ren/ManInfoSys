@@ -4,9 +4,15 @@
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: PUT"); // Allow PUT method
+header("Access-Control-Allow-Methods: PUT, OPTIONS"); // Allow PUT method and OPTIONS for preflight
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 // Includes
 include_once '../config/database.php';
@@ -26,22 +32,40 @@ $id = end($url_parts);
 // Get posted data
 $data = json_decode(file_get_contents("php://input"));
 
-// Validate ID and required fields
+// Basic validation for ID and required fields
 if (
-    $id && is_numeric($id) &&
-    !empty($data->firstName) &&
-    !empty($data->lastName) &&
-    !empty($data->course) &&
-    !empty($data->status)
-    // Add more validation if needed
+    empty($id) || !is_numeric($id) ||
+    empty($data->firstName) ||
+    empty($data->lastName) ||
+    empty($data->course) ||
+    empty($data->status) ||
+    // If status requires year, ensure it's provided
+    (in_array($data->status, ['Continuing', 'Transferee', 'Returnee']) && empty($data->year))
 ) {
+    http_response_code(400);
+    $errorMessage = "Unable to update student. ";
+    if (empty($id) || !is_numeric($id)) {
+        $errorMessage .= "Missing or invalid student ID in URL. ";
+    }
+    if (empty($data->firstName) || empty($data->lastName) || empty($data->course) || empty($data->status)) {
+        $errorMessage .= "Required data is missing (firstName, lastName, course, status). ";
+    }
+    if (in_array($data->status, ['Continuing', 'Transferee', 'Returnee']) && empty($data->year)) {
+         $errorMessage .= "Year level is required for Continuing, Transferee, or Returnee status.";
+    }
+    echo json_encode(array("message" => trim($errorMessage)));
+    exit();
+}
+
+try {
     // Set ID and other properties in the student object
     $student->id = intval($id);
     $student->firstName = $data->firstName;
     $student->lastName = $data->lastName;
     $student->course = $data->course;
     $student->status = $data->status;
-    $student->year = $student->status === 'New' ? '1st Year' : ($data->year ?? null); // Handle year logic
+    // Set year, handle 'New' status explicitly
+    $student->year = $data->status === 'New' ? '1st Year' : ($data->year ?? null);
     $student->email = $data->email ?? null;
     $student->phone = $data->phone ?? null;
     $student->emergencyContactName = $data->emergencyContactName ?? null;
@@ -50,8 +74,8 @@ if (
     $student->emergencyContactAddress = $data->emergencyContactAddress ?? null;
 
 
-    // Attempt to update student using the model method
-    $updatedStudentData = $student->update();
+    // Attempt to update student using the specific admin update method
+    $updatedStudentData = $student->adminUpdate();
 
     if ($updatedStudentData) {
         // Set response code - 200 OK
@@ -60,29 +84,25 @@ if (
         echo json_encode($updatedStudentData);
     } else {
         // Determine if the error was 'not found' or 'unable to update'
-        // A simple check: if execute returned false but the ID was valid, assume update failure
-        // A better approach would be for the model to return specific error types.
-         $checkStudent = new Student($db);
-         $checkStudent->id = $student->id;
-         if (!$checkStudent->readOne()) { // Check if student exists
+        $checkStudent = new Student($db);
+        $checkStudent->id = $student->id;
+        if (!$checkStudent->readOne()) { // Check if student exists
               http_response_code(404);
               echo json_encode(array("message" => "Student not found."));
-         } else {
+        } else {
+            error_log("Failed to update student ID {$student->id} via admin endpoint.");
             http_response_code(503); // Service Unavailable
-            echo json_encode(array("message" => "Unable to update student."));
-         }
+            echo json_encode(array("message" => "Unable to update student. Database error or record not found."));
+        }
     }
-} else {
-    // Set response code - 400 Bad Request
-    http_response_code(400);
-    // Send error response for missing ID or incomplete data
-    $errorMessage = "Unable to update student. ";
-    if (empty($id) || !is_numeric($id)) {
-        $errorMessage .= "Missing or invalid ID. ";
-    }
-    if (empty($data->firstName) || empty($data->lastName) || empty($data->course) || empty($data->status)) {
-        $errorMessage .= "Required data is missing (firstName, lastName, course, status).";
-    }
-    echo json_encode(array("message" => $errorMessage));
+} catch (PDOException $e) {
+     error_log("PDOException updating student: " . $e->getMessage());
+     http_response_code(503);
+     echo json_encode(array("message" => "Database error occurred while updating student: " . $e->getMessage()));
+} catch (Exception $e) {
+      error_log("Exception updating student: " . $e->getMessage());
+      http_response_code(500);
+      echo json_encode(array("message" => "An unexpected error occurred: " . $e->getMessage()));
 }
+
 ?>

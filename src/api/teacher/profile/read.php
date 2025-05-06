@@ -4,7 +4,15 @@
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
 
 // Includes
 include_once '../../config/database.php';
@@ -33,22 +41,33 @@ $database = new Database();
 $db = $database->getConnection();
 $teacher = new Teacher($db);
 
-// Set the ID in the model to the logged-in teacher's ID
-$teacher->id = $loggedInTeacherId;
+try {
+    // Set the ID in the model to the logged-in teacher's ID
+    $teacher->id = $loggedInTeacherId;
 
-// Attempt to read the teacher's profile data using the model's readOne method
-$teacherData = $teacher->readOne(); // Assumes readOne() exists and fetches the needed fields
+    // Attempt to read the teacher's profile data using the model's readOne method
+    $teacherData = $teacher->readOne(); // Assumes readOne() exists and fetches the needed fields
 
-if ($teacherData) {
-    // Set response code - 200 OK
-    http_response_code(200);
-    // Send the teacher profile data
-    // readOne returns an array, suitable for json_encode
-    echo json_encode($teacherData);
-} else {
-    // Set response code - 404 Not Found
-    http_response_code(404);
-    // Send error response
-    echo json_encode(array("message" => "Teacher profile not found."));
+    if ($teacherData) {
+        // Set response code - 200 OK
+        http_response_code(200);
+        // Send the teacher profile data
+        // readOne returns an array, suitable for json_encode
+        echo json_encode($teacherData);
+    } else {
+        // Set response code - 404 Not Found
+        http_response_code(404);
+        // Send error response
+        echo json_encode(array("message" => "Teacher profile not found."));
+    }
+} catch (PDOException $e) {
+     error_log("PDOException reading teacher profile: " . $e->getMessage());
+     http_response_code(503);
+     echo json_encode(array("message" => "Database error occurred while fetching profile: " . $e->getMessage()));
+} catch (Exception $e) {
+     error_log("Exception reading teacher profile: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred: " . $e->getMessage()));
 }
+
 ?>

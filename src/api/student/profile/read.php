@@ -4,7 +4,14 @@
 // Headers
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 // Includes
 include_once '../../config/database.php';
@@ -33,22 +40,32 @@ $database = new Database();
 $db = $database->getConnection();
 $student = new Student($db);
 
-// Set the ID in the model to the logged-in student's ID
-$student->id = $loggedInStudentId;
+try {
+    // Set the ID in the model to the logged-in student's ID
+    $student->id = $loggedInStudentId;
 
-// Attempt to read the student's profile data
-$studentData = $student->readOne(); // Use the existing readOne method
+    // Attempt to read the student's profile data
+    $studentData = $student->readOne(); // Use the existing readOne method
 
-if ($studentData) {
-    // Set response code - 200 OK
-    http_response_code(200);
-    // Send the student profile data
-    // readOne returns an array, which is fine for json_encode
-    echo json_encode($studentData);
-} else {
-    // Set response code - 404 Not Found
-    http_response_code(404);
-    // Send error response
-    echo json_encode(array("message" => "Student profile not found."));
+    if ($studentData) {
+        // Set response code - 200 OK
+        http_response_code(200);
+        // Send the student profile data
+        // readOne returns an array, which is fine for json_encode
+        echo json_encode($studentData);
+    } else {
+        // Set response code - 404 Not Found
+        http_response_code(404);
+        // Send error response
+        echo json_encode(array("message" => "Student profile not found."));
+    }
+} catch (PDOException $e) {
+     error_log("PDOException reading student profile: " . $e->getMessage());
+     http_response_code(503);
+     echo json_encode(array("message" => "Database error occurred while fetching profile: " . $e->getMessage()));
+} catch (Exception $e) {
+     error_log("Exception reading student profile: " . $e->getMessage());
+     http_response_code(500);
+     echo json_encode(array("message" => "An unexpected error occurred: " . $e->getMessage()));
 }
 ?>
