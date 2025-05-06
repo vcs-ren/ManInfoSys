@@ -1,4 +1,3 @@
-
 'use client'; // Mark as client component if used directly in client components or needs browser APIs
 
 // Define the base URL for the PHP API backend.
@@ -42,7 +41,7 @@ const handleFetchError = (error: any, url: string, method: string): never => {
         Possible Causes & Checks:
         1. PHP Server Status: Is the PHP server running? Start it using: 'php -S localhost:8000 -t src/api' in your project's root terminal.
         2. Backend URL: Is the API_BASE_URL (${API_BASE_URL}) correct and accessible from your browser?
-        3. Endpoint Path: Is the API endpoint path "${url.replace(API_BASE_URL, '')}" correct?
+        3. Endpoint Path: Is the API endpoint path "${url.replace(API_BASE_URL, '')}" correct relative to the 'src/api' directory? (e.g., /login.php, /students/read.php)
         4. CORS Policy: Is the PHP backend configured to allow requests from your frontend origin (${typeof window !== 'undefined' ? window.location.origin : 'unknown'})? Check 'Access-Control-Allow-Origin' headers in your PHP files.
         5. Firewall/Network: Could a firewall or network issue be blocking the connection?
         6. Browser Console: Check the browser's Network tab for the failed request details and the Console tab for specific CORS error messages.
@@ -87,7 +86,8 @@ export const fetchData = async <T>(path: string): Promise<T> => {
              let errorMessage = `API Error! Status: ${response.status}`;
              let responseText = ''; // Initialize responseText
              try {
-                  responseText = await response.text(); // Try reading text first
+                   const responseCloneForText = response.clone(); // Clone before reading text
+                   responseText = await responseCloneForText.text();
                    try {
                        if (responseText) { // Only parse if text exists
                            errorData = JSON.parse(responseText);
@@ -96,6 +96,7 @@ export const fetchData = async <T>(path: string): Promise<T> => {
                    } catch (jsonError) {
                         // If parsing JSON fails, use the raw text (if not empty)
                         errorMessage = responseText || errorMessage;
+                        console.error("API Error Response Text:", responseText); // Log the raw text
                    }
              } catch (e) {
                    console.error("Failed to read or parse error response body", e);
@@ -248,7 +249,8 @@ export const deleteData = async (path: string): Promise<void> => {
              let errorMessage = `API Error! Status: ${response.status}`;
              let responseText = '';
              try {
-                  responseText = await response.text(); // Read text first
+                  const responseCloneForText = response.clone(); // Clone before reading text
+                  responseText = await responseCloneForText.text();
                    try {
                        if (responseText) {
                             errorData = JSON.parse(responseText);
@@ -257,6 +259,7 @@ export const deleteData = async (path: string): Promise<void> => {
                    } catch (jsonError) {
                         // If parsing JSON fails, use the raw text (if not empty)
                         errorMessage = responseText || errorMessage;
+                        console.error("API Error Response Text:", responseText); // Log the raw text
                    }
              } catch (e) {
                     console.error("Failed to read or parse error response body", e);
@@ -269,5 +272,3 @@ export const deleteData = async (path: string): Promise<void> => {
         handleFetchError(error, url, 'DELETE');
     }
 };
-
-    
