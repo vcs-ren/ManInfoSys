@@ -62,29 +62,7 @@ export default function LoginPage() {
 
     try {
         // Call the PHP login endpoint using the helper
-        // const response = await postData<LoginFormValues, LoginResponse>('/api/login.php', data); // Use relative path
-         // --- START TEST CODE (Remove for production) ---
-          let response: LoginResponse;
-          if (data.username === 'admin' || data.username === 's1001' || data.username === 't1001') {
-               const role = data.username === 'admin' ? 'Admin' : (data.username.startsWith('s') ? 'Student' : 'Teacher');
-               response = {
-                  success: true,
-                  message: "Test login successful.",
-                  role: role,
-                  redirectPath: `/${role.toLowerCase()}/dashboard`,
-                  userId: data.username === 'admin' ? 0 : (role === 'Student' ? 1 : 1) // Dummy IDs
-               };
-                console.log("Test login success for:", data.username, response);
-          } else {
-                response = {
-                   success: false,
-                   message: "Invalid test username.",
-                };
-                console.log("Test login failed for:", data.username);
-          }
-          // Simulate network delay
-          await new Promise(resolve => setTimeout(resolve, 500));
-         // --- END TEST CODE ---
+        const response = await postData<LoginFormValues, LoginResponse>('/api/login.php', data); // Use relative path
 
         if (response.success && response.role && response.redirectPath) {
             toast({
@@ -197,4 +175,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
