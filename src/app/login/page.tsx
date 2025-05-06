@@ -62,7 +62,8 @@ export default function LoginPage() {
 
     try {
         // Call the PHP login endpoint using the helper
-        const response = await postData<LoginFormValues, LoginResponse>('/api/login.php', data); // Use relative path
+        // Corrected path: Remove '/api' prefix as the PHP server root is 'src/api'
+        const response = await postData<LoginFormValues, LoginResponse>('/login.php', data);
 
         if (response.success && response.role && response.redirectPath) {
             toast({
@@ -101,7 +102,7 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-screen bg-secondary">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-primary">Management Information System</CardTitle> {/* Updated Title */}
+          <CardTitle className="text-2xl font-bold text-primary">Management Information System</CardTitle>
           <CardDescription>Sign in with your provided username and password.</CardDescription>
         </CardHeader>
         <CardContent>
