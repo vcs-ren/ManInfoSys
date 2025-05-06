@@ -1,15 +1,27 @@
 <?php
 // --- api/subjects/read.php --- (GET /api/subjects)
-header("Access-Control-Allow-Origin: *"); // Allow requests (adjust in production)
-header("Content-Type: application/json; charset=UTF-8");
 
-// Includes
+// ** ALWAYS SEND CORS HEADERS FIRST **
+header("Access-Control-Allow-Origin: *"); // Adjust for production
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, OPTIONS"); // Allow GET and OPTIONS
+header("Access-Control-Max-Age: 3600");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Respond to preflight requests (OPTIONS)
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+
+// Includes - Place includes after headers
 include_once '../config/database.php';
 // No specific model needed, direct query is simple
 
 // Instantiate DB
 $database = new Database();
-$db = $database->getConnection();
+$db = $database->getConnection(); // Handles connection errors internally
 
 // Query subjects
 $query = "SELECT id, name, description FROM subjects ORDER BY name ASC";

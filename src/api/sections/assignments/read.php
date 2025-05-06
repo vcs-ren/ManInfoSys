@@ -1,11 +1,20 @@
 <?php
 // --- api/sections/assignments/read.php --- (GET /api/sections/{sectionId}/assignments)
 
-// Headers
+// ** ALWAYS SEND CORS HEADERS FIRST **
 header("Access-Control-Allow-Origin: *"); // Adjust for production
 header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, OPTIONS"); // Allow GET and OPTIONS
+header("Access-Control-Max-Age: 3600");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// Includes
+// Respond to preflight requests (OPTIONS)
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Includes - Place includes after headers
 include_once '../../config/database.php';
 
 // Get Section ID from URL path
@@ -15,7 +24,17 @@ $url_parts = explode('/', $_SERVER['REQUEST_URI']);
 $sections_index = array_search('sections', $url_parts);
 $sectionId = null;
 if ($sections_index !== false && isset($url_parts[$sections_index + 1])) {
-    $sectionId = $url_parts[$sections_index + 1];
+    // Check if the next part is 'assignments'
+    if (isset($url_parts[$sections_index + 2]) && $url_parts[$sections_index + 2] === 'assignments') {
+         $sectionId = $url_parts[$sections_index + 1];
+    } else {
+         // Handle cases where the URL is just /api/sections/{id} without /assignments
+         // Or if there's something else after the ID
+         // For this endpoint, we require /assignments, so consider it an error if not present
+         http_response_code(400);
+         echo json_encode(array("message" => "Invalid URL format. Expected format: /api/sections/{sectionId}/assignments"));
+         exit();
+    }
 }
 
 // Validate Section ID
@@ -27,7 +46,7 @@ if (empty($sectionId)) {
 
 // Instantiate DB
 $database = new Database();
-$db = $database->getConnection();
+$db = $database->getConnection(); // Handles connection errors internally
 
 // Query assignments for the given section ID, joining with subjects and teachers
 $query = "SELECT
@@ -66,7 +85,7 @@ try {
              extract($row);
             $assignment_item = array(
                 "id" => $id, // This is the assignment's unique ID
-                "sectionId" => $sectionId, // from query param
+                "sectionId" => $sectionId, // Use the sanitized value from the URL param
                 "subjectId" => $subjectId,
                 "subjectName" => $subjectName,
                 "teacherId" => (int)$teacherId, // Ensure integer

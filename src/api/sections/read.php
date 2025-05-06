@@ -1,15 +1,26 @@
 <?php
 // --- api/sections/read.php --- (GET /api/sections)
-header("Access-Control-Allow-Origin: *"); // Allow requests (adjust in production)
-header("Content-Type: application/json; charset=UTF-8");
 
-// Includes
+// ** ALWAYS SEND CORS HEADERS FIRST **
+header("Access-Control-Allow-Origin: *"); // Adjust for production (e.g., your frontend origin)
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, OPTIONS"); // Allow GET and OPTIONS
+header("Access-Control-Max-Age: 3600");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+
+// Respond to preflight requests (OPTIONS)
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Includes - Place includes after headers
 include_once '../config/database.php';
 // No specific model needed for this query, direct PDO usage is fine
 
 // Instantiate DB
 $database = new Database();
-$db = $database->getConnection();
+$db = $database->getConnection(); // Handles connection errors internally
 
 // Query sections and join with teachers to get adviser name
 $query = "SELECT

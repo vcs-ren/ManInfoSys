@@ -104,7 +104,7 @@ export default function AssignmentsAnnouncementsPage() {
       try {
         const [sectionsData, teachersData, subjectsData, announcementsData] = await Promise.all([
           fetchData<Section[]>('/api/sections/read.php'),
-          fetchData<{ records: Teacher[] }>('/api/teachers/read.php').then(d => d.records), // Adjust for potential nesting
+          fetchData<{ records: Teacher[] }>('/api/teachers/read.php').then(d => d.records || []), // Adjust for potential nesting and ensure array
           fetchData<Subject[]>('/api/subjects/read.php'),
           fetchData<Announcement[]>('/api/announcements/read.php'),
         ]);
@@ -128,12 +128,12 @@ export default function AssignmentsAnnouncementsPage() {
             const fetchAssignments = async () => {
                 setIsLoadingAssignments(true);
                 try {
-                    const assignmentsData = await fetchData<SectionSubjectAssignment[]>(`/api/sections/assignments/read.php?sectionId=${selectedSection.id}`); // Example with query param
-                    // Or if using path param: `/api/sections/${selectedSection.id}/assignments/read.php` - Adjust based on PHP routing
+                    // Adjust path based on PHP routing: Requires {sectionId} in path
+                    const assignmentsData = await fetchData<SectionSubjectAssignment[]>(`/api/sections/${selectedSection.id}/assignments/read.php`);
                     setSelectedSectionAssignments(assignmentsData || []);
                 } catch (error: any) {
                     console.error("Failed to fetch assignments:", error);
-                    toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load subject assignments." });
+                     toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load subject assignments. Check URL format or backend logs." });
                 } finally {
                     setIsLoadingAssignments(false);
                 }
@@ -206,10 +206,9 @@ export default function AssignmentsAnnouncementsPage() {
     const adviserIdToAssign = values.adviserId === 0 ? null : values.adviserId;
 
     try {
-         const updatedSection = await postData<{ adviserId: number | null }, Section>(
-             `/api/sections/adviser/update.php`, // Send sectionId in payload or URL
-             { sectionId: selectedSection.id, adviserId: adviserIdToAssign } // Assuming payload method
-             // Or use URL param method: `/api/sections/${selectedSection.id}/adviser/update.php`, { adviserId: adviserIdToAssign }
+         const updatedSection = await postData<{ sectionId: string, adviserId: number | null }, Section>(
+             `/api/sections/adviser/update.php`, // Assuming sectionId is sent in payload
+             { sectionId: selectedSection.id, adviserId: adviserIdToAssign }
          );
 
         setSections(prev =>
