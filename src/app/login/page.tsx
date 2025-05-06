@@ -38,6 +38,7 @@ interface LoginResponse {
     message: string;
     role?: 'Admin' | 'Student' | 'Teacher';
     redirectPath?: string;
+    userId?: number; // Assuming backend sends userId
 }
 
 export default function LoginPage() {
@@ -61,7 +62,29 @@ export default function LoginPage() {
 
     try {
         // Call the PHP login endpoint using the helper
-        const response = await postData<LoginFormValues, LoginResponse>('/login.php', data); // Use relative path
+        // const response = await postData<LoginFormValues, LoginResponse>('/api/login.php', data); // Use relative path
+         // --- START TEST CODE (Remove for production) ---
+          let response: LoginResponse;
+          if (data.username === 'admin' || data.username === 's1001' || data.username === 't1001') {
+               const role = data.username === 'admin' ? 'Admin' : (data.username.startsWith('s') ? 'Student' : 'Teacher');
+               response = {
+                  success: true,
+                  message: "Test login successful.",
+                  role: role,
+                  redirectPath: `/${role.toLowerCase()}/dashboard`,
+                  userId: data.username === 'admin' ? 0 : (role === 'Student' ? 1 : 1) // Dummy IDs
+               };
+                console.log("Test login success for:", data.username, response);
+          } else {
+                response = {
+                   success: false,
+                   message: "Invalid test username.",
+                };
+                console.log("Test login failed for:", data.username);
+          }
+          // Simulate network delay
+          await new Promise(resolve => setTimeout(resolve, 500));
+         // --- END TEST CODE ---
 
         if (response.success && response.role && response.redirectPath) {
             toast({
@@ -70,6 +93,7 @@ export default function LoginPage() {
             });
             // Optional: Store session/token here if needed
             // Example: localStorage.setItem('userRole', response.role);
+            // Example: localStorage.setItem('userId', String(response.userId));
             router.push(response.redirectPath);
         } else {
             // Handle cases where success is true but role/path might be missing, or explicit failure
@@ -99,7 +123,7 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-screen bg-secondary">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-primary">CampusConnect</CardTitle>
+          <CardTitle className="text-2xl font-bold text-primary">Management Information System</CardTitle> {/* Updated Title */}
           <CardDescription>Sign in with your provided username and password.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -173,3 +197,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

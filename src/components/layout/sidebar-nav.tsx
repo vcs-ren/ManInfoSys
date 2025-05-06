@@ -11,7 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter, // Keep SidebarFooter import if needed for structure, but it will be empty
+  SidebarFooter,
   SidebarTrigger,
   SidebarSeparator, // Import Separator
 } from '@/components/ui/sidebar';
@@ -83,7 +83,7 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
       <Sidebar side="left" variant="sidebar" collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-between">
-            <h2 className="text-lg font-semibold text-primary group-data-[collapsible=icon]:hidden">CampusConnect</h2>
+            <h2 className="text-lg font-semibold text-primary group-data-[collapsible=icon]:hidden">Management Information System</h2> {/* Updated Title */}
             {/* Sidebar trigger is automatically handled for mobile */}
           </div>
             <div className="p-2 pt-0 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">
@@ -94,7 +94,7 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
         {/* Main Content Area */}
         <SidebarContent className="flex-1 overflow-y-auto p-2 flex flex-col justify-between"> {/* Use flex-col and justify-between */}
              {/* Main Navigation */}
-             <SidebarMenu>
+             <SidebarMenu className="flex-1"> {/* Let main menu take available space */}
                 {filteredNavItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
                     <Link href={item.href} passHref legacyBehavior>
@@ -116,7 +116,7 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
              </SidebarMenu>
 
               {/* Settings and Logout Section at the bottom of the content */}
-              <div>
+              <div className="mt-auto"> {/* Push this section to the bottom */}
                     <SidebarSeparator className="my-2" /> {/* Separator */}
                     <SidebarMenu>
                          {settingsNavItem && ( // Conditionally render settings if it exists
@@ -159,3 +159,4 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
     </>
   );
 }
+
