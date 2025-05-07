@@ -103,10 +103,10 @@ export default function AssignmentsAnnouncementsPage() {
       setIsLoading(true);
       try {
         const [sectionsData, teachersData, subjectsData, announcementsData] = await Promise.all([
-          fetchData<Section[]>('/api/sections/read.php'),
-          fetchData<{ records: Teacher[] }>('/api/teachers/read.php').then(d => d.records || []), // Adjust for potential nesting and ensure array
-          fetchData<Subject[]>('/api/subjects/read.php'),
-          fetchData<Announcement[]>('/api/announcements/read.php'),
+          fetchData<Section[]>('sections/read.php'), // Use relative paths
+          fetchData<{ records: Teacher[] }>('teachers/read.php').then(d => d.records || []), // Adjust for potential nesting and ensure array
+          fetchData<Subject[]>('subjects/read.php'),
+          fetchData<Announcement[]>('announcements/read.php'),
         ]);
         setSections(sectionsData || []);
         setTeachers(teachersData || []);
@@ -129,7 +129,7 @@ export default function AssignmentsAnnouncementsPage() {
                 setIsLoadingAssignments(true);
                 try {
                     // Adjust path based on PHP routing: Requires {sectionId} in path
-                    const assignmentsData = await fetchData<SectionSubjectAssignment[]>(`/api/sections/${selectedSection.id}/assignments/read.php`);
+                    const assignmentsData = await fetchData<SectionSubjectAssignment[]>(`sections/${selectedSection.id}/assignments/read.php`);
                     setSelectedSectionAssignments(assignmentsData || []);
                 } catch (error: any) {
                     console.error("Failed to fetch assignments:", error);
@@ -171,7 +171,7 @@ export default function AssignmentsAnnouncementsPage() {
         setIsLoadingAssignments(true);
         try {
             const savedAssignment = await postData<typeof newAssignmentPayload, SectionSubjectAssignment>(
-                 `/api/sections/assignments/create.php`, // Send sectionId in payload
+                 `sections/assignments/create.php`, // Send sectionId in payload
                  newAssignmentPayload
             );
             setSelectedSectionAssignments(prev => [...prev, { ...savedAssignment, subjectName, teacherName }]);
@@ -189,7 +189,7 @@ export default function AssignmentsAnnouncementsPage() {
 
         setIsLoadingAssignments(true);
         try {
-            await deleteData(`/api/assignments/delete.php/${assignmentId}`); // Pass ID in URL
+            await deleteData(`assignments/delete.php/${assignmentId}`); // Pass ID in URL
             setSelectedSectionAssignments(prev => prev.filter(a => a.id !== assignmentId));
             toast({ title: "Assignment Removed", description: `Subject assignment removed successfully.` });
         } catch (error: any) {
@@ -206,9 +206,10 @@ export default function AssignmentsAnnouncementsPage() {
     const adviserIdToAssign = values.adviserId === 0 ? null : values.adviserId;
 
     try {
-         const updatedSection = await postData<{ sectionId: string, adviserId: number | null }, Section>(
-             `/api/sections/adviser/update.php`, // Assuming sectionId is sent in payload
-             { sectionId: selectedSection.id, adviserId: adviserIdToAssign }
+         // Assuming sectionId needs to be in the URL path based on PHP structure
+         const updatedSection = await postData<{ adviserId: number | null }, Section>(
+             `sections/${selectedSection.id}/adviser/update.php`,
+             { adviserId: adviserIdToAssign }
          );
 
         setSections(prev =>
@@ -243,7 +244,7 @@ export default function AssignmentsAnnouncementsPage() {
 
     try {
         const newAnnouncement = await postData<typeof announcementPayload, Announcement>(
-            '/api/announcements/create.php',
+            'announcements/create.php',
             announcementPayload
         );
         setAnnouncements(prev => [newAnnouncement, ...prev]);
@@ -262,7 +263,7 @@ export default function AssignmentsAnnouncementsPage() {
     const handleDeleteAnnouncement = async (announcementId: string) => {
         setIsSubmitting(true);
         try {
-            await deleteData(`/api/announcements/delete.php/${announcementId}`); // Pass ID in URL
+            await deleteData(`announcements/delete.php/${announcementId}`); // Pass ID in URL
             setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
             toast({ title: "Deleted", description: "Announcement removed." });
         } catch (error: any) {
@@ -651,3 +652,5 @@ export default function AssignmentsAnnouncementsPage() {
     </div>
   );
 }
+
+    

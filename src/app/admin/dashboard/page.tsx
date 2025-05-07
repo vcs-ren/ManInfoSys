@@ -21,6 +21,7 @@ export default function AdminDashboardPage() {
       setIsLoading(true);
       setError(null);
       try {
+        // Use the correct relative path
         const data = await fetchData<DashboardStats>('admin/dashboard-stats.php');
         setStats(data);
       } catch (err: any) {
@@ -101,3 +102,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
