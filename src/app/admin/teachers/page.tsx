@@ -3,13 +3,13 @@
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info } from "lucide-react"; // Added RotateCcw, Info
+import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react"; // Added Pencil
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form"; // Import FormFieldConfig
 import { teacherSchema } from "@/lib/schemas";
-import type { Teacher } from "@/types"; // Import Teacher type
+import type { Teacher, EmploymentType } from "@/types"; // Import Teacher type and EmploymentType
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,6 +33,28 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
 
+// Define department options (consider fetching these from API if dynamic)
+// Mock departments for now
+const departmentOptions = [
+    { value: "Computer Science", label: "Computer Science" },
+    { value: "Information Technology", label: "Information Technology" },
+    { value: "Business Administration", label: "Business Administration" },
+    { value: "Education", label: "Education" },
+    { value: "Engineering", label: "Engineering" },
+];
+
+const employmentTypeOptions: { value: EmploymentType; label: string }[] = [
+    { value: "Regular", label: "Regular" },
+    { value: "Part Time", label: "Part Time" },
+];
+
+const genderOptions = [
+    { value: "Male", label: "Male" },
+    { value: "Female", label: "Female" },
+    { value: "Other", label: "Other" },
+];
+
+
 // Refactored form fields for Teacher with new sections
 const teacherFormFields: FormFieldConfig<Teacher>[] = [
   // Personal Information Section
@@ -40,18 +62,20 @@ const teacherFormFields: FormFieldConfig<Teacher>[] = [
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
   { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
   { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr., III (optional)", section: 'personal' },
+  { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' }, // Added Gender
   { name: "birthday", label: "Birthday", placeholder: "YYYY-MM-DD (optional)", type: "date", section: 'personal' },
   { name: "address", label: "Address", placeholder: "Enter full address (optional)", type: "textarea", section: 'personal' },
-  // Enrollment Info (Department)
-  { name: "department", label: "Department", placeholder: "Enter department", required: true, section: 'enrollment' },
+  // Employee Information Section (renamed from Enrollment)
+  { name: "employmentType", label: "Employment Type", type: "select", options: employmentTypeOptions, placeholder: "Select employment type", required: true, section: 'employee' }, // Added Employment Type
+  { name: "department", label: "Department", type: "select", options: departmentOptions, placeholder: "Select department", required: true, section: 'employee' }, // Changed to dropdown
   // Contact / Account Details
   { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
   // Emergency Contact Section
-  { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian/Spouse Name (optional)", type: "text", section: 'emergency' },
+  { name: "emergencyContactName", label: "Contact Name", placeholder: "Parent/Guardian/Spouse Name (optional)", type: "text", section: 'emergency' },
   { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father, Spouse (optional)", type: "text", section: 'emergency' },
-  { name: "emergencyContactPhone", label: "Emergency Contact Phone", placeholder: "Contact Number (optional)", type: "tel", section: 'emergency' },
-  { name: "emergencyContactAddress", label: "Emergency Contact Address", placeholder: "Full Address (optional)", type: "textarea", section: 'emergency' },
+  { name: "emergencyContactPhone", label: "Contact Phone", placeholder: "Contact Number (optional)", type: "tel", section: 'emergency' },
+  { name: "emergencyContactAddress", label: "Contact Address", placeholder: "Full Address (optional)", type: "textarea", section: 'emergency' },
 ];
 
 
@@ -70,6 +94,8 @@ export default function ManageTeachersPage() {
      address: false,
      email: false,
      phone: false,
+     gender: false, // Hide new gender field by default
+     employmentType: false, // Hide new employment type field by default
      emergencyContactName: false,
      emergencyContactRelationship: false,
      emergencyContactPhone: false,
@@ -105,7 +131,7 @@ export default function ManageTeachersPage() {
          } else {
              savedTeacher = await postData<Omit<typeof payload, 'id'>, Teacher>('teachers/create.php', payload);
              setTeachers(prev => [...prev, savedTeacher]);
-             toast({ title: "Teacher Added", description: `${savedTeacher.firstName} ${savedTeacher.lastName} has been added.` });
+             toast({ title: "Teacher Added", description: `${savedTeacher.firstName} ${savedTeacher.lastName} (${savedTeacher.teacherId}) has been added.` });
          }
          closeModal();
      } catch (error: any) {
@@ -163,14 +189,17 @@ export default function ManageTeachersPage() {
   };
 
    const closeModal = () => {
-    setIsModalOpen(false);
-  };
+        setIsModalOpen(false);
+        // Add a slight delay before clearing the selected student
+        // to allow the modal close animation to finish smoothly
+        setTimeout(() => {
+            setSelectedTeacher(null);
+            setIsEditMode(false);
+        }, 150);
+   };
 
-    const departmentOptions = React.useMemo(() => {
-        if (!teachers) return [];
-        const distinctDepartments = [...new Set(teachers.map(t => t.department).filter(Boolean))].sort();
-        return distinctDepartments.map(dep => ({ label: dep, value: dep }));
-    }, [teachers]);
+    // Use mock department options for now
+    const currentDepartmentOptions = React.useMemo(() => departmentOptions, []);
 
     const columns: ColumnDef<Teacher>[] = React.useMemo(() => [
          {
@@ -209,11 +238,23 @@ export default function ManageTeachersPage() {
                  <DataTableFilterableColumnHeader
                      column={column}
                      title="Department"
-                     options={departmentOptions}
+                     options={currentDepartmentOptions} // Use dynamic options
                  />
              ),
             cell: ({ row }) => <div>{row.getValue("department")}</div>,
              filterFn: (row, id, value) => value.includes(row.getValue(id)),
+        },
+        { // Added Gender column
+            accessorKey: "gender",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Gender" />,
+            cell: ({ row }) => <div className="capitalize">{row.original.gender || '-'}</div>,
+            enableHiding: true,
+        },
+        { // Added Employment Type column
+            accessorKey: "employmentType",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Employment Type" />,
+            cell: ({ row }) => <div className="capitalize">{row.original.employmentType || '-'}</div>,
+            enableHiding: true,
         },
          {
              accessorKey: "birthday",
@@ -244,7 +285,7 @@ export default function ManageTeachersPage() {
         { accessorKey: "emergencyContactPhone", header: "Emergency Phone", cell: ({ row }) => row.original.emergencyContactPhone || '-', enableHiding: true },
         { accessorKey: "emergencyContactAddress", header: "Emergency Address", cell: ({ row }) => <div className="max-w-xs truncate">{row.original.emergencyContactAddress || '-'}</div>, enableHiding: true },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [departmentOptions]);
+    ], [currentDepartmentOptions]); // Updated dependency
 
     const generateActionMenuItems = (teacher: Teacher) => (
         <>
@@ -348,12 +389,12 @@ export default function ManageTeachersPage() {
 
         <UserForm<Teacher>
           isOpen={isModalOpen}
-          onOpenChange={setIsModalOpen}
+          onOpenChange={setIsModalOpen} // Pass setter directly
           formSchema={teacherSchema}
           onSubmit={handleSaveTeacher}
           title={isEditMode ? `Teacher Details: ${selectedTeacher?.firstName} ${selectedTeacher?.lastName}` : 'Add New Teacher'}
           description={isEditMode ? "View or update the teacher's information." : "Fill in the details below. Credentials are generated upon creation."}
-          formFields={teacherFormFields}
+          formFields={teacherFormFields} // Pass the updated form fields
           isEditMode={isEditMode}
           initialData={isEditMode ? selectedTeacher : undefined}
           startReadOnly={isEditMode} // Start in read-only mode when editing

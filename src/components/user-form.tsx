@@ -64,7 +64,8 @@ export type FormFieldConfig<T> = {
   disabled?: boolean;
   options?: { value: string | number; label: string }[];
   condition?: (data: Partial<T> | null | undefined) => boolean;
-  section?: 'personal' | 'enrollment' | 'emergency' | 'account' | 'contact'; // Define sections
+  // Updated sections: 'employee' for teachers
+  section?: 'personal' | 'enrollment' | 'employee' | 'emergency' | 'account' | 'contact';
 };
 
 export function UserForm<T extends Student | Teacher | AdminUser>({
@@ -94,7 +95,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     defaultValues: isEditMode ? (initialData as any) : (defaultValues as any),
   });
 
-  const watchedStatus = useWatch({ control: form.control, name: 'status' as any });
+  const watchedStatus = useWatch({ control: form.control, name: 'status' as any }); // Specific to Student
   const currentFormValues = useWatch({ control: form.control });
 
   // Reset form and read-only state when dialog opens/closes or mode changes
@@ -132,10 +133,11 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
       }
       console.log("Submitting values:", values);
       await onSubmit(values);
-      toast({
-        title: `Success`,
-        description: `${isEditMode ? 'User updated' : 'User added'} successfully.`,
-      });
+      // Toast is handled in the parent component onSubmit handler
+      // toast({
+      //   title: `Success`,
+      //   description: `${isEditMode ? 'User updated' : 'User added'} successfully.`,
+      // });
       setIsOpen(false);
       form.reset();
     } catch (error: any) {
@@ -239,6 +241,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
   // Group fields by section
   const personalFields = formFields.filter(f => f.section === 'personal');
   const enrollmentFields = formFields.filter(f => f.section === 'enrollment');
+  const employeeFields = formFields.filter(f => f.section === 'employee'); // Added employee section
   const contactFields = formFields.filter(f => f.section === 'contact');
   const accountFields = formFields.filter(f => f.section === 'account');
   const emergencyFields = formFields.filter(f => f.section === 'emergency');
@@ -284,13 +287,13 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                              </div>
                          </div>
                     )}
-                    {enrollmentFields.length > 0 && (
+                    {enrollmentFields.length > 0 && ( // For Students
                          <div className="space-y-3">
                             <Separator />
                              <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Enrollment Information</h4>
                             <div className="space-y-3">
-                                {/* Show Student/Teacher ID read-only in edit mode */}
-                                {isEditMode && initialData && (isStudent || isTeacher) && (
+                                {/* Show Student ID read-only in edit mode */}
+                                {isEditMode && isStudent && initialData && (
                                     <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
                                         <FormLabel className="text-right text-sm">{idLabel}</FormLabel>
                                         <FormControl className="col-span-3">
@@ -318,6 +321,29 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                         </FormControl>
                                     </FormItem>
                                 )}
+                             </div>
+                         </div>
+                    )}
+                    {employeeFields.length > 0 && ( // For Teachers
+                         <div className="space-y-3">
+                            <Separator />
+                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Employee Information</h4>
+                            <div className="space-y-3">
+                                 {/* Show Teacher ID read-only in edit mode */}
+                                {isEditMode && isTeacher && initialData && (
+                                    <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
+                                        <FormLabel className="text-right text-sm">{idLabel}</FormLabel>
+                                        <FormControl className="col-span-3">
+                                            <Input
+                                                className="h-9 text-sm bg-muted"
+                                                value={idValue}
+                                                readOnly
+                                                disabled
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                                {employeeFields.map(renderFormField)}
                              </div>
                          </div>
                     )}
@@ -377,7 +403,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                 <Button type="button" variant="outline" onClick={isEditMode ? handleCancelEdit : () => setIsOpen(false)} disabled={form.formState.isSubmitting}>
                     Cancel
                 </Button>
-                <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
+                <Button type="submit" disabled={form.formState.isSubmitting || (isEditMode && !form.formState.isDirty)}>
                     {form.formState.isSubmitting ? (isEditMode ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...</>) : (isEditMode ? 'Save Changes' : 'Add User')}
                 </Button>
                 </DialogFooter>
@@ -396,5 +422,3 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     </Dialog>
   );
 }
-
-    

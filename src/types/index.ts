@@ -1,12 +1,12 @@
-
 // Shared types for the application
 
 export type StudentStatus = 'New' | 'Transferee' | 'Returnee'; // Removed 'Continuing'
+export type EmploymentType = 'Regular' | 'Part Time'; // Added employment type
 
 export interface Student {
   id: number; // Database ID
   studentId: string; // e.g., "101", "102" - Generated ID (100 + DB ID)
-  username: string; // e.g., "s101", "s102" - Generated username
+  username: string; // e.g., "s101", "s102" - Generated username (s + studentId)
   firstName: string;
   lastName: string;
   middleName?: string; // Added
@@ -16,7 +16,7 @@ export interface Student {
   course: string;
   status: StudentStatus;
   year?: string; // Optional year level (e.g., '1st Year', '2nd Year')
-  section: string; // e.g., "10A", "20B"
+  section: string; // e.g., "10A", "20B" - Auto-generated
   email?: string; // Optional fields
   phone?: string;
   // Detailed emergency contact info
@@ -29,14 +29,16 @@ export interface Student {
 
 export interface Teacher {
   id: number; // Database ID
-  teacherId: string; // e.g., "t101", "t102" - Generated ID (1000 + DB ID)
-  username: string; // e.g., "t101", "t102" - Generated username
+  teacherId: string; // e.g., "t1001", "t1002" - Generated ID (t + 1000 + DB ID)
+  username: string; // e.g., "t1001", "t1002" - Generated username (same as teacherId)
   firstName: string;
   lastName: string;
   middleName?: string; // Added
   suffix?: string; // Added
+  gender?: 'Male' | 'Female' | 'Other'; // Added
+  employmentType?: EmploymentType; // Added
   address?: string; // Added teacher's address
-  department: string;
+  department: string; // Make department optional? No, required in form
   email?: string; // Optional fields
   phone?: string; // Renamed from contact number for consistency
   birthday?: string; // Added (use string YYYY-MM-DD for simplicity)
@@ -65,8 +67,8 @@ export interface StudentGradeEntry {
 
 // Represents a specific class section
 export interface Section {
-    id: string; // Unique identifier for the section (e.g., "CS-10A")
-    sectionCode: string; // e.g., "10A", "20B"
+    id: string; // Unique identifier for the section (e.g., "CS-1A")
+    sectionCode: string; // e.g., "1A", "2B" - Auto-generated based on year and count
     course: string; // e.g., "Computer Science"
     yearLevel: string; // e.g., "1st Year"
     adviserId?: number; // ID of the assigned adviser (previously teacherId)
@@ -84,7 +86,7 @@ export interface Subject {
 
 // Represents the assignment of a teacher to a subject within a specific section
 export interface SectionSubjectAssignment {
-    id: string; // Unique ID for the assignment itself
+    id: string; // Unique ID for the assignment itself (e.g., sectionId-subjectId)
     sectionId: string;
     subjectId: string;
     subjectName?: string; // Denormalized subject name
@@ -100,11 +102,12 @@ export interface Announcement {
     content: string;
     date: Date; // Changed to Date type
     target: {
-        course?: string | 'all'; // Specific course or 'all'
-        yearLevel?: string | 'all'; // Specific year level or 'all'
-        section?: string | 'all'; // Specific section or 'all'
+        course?: string | 'all' | null; // Specific course or 'all' or null
+        yearLevel?: string | 'all' | null; // Specific year level or 'all' or null
+        section?: string | 'all' | null; // Specific section or 'all' or null
     };
     author?: string; // Optional: Name of the admin/teacher who posted
+    author_type?: 'Admin' | 'Teacher'; // Added author type
 }
 
 
@@ -124,19 +127,19 @@ export interface ScheduleEntry {
 // Includes placeholder grades for each term. Status is used internally for logic,
 // but the UI might display "Passed"/"Failed" in the Remarks column if status is "Complete".
 export interface StudentSubjectAssignmentWithGrades {
-    assignmentId: string; // Unique ID combining student and subject for this context
+    assignmentId: string; // Unique ID combining section-subject for this context (e.g., CS-1A-CS101)
     studentId: number;
     studentName: string;
     subjectId: string;
     subjectName: string;
-    section: string;
+    section: string; // Section Code (e.g., 1A)
     year: string; // Add year level for filtering
     prelimGrade?: number | null; // Numeric grade only (or null/undefined)
-    prelimRemarks?: string;
+    prelimRemarks?: string | null;
     midtermGrade?: number | null; // Numeric grade only (or null/undefined)
-    midtermRemarks?: string;
+    midtermRemarks?: string | null;
     finalGrade?: number | null; // Numeric grade only (or null/undefined)
-    finalRemarks?: string;
+    finalRemarks?: string | null;
     // Status calculated based on term grades, used for internal logic
     status: 'Not Submitted' | 'Incomplete' | 'Complete';
 }
@@ -149,7 +152,7 @@ export interface StudentTermGrade {
     prelimGrade?: number | null; // Numeric grade only
     midtermGrade?: number | null; // Numeric grade only
     finalGrade?: number | null; // Numeric grade only
-    finalRemarks?: string; // Optional final remark from teacher
+    finalRemarks?: string | null; // Optional final remark from teacher
     status: 'Not Submitted' | 'Incomplete' | 'Complete'; // Derived status
 }
 
@@ -181,5 +184,3 @@ export interface UpcomingItem {
 }
 
 // Define more types as needed (e.g., Course)
-
-    
