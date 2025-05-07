@@ -34,20 +34,18 @@ import { cn } from "@/lib/utils";
 import { fetchData, postData, deleteData } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 
-// Define form fields for the UserForm component - Only Email
 const adminFormFields: FormFieldConfig<AdminUser>[] = [
-  { name: "email", label: "Email", placeholder: "Enter admin email", type: "email", required: true },
-  // First Name and Last Name are removed from the form
+  { name: "email", label: "Email", placeholder: "Enter admin email", type: "email", required: true, section: 'account' },
 ];
 
-// Assume the current logged-in admin is the super admin (ID 0 or fetched from session)
-const CURRENT_SUPER_ADMIN_ID = 0; // Replace with actual session logic if available
+const CURRENT_SUPER_ADMIN_ID = 0;
 
 export default function ManageAdminsPage() {
   const [admins, setAdmins] = React.useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedAdmin, setSelectedAdmin] = React.useState<AdminUser | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [isEditMode, setIsEditMode] = React.useState(false); // Add state for edit mode
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
 
@@ -55,8 +53,8 @@ export default function ManageAdminsPage() {
     const fetchAdmins = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchData<AdminUser[]>('admins/read.php'); // Fetch actual admins
-        setAdmins(data || []); // Use fetched data
+        const data = await fetchData<AdminUser[]>('admins/read.php');
+        setAdmins(data || []);
       } catch (error: any) {
         console.error("Failed to fetch admins:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load admin data." });
@@ -67,24 +65,21 @@ export default function ManageAdminsPage() {
     fetchAdmins();
   }, [toast]);
 
-  const handleSaveAdmin = async (values: Pick<AdminUser, 'email'>) => { // Expect only email from form
-    // Payload now only contains email
+  const handleSaveAdmin = async (values: Pick<AdminUser, 'email'>) => {
     const payload = {
       email: values.email,
-      // Backend needs to handle generating firstName/lastName placeholders if needed
     };
     console.log(`Attempting to add admin:`, payload);
     try {
         const newAdmin = await postData<typeof payload, AdminUser>('admins/create.php', payload);
-         // Ensure the received newAdmin might have placeholders for name if backend doesn't return them
          const displayAdmin: AdminUser = {
              ...newAdmin,
-             firstName: newAdmin.firstName || 'Admin', // Placeholder if missing
-             lastName: newAdmin.lastName || `User ${newAdmin.id}`, // Placeholder if missing
+             firstName: newAdmin.firstName || 'Admin',
+             lastName: newAdmin.lastName || `User ${newAdmin.id}`,
          };
         setAdmins(prev => [...prev, displayAdmin]);
         toast({ title: "Admin Added", description: `Admin ${displayAdmin.username} (${displayAdmin.email}) has been added.` });
-        setIsModalOpen(false);
+        closeModal();
     } catch (error: any) {
         console.error(`Failed to add admin:`, error);
         toast({ variant: "destructive", title: `Error Adding Admin`, description: error.message || `Could not add admin.` });
@@ -116,18 +111,15 @@ export default function ManageAdminsPage() {
          return;
       }
       setIsSubmitting(true);
-       // Find the admin to get lastName for default password generation (or use a placeholder)
       const adminToReset = admins.find(a => a.id === userId);
-      const lastNameForPassword = adminToReset?.lastName || 'user'; // Fallback if lastName isn't available
+      const lastNameForPassword = adminToReset?.lastName || 'user';
 
       try {
-           // Pass lastName for potential default password generation on backend if needed
            await postData('admin/reset_password.php', { userId, userType: 'admin', lastName: lastNameForPassword });
-           // Assume default password format is known or backend handles it
-           const defaultPassword = `${lastNameForPassword.substring(0, 2).toLowerCase()}1000`; // Example format
+           const defaultPassword = `${lastNameForPassword.substring(0, 2).toLowerCase()}1000`;
            toast({
                 title: "Password Reset Successful",
-                description: `Password for admin ID ${userId} has been reset. Default password: ${defaultPassword}`, // Inform user of the standard default
+                description: `Password for admin ID ${userId} has been reset. Default password: ${defaultPassword}`,
            });
       } catch (error: any) {
            console.error("Failed to reset admin password:", error);
@@ -142,9 +134,28 @@ export default function ManageAdminsPage() {
   };
 
   const openAddModal = () => {
+    setIsEditMode(false); // Ensure edit mode is off
     setSelectedAdmin(null);
     setIsModalOpen(true);
   };
+
+    // Function to open modal in view/edit mode (will start read-only)
+   const openEditModal = (admin: AdminUser) => {
+       if (admin.isSuperAdmin) {
+           toast({ variant: "info", title: "Info", description: "Super Admin details cannot be viewed or edited here." });
+           return;
+       }
+       setIsEditMode(true);
+       setSelectedAdmin(admin);
+       setIsModalOpen(true);
+   };
+
+   const closeModal = () => {
+       setIsModalOpen(false);
+       // No need to delay clearing state for Admin form as it's simpler
+       setSelectedAdmin(null);
+       setIsEditMode(false);
+   };
 
   const columns: ColumnDef<AdminUser>[] = React.useMemo(() => [
     {
@@ -154,12 +165,12 @@ export default function ManageAdminsPage() {
     {
         accessorKey: "firstName",
         header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />,
-        cell: ({ row }) => row.original.firstName || <span className="text-muted-foreground italic">N/A</span>, // Handle potential missing names
+        cell: ({ row }) => row.original.firstName || <span className="text-muted-foreground italic">N/A</span>,
     },
     {
         accessorKey: "lastName",
         header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />,
-         cell: ({ row }) => row.original.lastName || <span className="text-muted-foreground italic">N/A</span>, // Handle potential missing names
+         cell: ({ row }) => row.original.lastName || <span className="text-muted-foreground italic">N/A</span>,
     },
     {
         accessorKey: "email",
@@ -175,7 +186,14 @@ export default function ManageAdminsPage() {
 
   const generateActionMenuItems = (admin: AdminUser) => (
     <>
-      {/* No View/Edit for other admins by default */}
+      {/* View/Edit Details - Only for non-super admins */}
+      <DropdownMenuItem
+        onClick={(e) => { e.stopPropagation(); openEditModal(admin); }}
+        disabled={admin.isSuperAdmin} // Disable for super admin
+      >
+        <Info className="mr-2 h-4 w-4" /> View Details
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       <AlertDialog>
          <AlertDialogTrigger asChild>
              <DropdownMenuItem
@@ -262,7 +280,7 @@ export default function ManageAdminsPage() {
                 columns={columns}
                 data={admins}
                 searchPlaceholder="Search by username or email..."
-                searchColumnId="username" // Or "email"
+                searchColumnId="username"
                 actionMenuItems={generateActionMenuItems}
             />
         )}
@@ -271,12 +289,14 @@ export default function ManageAdminsPage() {
       <UserForm<AdminUser>
             isOpen={isModalOpen}
             onOpenChange={setIsModalOpen}
-            formSchema={adminUserSchema} // Use the updated schema
-            onSubmit={(values) => handleSaveAdmin(values as Pick<AdminUser, 'email'>)} // Adapt onSubmit call
-            title={'Add New Admin'}
-            description={"Enter the email address for the new admin. Username and default password will be auto-generated. The new admin can change their password via Settings."}
-            formFields={adminFormFields} // Use updated form fields config
-            isEditMode={false} // Add mode only for simplicity here
+            formSchema={adminUserSchema}
+            onSubmit={(values) => handleSaveAdmin(values as Pick<AdminUser, 'email'>)} // Only submit email
+            title={isEditMode ? `Admin Details: ${selectedAdmin?.username}` : 'Add New Admin'}
+            description={isEditMode ? "View admin details." : "Enter the email address for the new admin. Username and default password will be auto-generated. The new admin can change their password via Settings."}
+            formFields={adminFormFields}
+            isEditMode={isEditMode}
+            initialData={isEditMode ? selectedAdmin : undefined}
+            startReadOnly={isEditMode} // Start read-only when viewing/editing
         />
     </div>
   );

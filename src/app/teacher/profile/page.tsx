@@ -25,18 +25,31 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { Teacher } from "@/types";
-import { profileSchema } from "@/lib/schemas";
+import { profileSchema } from "@/lib/schemas"; // Using profileSchema, assuming it covers editable fields
 import { Loader2, Pencil } from "lucide-react"; // Added Pencil
-import { Label } from "@/components/ui/label";
 import { fetchData, putData } from "@/lib/api"; // Import API helpers
+import { Textarea } from "@/components/ui/textarea"; // Import Textarea for address
+import { Separator } from "@/components/ui/separator"; // Import Separator
 
-// Use a subset of profileSchema relevant to teachers
+
+// Use a relevant subset or the full profile schema if applicable
 const teacherEditableFieldsSchema = profileSchema.pick({
     id: true,
     firstName: true,
     lastName: true,
     email: true,
     phone: true,
+    // Teacher specific editable fields (if any beyond basic profileSchema)
+    // Assuming emergency contacts are editable for teachers too
+    emergencyContactName: true,
+    emergencyContactRelationship: true,
+    emergencyContactPhone: true,
+    emergencyContactAddress: true,
+    // Teacher *might* be able to edit these, depending on policy
+    middleName: true,
+    suffix: true,
+    birthday: true,
+    address: true,
 });
 type ProfileFormValues = z.infer<typeof teacherEditableFieldsSchema>;
 
@@ -53,8 +66,16 @@ export default function TeacherProfilePage() {
         id: undefined,
         firstName: "",
         lastName: "",
+        middleName: "",
+        suffix: "",
+        birthday: "",
+        address: "",
         email: "",
         phone: "",
+        emergencyContactName: "",
+        emergencyContactRelationship: "",
+        emergencyContactPhone: "",
+        emergencyContactAddress: "",
     },
   });
 
@@ -62,15 +83,22 @@ export default function TeacherProfilePage() {
     const loadProfile = async () => {
       setIsLoading(true);
       try {
-        // Use fetchData helper
         const data = await fetchData<Teacher>('/api/teacher/profile/read.php');
         setTeacherData(data);
         form.reset({
             id: data.id,
             firstName: data.firstName,
             lastName: data.lastName,
+            middleName: data.middleName || "",
+            suffix: data.suffix || "",
+            birthday: data.birthday || "",
+            address: data.address || "",
             email: data.email || "",
             phone: data.phone || "",
+            emergencyContactName: data.emergencyContactName || "",
+            emergencyContactRelationship: data.emergencyContactRelationship || "",
+            emergencyContactPhone: data.emergencyContactPhone || "",
+            emergencyContactAddress: data.emergencyContactAddress || "",
         });
       } catch (error: any) {
         console.error("Failed to fetch profile:", error);
@@ -83,15 +111,19 @@ export default function TeacherProfilePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Fetch only once
 
-  // Update Profile Function (API Call using helper)
+  // Update Profile Function
   const onSubmit = async (values: ProfileFormValues) => {
      if (!teacherData) return;
 
-     const payload = { ...values };
+     // Ensure all fields from Teacher type are included if needed by backend
+     const payload = {
+         ...teacherData, // Start with existing data to preserve non-editable fields
+         ...values // Overwrite with edited values
+     };
      console.log("Updating teacher profile:", payload);
 
      try {
-        // Use putData helper
+        // Use the specific teacher profile update endpoint
         const updatedProfile = await putData<typeof payload, Teacher>('/api/teacher/profile/update.php', payload);
 
         setTeacherData(prev => ({ ...prev, ...updatedProfile }));
@@ -99,7 +131,7 @@ export default function TeacherProfilePage() {
             title: "Profile Updated",
             description: "Your profile information has been saved.",
         });
-        form.reset(updatedProfile);
+        form.reset(updatedProfile); // Reset form with the latest saved data
         setIsEditing(false); // Exit edit mode
      } catch (error: any) {
         console.error("Failed to update profile:", error);
@@ -119,8 +151,16 @@ export default function TeacherProfilePage() {
                 id: teacherData.id,
                 firstName: teacherData.firstName,
                 lastName: teacherData.lastName,
+                middleName: teacherData.middleName || "",
+                suffix: teacherData.suffix || "",
+                birthday: teacherData.birthday || "",
+                address: teacherData.address || "",
                 email: teacherData.email || "",
                 phone: teacherData.phone || "",
+                emergencyContactName: teacherData.emergencyContactName || "",
+                emergencyContactRelationship: teacherData.emergencyContactRelationship || "",
+                emergencyContactPhone: teacherData.emergencyContactPhone || "",
+                emergencyContactAddress: teacherData.emergencyContactAddress || "",
             });
         }
     };
@@ -156,68 +196,199 @@ export default function TeacherProfilePage() {
           </CardHeader>
           <CardContent>
              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    {/* Work Info (Read Only) */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-medium text-muted-foreground">Work Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormItem>
+                                <FormLabel>Department</FormLabel>
+                                <FormControl>
+                                    <Input value={teacherData.department} disabled readOnly className="bg-muted"/>
+                                </FormControl>
+                            </FormItem>
+                            <FormItem>
+                                <FormLabel>Teacher ID</FormLabel>
+                                <FormControl>
+                                    <Input value={teacherData.teacherId} disabled readOnly className="bg-muted"/>
+                                </FormControl>
+                            </FormItem>
+                        </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Personal Details (Editable) */}
+                    <div className="space-y-4">
+                         <h3 className="text-lg font-medium text-foreground">Personal Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="firstName"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>First Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="First name" {...field} disabled={!isEditing || form.formState.isSubmitting}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="middleName"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Middle Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Middle name (optional)" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="lastName"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Last Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Last name" {...field} disabled={!isEditing || form.formState.isSubmitting}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="suffix"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Suffix</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Suffix (optional)" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="birthday"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Birthday</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" placeholder="YYYY-MM-DD" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
                         <FormField
                             control={form.control}
-                            name="firstName"
+                            name="address"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>First Name</FormLabel>
+                                <FormLabel>Address</FormLabel>
                                 <FormControl>
-                                <Input placeholder="Your first name" {...field} disabled={!isEditing || form.formState.isSubmitting}/>
+                                    <Textarea placeholder="Full address" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
                             )}
                         />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="phone"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Contact Number</FormLabel>
+                                    <FormControl>
+                                        <Input type="tel" placeholder="Contact number" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="email"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Email Address</FormLabel>
+                                    <FormControl>
+                                        <Input type="email" placeholder="Email address" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    {/* Emergency Contact (Editable) */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-medium text-foreground">Emergency Contact Information</h3>
                         <FormField
                             control={form.control}
-                            name="lastName"
+                            name="emergencyContactName"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Last Name</FormLabel>
+                                <FormLabel>Contact Name</FormLabel>
                                 <FormControl>
-                                <Input placeholder="Your last name" {...field} disabled={!isEditing || form.formState.isSubmitting}/>
+                                    <Input placeholder="Emergency contact name" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="emergencyContactRelationship"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Relationship</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Relationship to contact" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="emergencyContactPhone"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Contact Phone</FormLabel>
+                                <FormControl>
+                                    <Input type="tel" placeholder="Emergency contact phone number" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="emergencyContactAddress"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Contact Address</FormLabel>
+                                <FormControl>
+                                    <Textarea placeholder="Emergency contact address" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
                             )}
                         />
                     </div>
-                     <FormItem>
-                        <FormLabel>Department</FormLabel>
-                        <FormControl>
-                            <Input value={teacherData.department} disabled readOnly className="bg-muted"/>
-                        </FormControl>
-                    </FormItem>
-
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Email Address</FormLabel>
-                            <FormControl>
-                            <Input type="email" placeholder="your.email@example.com" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
-                            <FormControl>
-                            <Input type="tel" placeholder="Your phone number" {...field} value={field.value ?? ''} disabled={!isEditing || form.formState.isSubmitting}/>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
 
                     {isEditing && (
                         <div className="flex justify-end gap-2 pt-4">

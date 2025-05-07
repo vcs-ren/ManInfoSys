@@ -58,10 +58,8 @@ export default function StudentProfilePage() {
     const loadProfile = async () => {
       setIsLoading(true);
       try {
-        // Use fetchData helper
         const data = await fetchData<Student>('/api/student/profile/read.php');
         setStudentData(data);
-        // Reset form with fetched data
         form.reset({
             id: data.id,
             firstName: data.firstName,
@@ -85,7 +83,7 @@ export default function StudentProfilePage() {
   }, []); // Fetch only once on mount
 
 
-  // Update Profile Function (API Call using helper)
+  // Update Profile Function
   const onSubmit = async (values: ProfileFormValues) => {
     if (!studentData) return;
 
@@ -93,7 +91,6 @@ export default function StudentProfilePage() {
     console.log("Updating profile:", payload);
 
     try {
-        // Use putData helper
         const updatedProfile = await putData<typeof payload, Student>('/api/student/profile/update.php', payload);
         setStudentData(prev => ({ ...prev, ...updatedProfile }));
         toast({

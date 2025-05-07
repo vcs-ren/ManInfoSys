@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useWatch } from "react-hook-form"; // Import useWatch
+import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -31,45 +31,46 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select"; // Import Select components
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Student, Teacher, AdminUser } from "@/types";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea"; // Import Textarea
-import { Separator } from "@/components/ui/separator"; // Import Separator
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, Pencil } from "lucide-react"; // Import Pencil
 
-interface UserFormProps<T extends Student | Teacher | AdminUser> { // Updated to accept AdminUser
-  trigger?: React.ReactNode; // Trigger is now optional
-  isOpen?: boolean; // Optional prop to control dialog state externally
-  onOpenChange?: (open: boolean) => void; // Optional handler for external control
+interface UserFormProps<T extends Student | Teacher | AdminUser> {
+  trigger?: React.ReactNode;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
   formSchema: z.ZodSchema<T>;
-  defaultValues?: Partial<T>; // For editing
-  onSubmit: (values: T) => Promise<void> | void; // Make onSubmit flexible
+  defaultValues?: Partial<T>;
+  onSubmit: (values: T) => Promise<void> | void;
   title: string;
   description: string;
-  formFields: FormFieldConfig<T>[]; // Configuration for form fields
-  isEditMode?: boolean; // Flag to indicate if it's an edit form
-  initialData?: T; // Data for edit mode, including generated IDs/credentials
+  formFields: FormFieldConfig<T>[];
+  isEditMode?: boolean;
+  initialData?: T;
+  startReadOnly?: boolean; // New prop to control initial state
 }
 
-// Define a type for form field configuration
 export type FormFieldConfig<T> = {
   name: keyof T;
   label: string;
   placeholder?: string;
-  type?: React.HTMLInputTypeAttribute | "select" | "textarea"; // Added "textarea"
-  required?: boolean; // For frontend indication, validation is via schema
-  disabled?: boolean; // Make field read-only
-  options?: { value: string | number; label: string }[]; // Options for select dropdown
-  condition?: (data: Partial<T> | null | undefined) => boolean; // Conditional rendering
-  section?: 'personal' | 'work' | 'emergency' | 'account'; // Optional section grouping
+  type?: React.HTMLInputTypeAttribute | "select" | "textarea";
+  required?: boolean;
+  disabled?: boolean;
+  options?: { value: string | number; label: string }[];
+  condition?: (data: Partial<T> | null | undefined) => boolean;
+  section?: 'personal' | 'work' | 'emergency' | 'account';
 };
 
-export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated to accept AdminUser
+export function UserForm<T extends Student | Teacher | AdminUser>({
   trigger,
-  isOpen: isOpenProp, // Rename prop to avoid conflict with internal state
-  onOpenChange: onOpenChangeProp, // Rename prop
+  isOpen: isOpenProp,
+  onOpenChange: onOpenChangeProp,
   formSchema,
   defaultValues,
   onSubmit,
@@ -77,62 +78,60 @@ export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated t
   description,
   formFields,
   isEditMode = false,
-  initialData
+  initialData,
+  startReadOnly = false, // Default to not read-only
 }: UserFormProps<T>) {
-  // Internal state for dialog visibility, used if not controlled externally
   const [internalOpen, setInternalOpen] = React.useState(false);
+  const [isReadOnly, setIsReadOnly] = React.useState(startReadOnly && isEditMode); // Internal read-only state, only applicable in edit mode
   const { toast } = useToast();
 
-  // Determine if the dialog is controlled externally
   const isControlled = isOpenProp !== undefined && onOpenChangeProp !== undefined;
-
-  // Use external state if controlled, otherwise use internal state
   const isOpen = isControlled ? isOpenProp : internalOpen;
   const setIsOpen = isControlled ? onOpenChangeProp : setInternalOpen;
 
-   // Initialize the form with default values or initial data for editing
-    const form = useForm<T>({
-        resolver: zodResolver(formSchema),
-        defaultValues: isEditMode ? (initialData as any) : (defaultValues as any), // Use initialData if editing
-    });
+  const form = useForm<T>({
+    resolver: zodResolver(formSchema),
+    defaultValues: isEditMode ? (initialData as any) : (defaultValues as any),
+  });
 
-    // Watch the status field to conditionally show the year field
-    const watchedStatus = useWatch({ control: form.control, name: 'status' as any });
+  const watchedStatus = useWatch({ control: form.control, name: 'status' as any });
+  const currentFormValues = useWatch({ control: form.control });
 
-    // Reset form when dialog opens/closes or mode changes
-    React.useEffect(() => {
-        if (isOpen) {
-         form.reset(isEditMode ? (initialData as any) : (defaultValues as any));
-        }
-    }, [isOpen, isEditMode, initialData, defaultValues, form]);
+  // Reset form and read-only state when dialog opens/closes or mode changes
+  React.useEffect(() => {
+    if (isOpen) {
+      form.reset(isEditMode ? (initialData as any) : (defaultValues as any));
+      // Set read-only state only when opening in edit mode with startReadOnly true
+      setIsReadOnly(isEditMode && startReadOnly);
+    } else {
+        // Reset read-only state when closing
+        setIsReadOnly(false);
+    }
+  }, [isOpen, isEditMode, initialData, defaultValues, form, startReadOnly]);
 
-   // Effect to set year to '1st Year' if status becomes 'New'
-   React.useEffect(() => {
-       if (watchedStatus === 'New') {
-           form.setValue('year' as any, '1st Year', { shouldValidate: false }); // Set year, avoid immediate validation
-       } else if (initialData && !isEditMode) { // Reset year if status changes from New on ADD mode
-            form.setValue('year' as any, (initialData as Student)?.year || '', { shouldValidate: false });
-       } else if (!isEditMode && !initialData) { // Reset year if status changes on ADD mode (no initial data)
-            form.setValue('year' as any, '', { shouldValidate: true }); // Clear year if not New
-       }
-       // If editing, let the user control the year if status is not 'New'
-   }, [watchedStatus, form, isEditMode, initialData]);
-
+  React.useEffect(() => {
+    if (watchedStatus === 'New') {
+        form.setValue('year' as any, '1st Year', { shouldValidate: false });
+    } else if (initialData && !isEditMode) {
+        form.setValue('year' as any, (initialData as Student)?.year || '', { shouldValidate: false });
+    } else if (!isEditMode && !initialData) {
+        form.setValue('year' as any, '', { shouldValidate: true });
+    }
+  }, [watchedStatus, form, isEditMode, initialData]);
 
   const handleFormSubmit = async (values: T) => {
     try {
-       // Override year if status is 'New' just before submitting (for Students)
-        if ('status' in values && values.status === 'New') {
-            (values as Student).year = '1st Year';
-        }
-       console.log("Submitting values:", values);
-      await onSubmit(values); // Call the provided onSubmit function
+      if ('status' in values && values.status === 'New') {
+        (values as Student).year = '1st Year';
+      }
+      console.log("Submitting values:", values);
+      await onSubmit(values);
       toast({
         title: `Success`,
         description: `${isEditMode ? 'User updated' : 'User added'} successfully.`,
       });
-      setIsOpen(false); // Close dialog on success
-      form.reset(); // Reset form after successful submission
+      setIsOpen(false);
+      form.reset();
     } catch (error) {
       console.error("Form submission error:", error);
       toast({
@@ -143,122 +142,125 @@ export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated t
     }
   };
 
-  // Get current form values to pass to condition function
-  const currentFormValues = useWatch({ control: form.control });
+   const handleCancelEdit = () => {
+      setIsReadOnly(true); // Go back to read-only mode
+      // Reset form to initial data
+       if (isEditMode && initialData) {
+            form.reset(initialData as any);
+       }
+    };
 
-  // Helper function to render a form field
+
   const renderFormField = (fieldConfig: FormFieldConfig<T>) => {
-      // Check condition if it exists
-        if (fieldConfig.condition && !fieldConfig.condition(currentFormValues)) {
-            return null; // Don't render field if condition is not met
-        }
+    if (fieldConfig.condition && !fieldConfig.condition(currentFormValues)) {
+      return null;
+    }
 
-        // Special handling for year field when status is 'New' (for Student)
-        const isStudentForm = 'status' in form.getValues();
-        const isYearField = fieldConfig.name === 'year';
-        const disableYearField = isStudentForm && isYearField && watchedStatus === 'New';
+    const isStudentForm = 'status' in form.getValues();
+    const isYearField = fieldConfig.name === 'year';
+    const disableYearField = isStudentForm && isYearField && watchedStatus === 'New';
+    const isDisabled = isReadOnly || disableYearField || fieldConfig.disabled || form.formState.isSubmitting; // Determine final disabled state
 
-
-        return (
-            <FormField
-                key={String(fieldConfig.name)}
-                control={form.control}
-                name={fieldConfig.name as any} // Cast needed due to complex typing
-                render={({ field }) => (
-                <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1"> {/* Reduced gap-y */}
-                    <FormLabel className="text-right text-sm">{fieldConfig.label}{fieldConfig.required && !disableYearField ? '*' : ''}</FormLabel> {/* Smaller label */}
-                    <FormControl className="col-span-3">
-                        {fieldConfig.type === 'select' ? (
-                            <Select
-                                onValueChange={field.onChange}
-                                // Ensure the value passed to Select is always a string
-                                value={field.value ? String(field.value) : undefined}
-                                disabled={fieldConfig.disabled || disableYearField || form.formState.isSubmitting}
-                            >
-                                {/* Apply w-full to the trigger */}
-                                <SelectTrigger className="w-full h-9 text-sm"> {/* Smaller trigger */}
-                                    <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
-                                </SelectTrigger>
-                                {/* Ensure SelectContent pops over other elements */}
-                                <SelectContent>
-                                    {(fieldConfig.options || []).map((option) => (
-                                        <SelectItem key={option.value} value={String(option.value)} className="text-sm"> {/* Smaller item */}
-                                        {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        ) : fieldConfig.type === 'textarea' ? ( // Handle textarea
-                            <Textarea
-                                placeholder={fieldConfig.placeholder}
-                                disabled={fieldConfig.disabled || form.formState.isSubmitting}
-                                {...field}
-                                value={field.value ?? ''}
-                                className="text-sm min-h-[60px]" // Smaller textarea
-                            />
-                        ) : (
-                            <Input
-                                placeholder={fieldConfig.placeholder}
-                                type={fieldConfig.type || "text"}
-                                disabled={fieldConfig.disabled || disableYearField || form.formState.isSubmitting}
-                                {...field}
-                                // Handle number input type properly
-                                value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value ?? '')} // Use nullish coalescing
-                                onChange={(e) => {
-                                    if (fieldConfig.type === 'number') {
-                                    const numericValue = e.target.value === '' ? '' : Number(e.target.value);
-                                    field.onChange(isNaN(numericValue as number) ? '' : numericValue); // Handle NaN
-                                    } else {
-                                    field.onChange(e.target.value);
-                                    }
-                                }}
-                                className="h-9 text-sm" // Smaller input
-                            />
-                        )}
-
-                    </FormControl>
-                    {isStudentForm && isYearField && disableYearField && (
-                        <p className="col-span-3 col-start-2 text-xs text-muted-foreground -mt-1">Set to 1st Year for New students.</p>
-                    )}
-                    <FormMessage className="col-span-3 col-start-2 text-xs" /> {/* Smaller message */}
-                </FormItem>
-                )}
-            />
-        );
+    return (
+      <FormField
+        key={String(fieldConfig.name)}
+        control={form.control}
+        name={fieldConfig.name as any}
+        render={({ field }) => (
+          <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
+            <FormLabel className="text-right text-sm">{fieldConfig.label}{fieldConfig.required && !disableYearField ? '*' : ''}</FormLabel>
+            <FormControl className="col-span-3">
+              {fieldConfig.type === 'select' ? (
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value ? String(field.value) : undefined}
+                  disabled={isDisabled}
+                >
+                  <SelectTrigger className="w-full h-9 text-sm">
+                    <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(fieldConfig.options || []).map((option) => (
+                      <SelectItem key={option.value} value={String(option.value)} className="text-sm">
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : fieldConfig.type === 'textarea' ? (
+                <Textarea
+                  placeholder={fieldConfig.placeholder}
+                  disabled={isDisabled}
+                  {...field}
+                  value={field.value ?? ''}
+                  className="text-sm min-h-[60px]"
+                  readOnly={isReadOnly} // Explicitly set readOnly for textarea
+                />
+              ) : (
+                <Input
+                  placeholder={fieldConfig.placeholder}
+                  type={fieldConfig.type || "text"}
+                  disabled={isDisabled}
+                  {...field}
+                  value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value ?? '')}
+                  onChange={(e) => {
+                    if (fieldConfig.type === 'number') {
+                      const numericValue = e.target.value === '' ? '' : Number(e.target.value);
+                      field.onChange(isNaN(numericValue as number) ? '' : numericValue);
+                    } else {
+                      field.onChange(e.target.value);
+                    }
+                  }}
+                  className="h-9 text-sm"
+                  readOnly={isReadOnly} // Explicitly set readOnly for input
+                />
+              )}
+            </FormControl>
+            {isStudentForm && isYearField && disableYearField && (
+              <p className="col-span-3 col-start-2 text-xs text-muted-foreground -mt-1">Set to 1st Year for New students.</p>
+            )}
+            <FormMessage className="col-span-3 col-start-2 text-xs" />
+          </FormItem>
+        )}
+      />
+    );
   };
 
-  // Group fields by section
-    const personalFields = formFields.filter(f => (f.section === 'personal' || !f.section) && !f.name.toString().toLowerCase().includes('emergency'));
-    const workFields = formFields.filter(f => f.section === 'work');
-    const emergencyFields = formFields.filter(f => f.section === 'emergency' || f.name.toString().toLowerCase().includes('emergency'));
-    const accountFields = formFields.filter(f => f.section === 'account');
-
+  const personalFields = formFields.filter(f => (f.section === 'personal' || !f.section) && !f.name.toString().toLowerCase().includes('emergency'));
+  const workFields = formFields.filter(f => f.section === 'work');
+  const emergencyFields = formFields.filter(f => f.section === 'emergency' || f.name.toString().toLowerCase().includes('emergency'));
+  const accountFields = formFields.filter(f => f.section === 'account');
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {/* Render DialogTrigger only if trigger is provided and not controlled externally */}
       {!isControlled && trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-lg"> {/* Increased max width */}
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <div className="flex justify-between items-center">
+             <div>
+                <DialogTitle>{title}</DialogTitle>
+                <DialogDescription>{description}</DialogDescription>
+            </div>
+            {/* Show Edit button only in read-only mode when editing */}
+            {isEditMode && isReadOnly && (
+                 <Button variant="outline" size="sm" onClick={() => setIsReadOnly(false)}>
+                    <Pencil className="mr-2 h-4 w-4" /> Edit
+                 </Button>
+            )}
+          </div>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)}>
-            <ScrollArea className="max-h-[70vh] p-1 pr-6"> {/* Increased max height */}
-                <div className="space-y-6 py-4"> {/* Increased overall spacing */}
-
-                    {/* Personal Information Section */}
+            <ScrollArea className="max-h-[70vh] p-1 pr-6">
+                <div className="space-y-6 py-4">
                     {personalFields.length > 0 && (
                          <div className="space-y-3">
                             <h4 className="text-md font-semibold text-primary border-b pb-1">Personal Information</h4>
-                            <div className="space-y-3"> {/* Inner spacing for fields */}
+                            <div className="space-y-3">
                                 {personalFields.map(renderFormField)}
                              </div>
                          </div>
                     )}
-
-                     {/* Work Information Section */}
                     {workFields.length > 0 && (
                          <div className="space-y-3">
                             <Separator />
@@ -268,8 +270,6 @@ export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated t
                              </div>
                          </div>
                     )}
-
-                    {/* Emergency Contact Section */}
                     {emergencyFields.length > 0 && (
                         <div className="space-y-3">
                             <Separator />
@@ -279,8 +279,6 @@ export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated t
                             </div>
                         </div>
                     )}
-
-                     {/* Account Information Section */}
                     {accountFields.length > 0 && (
                          <div className="space-y-3">
                             <Separator />
@@ -291,8 +289,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated t
                          </div>
                     )}
 
-
-                 {/* Display generated username/password/section only in edit mode */}
+                  {/* Display System Info only when editing (always read-only here) */}
                   {isEditMode && initialData && (
                       <>
                         <Separator />
@@ -307,7 +304,6 @@ export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated t
                                 disabled
                                 />
                             </div>
-                            {/* Display Section for Students in Edit Mode */}
                             {'section' in initialData && (
                                 <div className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
                                     <Label className="text-right font-semibold text-sm">Section</Label>
@@ -323,7 +319,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated t
                                 <Label className="text-right font-semibold text-sm">Password</Label>
                                 <Input
                                 className="col-span-3 bg-muted text-muted-foreground italic h-9 text-sm"
-                                value="******** (Hidden)" // Show placeholder instead of actual password
+                                value="******** (Hidden)"
                                 readOnly
                                 disabled
                                 />
@@ -332,17 +328,27 @@ export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated t
                         </div>
                       </>
                   )}
-
               </div>
             </ScrollArea>
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={form.formState.isSubmitting}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? (isEditMode ? 'Saving...' : 'Adding...') : (isEditMode ? 'Save Changes' : 'Add User')}
-              </Button>
-            </DialogFooter>
+             {/* Footer with buttons - shown only when NOT read-only */}
+            {!isReadOnly && (
+                <DialogFooter className="mt-4">
+                <Button type="button" variant="outline" onClick={isEditMode ? handleCancelEdit : () => setIsOpen(false)} disabled={form.formState.isSubmitting}>
+                    Cancel
+                </Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                    {form.formState.isSubmitting ? (isEditMode ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...</>) : (isEditMode ? 'Save Changes' : 'Add User')}
+                </Button>
+                </DialogFooter>
+            )}
+             {/* Close button for read-only mode */}
+             {isReadOnly && (
+                  <DialogFooter className="mt-4">
+                     <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                         Close
+                    </Button>
+                  </DialogFooter>
+             )}
           </form>
         </Form>
       </DialogContent>
