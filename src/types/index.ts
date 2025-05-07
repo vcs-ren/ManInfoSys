@@ -5,7 +5,8 @@ export type StudentStatus = 'New' | 'Transferee' | 'Returnee'; // Removed 'Conti
 
 export interface Student {
   id: number; // Database ID
-  studentId: string; // e.g., "s1001" - Generated ID (1000 + DB ID)
+  studentId: string; // e.g., "101", "102" - Generated ID (100 + DB ID)
+  username: string; // e.g., "s101", "s102" - Generated username
   firstName: string;
   lastName: string;
   middleName?: string; // Added
@@ -13,7 +14,7 @@ export interface Student {
   gender?: 'Male' | 'Female' | 'Other'; // Added
   birthday?: string; // Added (YYYY-MM-DD format)
   course: string;
-  status: StudentStatus; // Replaces year level
+  status: StudentStatus;
   year?: string; // Optional year level (e.g., '1st Year', '2nd Year')
   section: string; // e.g., "10A", "20B"
   email?: string; // Optional fields
@@ -28,7 +29,8 @@ export interface Student {
 
 export interface Teacher {
   id: number; // Database ID
-  teacherId: string; // e.g., "t1001" - Generated ID (1000 + DB ID)
+  teacherId: string; // e.g., "t101", "t102" - Generated ID (1000 + DB ID)
+  username: string; // e.g., "t101", "t102" - Generated username
   firstName: string;
   lastName: string;
   middleName?: string; // Added
@@ -64,7 +66,7 @@ export interface StudentGradeEntry {
 // Represents a specific class section
 export interface Section {
     id: string; // Unique identifier for the section (e.g., "CS-10A")
-    sectionCode: string; // e.g., "10A"
+    sectionCode: string; // e.g., "10A", "20B"
     course: string; // e.g., "Computer Science"
     yearLevel: string; // e.g., "1st Year"
     adviserId?: number; // ID of the assigned adviser (previously teacherId)
@@ -74,7 +76,7 @@ export interface Section {
 
 // Represents a subject
 export interface Subject {
-    id: string; // Unique identifier (e.g., "MATH101")
+    id: string; // Unique identifier (e.g., "CS101")
     name: string; // e.g., "Mathematics 101"
     description?: string;
     // Potentially add course/year level relevance
@@ -179,3 +181,5 @@ export interface UpcomingItem {
 }
 
 // Define more types as needed (e.g., Course)
+
+    

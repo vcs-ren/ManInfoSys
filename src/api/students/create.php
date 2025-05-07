@@ -31,10 +31,10 @@ if (
     empty($data->course) ||
     empty($data->status) ||
     // If status requires year, ensure it's provided
-    (in_array($data->status, ['Continuing', 'Transferee', 'Returnee']) && empty($data->year))
+    (in_array($data->status, ['Transferee', 'Returnee']) && empty($data->year))
 ) {
     http_response_code(400);
-    echo json_encode(array("message" => "Unable to add student. Required fields (firstName, lastName, course, status) are missing or invalid. Year level is required for Continuing, Transferee, or Returnee status."));
+    echo json_encode(array("message" => "Unable to add student. Required fields (firstName, lastName, course, status) are missing or invalid. Year level is required for Transferee or Returnee status."));
     exit();
 }
 
@@ -43,6 +43,10 @@ try {
     // Assign data to student object properties
     $student->firstName = $data->firstName;
     $student->lastName = $data->lastName;
+    $student->middleName = $data->middleName ?? null;
+    $student->suffix = $data->suffix ?? null;
+    $student->gender = $data->gender ?? null;
+    $student->birthday = $data->birthday ?? null;
     $student->course = $data->course;
     $student->status = $data->status;
     // Let the model handle year logic, but provide it if available
@@ -59,7 +63,8 @@ try {
     $student->emergencyContactAddress = $data->emergencyContactAddress ?? null;
 
     // Attempt to create student using the model method
-    $result = $student->create(); // create() method handles insert, ID/section/password generation
+    // create() method handles insert, ID/username/section/password generation
+    $result = $student->create();
 
     if ($result && isset($result['id'])) { // Check if result contains the expected data
         // Set response code - 201 Created
@@ -75,10 +80,15 @@ try {
         echo json_encode(array("message" => "Unable to add student. Internal server error or failed database operation."));
     }
 } catch (PDOException $e) {
-    // Database-level error
+    // Database-level error (e.g., unique constraint violation on username)
     error_log("PDOException creating student: " . $e->getMessage());
-    http_response_code(503);
-    echo json_encode(array("message" => "Database error occurred while creating student: " . $e->getMessage()));
+    if ($e->errorInfo[1] == 1062) { // Error code for duplicate entry
+        http_response_code(409); // Conflict
+        echo json_encode(array("message" => "Cannot add student. The generated username already exists. Please try again or contact support if the issue persists."));
+    } else {
+        http_response_code(503);
+        echo json_encode(array("message" => "Database error occurred while creating student: " . $e->getMessage()));
+    }
 } catch (Exception $e) {
      // Other exceptions (e.g., from ID generation)
      error_log("Exception creating student: " . $e->getMessage());
@@ -87,3 +97,5 @@ try {
 }
 
 ?>
+
+    

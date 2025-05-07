@@ -39,9 +39,14 @@ try {
 
             $student_item = array(
                 "id" => (int)$id, // Ensure ID is integer
-                "studentId" => $studentId, // Use the alias from the model query
+                "studentId" => $studentId, // Use the alias from the model query (e.g., 101)
+                "username" => $username, // Use the alias (e.g., s101)
                 "firstName" => $firstName, // Use the alias
                 "lastName" => $lastName,   // Use the alias
+                "middleName" => $middleName, // Added
+                "suffix" => $suffix, // Added
+                "gender" => $gender, // Added
+                "birthday" => $birthday, // Added
                 "course" => $course,
                 "status" => $status,
                 "year" => $year, // Include year
@@ -72,3 +77,5 @@ try {
     echo json_encode(array("message" => "An unexpected error occurred while fetching students."));
 }
 ?>
+
+    

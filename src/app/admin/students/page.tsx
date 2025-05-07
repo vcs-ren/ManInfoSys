@@ -4,7 +4,7 @@
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react"; // Added Info icon, Pencil
+import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -104,13 +104,14 @@ export default function ManageStudentsPage() {
     gender: false,
     birthday: false,
     section: true, // Show section by default now
+    username: false, // Hide username by default
   });
 
   React.useEffect(() => {
     const fetchStudents = async () => {
       setIsLoading(true);
       try {
-         const data = await fetchData<Student[]>('/students/read.php'); // Use local relative path
+         const data = await fetchData<Student[]>('students/read.php'); // Use local relative path
         setStudents(data || []);
       } catch (error: any) {
         console.error("Failed to fetch students:", error);
@@ -153,11 +154,11 @@ export default function ManageStudentsPage() {
     try {
         let savedStudent: Student;
         if (isEditMode && payload.id) {
-            savedStudent = await putData<typeof payload, Student>(`/students/update.php/${payload.id}`, payload);
+            savedStudent = await putData<typeof payload, Student>(`students/update.php/${payload.id}`, payload);
             setStudents(prev => prev.map(s => s.id === savedStudent.id ? savedStudent : s));
             toast({ title: "Student Updated", description: `${savedStudent.firstName} ${savedStudent.lastName} has been updated.` });
         } else {
-             savedStudent = await postData<Omit<typeof payload, 'id'>, Student>('/students/create.php', payload);
+             savedStudent = await postData<Omit<typeof payload, 'id'>, Student>('students/create.php', payload);
             setStudents(prev => [...prev, savedStudent]);
             toast({ title: "Student Added", description: `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.year || savedStudent.status}, Section ${savedStudent.section}) has been added.` });
         }
@@ -175,7 +176,7 @@ export default function ManageStudentsPage() {
   const handleDeleteStudent = async (studentId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`/students/delete.php/${studentId}`);
+          await deleteData(`students/delete.php/${studentId}`);
           setStudents(prev => prev.filter(s => s.id !== studentId));
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
       } catch (error: any) {
@@ -189,7 +190,7 @@ export default function ManageStudentsPage() {
   const handleResetPassword = async (userId: number, lastName: string) => {
       setIsSubmitting(true);
       try {
-           await postData('/admin/reset_password.php', { userId, userType: 'student', lastName });
+           await postData('admin/reset_password.php', { userId, userType: 'student', lastName });
            const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
            toast({
                 title: "Password Reset Successful",
@@ -239,6 +240,12 @@ export default function ManageStudentsPage() {
             accessorKey: "studentId",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Student ID" />,
             cell: ({ row }) => <div>{row.getValue("studentId")}</div>,
+        },
+         {
+            accessorKey: "username",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />,
+            cell: ({ row }) => <div>{row.original.username}</div>,
+             enableHiding: true, // Hide by default
         },
         {
             accessorKey: "firstName",
@@ -306,13 +313,13 @@ export default function ManageStudentsPage() {
         },
         {
             accessorKey: "year",
-            header: ({ column }) => (
+             header: ({ column }) => (
                  <DataTableFilterableColumnHeader
                     column={column}
                     title="Year"
                     options={yearLevelOptions}
                  />
-            ),
+             ),
             cell: ({ row }) => <div className="text-center">{row.original.year || '-'}</div>,
             filterFn: (row, id, value) => {
                  const rowValue = row.original.year;
@@ -486,3 +493,5 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
+
+    

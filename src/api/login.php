@@ -45,7 +45,7 @@ $password = $data->password; // Keep the plain text password for verification
 $role = null;
 $redirectPath = null;
 $table = null;
-$id_column = null; // Column name for username (student_id, teacher_id, or username for admin)
+$id_column = 'username'; // Always use username for lookup now
 $user_id = null; // Store the actual DB user ID (pk)
 
 // --- Determine User Type and Authenticate ---
@@ -61,26 +61,23 @@ try {
             // Admin authentication failed
              sendJsonResponse(401, ["success" => false, "message" => "Invalid admin username or password."]);
         }
-    } elseif (strpos($username, 's') === 0 && ctype_digit(substr($username, 1))) {
+     } elseif (strpos($username, 's') === 0 && ctype_digit(substr($username, 1, 3))) { // Check for sXXX format (e.g., s101)
         // --- Student Login ---
         $table = 'students';
-        $id_column = 'student_id';
         $role = "Student";
         $redirectPath = "/student/dashboard";
-    } elseif (strpos($username, 't') === 0 && ctype_digit(substr($username, 1))) {
+    } elseif (strpos($username, 't') === 0 && ctype_digit(substr($username, 1, 3))) { // Check for tXXX format (e.g., t101)
         // --- Teacher Login ---
         $table = 'teachers';
-        $id_column = 'teacher_id';
         $role = "Teacher";
         $redirectPath = "/teacher/dashboard";
     } else {
-         // Invalid username format (not admin, not sXXXX, not tXXXX)
+         // Invalid username format (not admin, not sXXX, not tXXX)
          sendJsonResponse(401, ["success" => false, "message" => "Invalid username format."]);
     }
 
-    // If role is student or teacher, query the database
+    // If role is student or teacher, query the database using the 'username' column
     if ($table && $id_column && $role && $redirectPath) {
-        // Query uses the ID column (student_id or teacher_id)
         $query = "SELECT id, password_hash FROM " . $table . " WHERE " . $id_column . " = :username LIMIT 1";
         $stmt = $db->prepare($query);
 
@@ -133,3 +130,5 @@ try {
 }
 
 ?>
+
+    

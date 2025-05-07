@@ -6,14 +6,25 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Helper function to generate student ID (e.g., s1001)
+// Helper function to generate student ID (e.g., 101)
 export function generateStudentId(dbId: number): string {
-    return `s${1000 + dbId}`;
+    return `${100 + dbId}`; // Example: if dbId=1, studentId='101'
 }
 
-// Helper function to generate teacher ID (e.g., t1001)
+// Helper function to generate student username (e.g., s101)
+export function generateStudentUsername(studentId: string): string {
+    return `s${studentId}`; // Example: if studentId='101', username='s101'
+}
+
+// Helper function to generate teacher ID (e.g., t101)
+// Assuming teacher ID follows a different pattern, maybe t + 1000 + dbId
 export function generateTeacherId(dbId: number): string {
-    return `t${1000 + dbId}`;
+    return `t${1000 + dbId}`; // Example: if dbId=1, teacherId='t1001'
+}
+
+// Helper function to generate teacher username (e.g., t101)
+export function generateTeacherUsername(teacherId: string): string {
+    return `${teacherId}`; // Username is the same as teacherId
 }
 
 // Helper function to generate admin username (e.g., a1001)
@@ -38,3 +49,5 @@ export function generateSectionCode(year: string): string {
     const letterIndex = Math.floor(Math.random() * letters.length); // More random sections for mock
     return `${prefix}${letters[letterIndex]}`;
 }
+
+    

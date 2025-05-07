@@ -7,9 +7,14 @@ class Student {
 
     // Student properties
     public $id;
-    public $studentId;
+    public $studentId; // e.g., 101, 102
+    public $username; // e.g., s101, s102
     public $firstName;
     public $lastName;
+    public $middleName; // Added
+    public $suffix; // Added
+    public $gender; // Added
+    public $birthday; // Added (expect YYYY-MM-DD)
     public $course;
     public $status;
     public $year;
@@ -32,8 +37,13 @@ class Student {
         $query = "SELECT
                     id,
                     student_id as studentId,
+                    username,
                     first_name as firstName,
                     last_name as lastName,
+                    middle_name as middleName,
+                    suffix,
+                    gender,
+                    birthday,
                     course,
                     status,
                     year,
@@ -56,24 +66,28 @@ class Student {
 
     // Create student
     public function create() {
-        // Generate student ID and initial section
-        $this->studentId = $this->generateStudentId();
+        // Generate student ID (100 + next DB ID) and username ('s' + studentId)
+        // Note: We need the *next* ID, which is tricky without knowing the AUTO_INCREMENT value.
+        // This generation might be slightly off if AUTO_INCREMENT jumps.
+        // A more robust way is to insert first, get lastInsertId(), then update the studentId/username.
+        // For simplicity here, we predict the ID, but be aware of potential issues.
+        $nextDbId = $this->getNextAutoIncrement();
+        $this->studentId = 100 + $nextDbId;
+        $this->username = 's' . $this->studentId;
         $this->section = $this->generateSection($this->year);
         $this->passwordHash = $this->generateDefaultPassword($this->lastName);
 
-        // Validate generated ID format
-        if (!preg_match('/^s\d{4,}$/', $this->studentId)) {
-             error_log("Generated invalid student ID format: " . $this->studentId);
-             throw new Exception("Failed to generate valid student ID.");
-        }
-
-
-        // Insert query
+        // Insert query including username
         $query = "INSERT INTO " . $this->table . "
                     SET
                         student_id = :studentId,
+                        username = :username,
                         first_name = :firstName,
                         last_name = :lastName,
+                        middle_name = :middleName,
+                        suffix = :suffix,
+                        gender = :gender,
+                        birthday = :birthday,
                         course = :course,
                         status = :status,
                         year = :year,
@@ -92,55 +106,48 @@ class Student {
         // Clean data
         $this->firstName = htmlspecialchars(strip_tags($this->firstName));
         $this->lastName = htmlspecialchars(strip_tags($this->lastName));
+        $this->middleName = !empty($this->middleName) ? htmlspecialchars(strip_tags($this->middleName)) : null;
+        $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
+        $this->gender = !empty($this->gender) ? htmlspecialchars(strip_tags($this->gender)) : null;
+        $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
         $this->course = htmlspecialchars(strip_tags($this->course));
         $this->status = htmlspecialchars(strip_tags($this->status));
         $this->year = htmlspecialchars(strip_tags($this->year));
         $this->section = htmlspecialchars(strip_tags($this->section));
-        $this->email = htmlspecialchars(strip_tags($this->email));
-        $this->phone = htmlspecialchars(strip_tags($this->phone));
-        $this->emergencyContactName = htmlspecialchars(strip_tags($this->emergencyContactName));
-        $this->emergencyContactRelationship = htmlspecialchars(strip_tags($this->emergencyContactRelationship));
-        $this->emergencyContactPhone = htmlspecialchars(strip_tags($this->emergencyContactPhone));
-        $this->emergencyContactAddress = htmlspecialchars(strip_tags($this->emergencyContactAddress));
+        $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
+        $this->phone = !empty($this->phone) ? htmlspecialchars(strip_tags($this->phone)) : null;
+        $this->emergencyContactName = !empty($this->emergencyContactName) ? htmlspecialchars(strip_tags($this->emergencyContactName)) : null;
+        $this->emergencyContactRelationship = !empty($this->emergencyContactRelationship) ? htmlspecialchars(strip_tags($this->emergencyContactRelationship)) : null;
+        $this->emergencyContactPhone = !empty($this->emergencyContactPhone) ? htmlspecialchars(strip_tags($this->emergencyContactPhone)) : null;
+        $this->emergencyContactAddress = !empty($this->emergencyContactAddress) ? htmlspecialchars(strip_tags($this->emergencyContactAddress)) : null;
 
         // Bind data
         $stmt->bindParam(':studentId', $this->studentId);
+        $stmt->bindParam(':username', $this->username);
         $stmt->bindParam(':firstName', $this->firstName);
         $stmt->bindParam(':lastName', $this->lastName);
+        $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':gender', $this->gender, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':course', $this->course);
         $stmt->bindParam(':status', $this->status);
         $stmt->bindParam(':year', $this->year);
         $stmt->bindParam(':section', $this->section);
-        $stmt->bindParam(':email', $this->email, !empty($this->email) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':phone', $this->phone, !empty($this->phone) ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':phone', $this->phone, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':passwordHash', $this->passwordHash);
-        $stmt->bindParam(':emergencyContactName', $this->emergencyContactName, !empty($this->emergencyContactName) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':emergencyContactRelationship', $this->emergencyContactRelationship, !empty($this->emergencyContactRelationship) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':emergencyContactPhone', $this->emergencyContactPhone, !empty($this->emergencyContactPhone) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':emergencyContactAddress', $this->emergencyContactAddress, !empty($this->emergencyContactAddress) ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactName', $this->emergencyContactName, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactRelationship', $this->emergencyContactRelationship, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactPhone', $this->emergencyContactPhone, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactAddress', $this->emergencyContactAddress, PDO::PARAM_STR | PDO::PARAM_NULL);
 
 
         // Execute query
         if ($stmt->execute()) {
-             $this->id = $this->conn->lastInsertId(); // Get the ID of the newly inserted record
-             // Return the created student's data (excluding password hash)
-             // Ensure all fields expected by the frontend are returned
-             return array(
-                 "id" => (int)$this->id, // Ensure ID is integer
-                 "studentId" => $this->studentId,
-                 "firstName" => $this->firstName,
-                 "lastName" => $this->lastName,
-                 "course" => $this->course,
-                 "status" => $this->status,
-                 "year" => $this->year,
-                 "section" => $this->section,
-                 "email" => $this->email,
-                 "phone" => $this->phone,
-                 "emergencyContactName" => $this->emergencyContactName,
-                 "emergencyContactRelationship" => $this->emergencyContactRelationship,
-                 "emergencyContactPhone" => $this->emergencyContactPhone,
-                 "emergencyContactAddress" => $this->emergencyContactAddress,
-             );
+             $this->id = $this->conn->lastInsertId(); // Get the actual ID
+             // Fetch the complete record to return accurate data
+             return $this->readOne();
         }
         // Log error if something goes wrong
         error_log("Student Create Error: " . implode(" | ", $stmt->errorInfo()));
@@ -154,6 +161,10 @@ class Student {
                     SET
                         first_name = :firstName,
                         last_name = :lastName,
+                        middle_name = :middleName,
+                        suffix = :suffix,
+                        gender = :gender,
+                        birthday = :birthday,
                         email = :email,
                         phone = :phone,
                         emergency_contact_name = :emergencyContactName,
@@ -171,25 +182,33 @@ class Student {
         // Clean data
         $this->firstName = htmlspecialchars(strip_tags($this->firstName));
         $this->lastName = htmlspecialchars(strip_tags($this->lastName));
-        $this->email = htmlspecialchars(strip_tags($this->email));
-        $this->phone = htmlspecialchars(strip_tags($this->phone));
+        $this->middleName = !empty($this->middleName) ? htmlspecialchars(strip_tags($this->middleName)) : null;
+        $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
+        $this->gender = !empty($this->gender) ? htmlspecialchars(strip_tags($this->gender)) : null;
+        $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
+        $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
+        $this->phone = !empty($this->phone) ? htmlspecialchars(strip_tags($this->phone)) : null;
         $this->id = htmlspecialchars(strip_tags($this->id));
-        $this->emergencyContactName = htmlspecialchars(strip_tags($this->emergencyContactName));
-        $this->emergencyContactRelationship = htmlspecialchars(strip_tags($this->emergencyContactRelationship));
-        $this->emergencyContactPhone = htmlspecialchars(strip_tags($this->emergencyContactPhone));
-        $this->emergencyContactAddress = htmlspecialchars(strip_tags($this->emergencyContactAddress));
+        $this->emergencyContactName = !empty($this->emergencyContactName) ? htmlspecialchars(strip_tags($this->emergencyContactName)) : null;
+        $this->emergencyContactRelationship = !empty($this->emergencyContactRelationship) ? htmlspecialchars(strip_tags($this->emergencyContactRelationship)) : null;
+        $this->emergencyContactPhone = !empty($this->emergencyContactPhone) ? htmlspecialchars(strip_tags($this->emergencyContactPhone)) : null;
+        $this->emergencyContactAddress = !empty($this->emergencyContactAddress) ? htmlspecialchars(strip_tags($this->emergencyContactAddress)) : null;
 
 
         // Bind data
         $stmt->bindParam(':firstName', $this->firstName);
         $stmt->bindParam(':lastName', $this->lastName);
-        $stmt->bindParam(':email', $this->email, !empty($this->email) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':phone', $this->phone, !empty($this->phone) ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':gender', $this->gender, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':phone', $this->phone, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':id', $this->id);
-        $stmt->bindParam(':emergencyContactName', $this->emergencyContactName, !empty($this->emergencyContactName) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':emergencyContactRelationship', $this->emergencyContactRelationship, !empty($this->emergencyContactRelationship) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':emergencyContactPhone', $this->emergencyContactPhone, !empty($this->emergencyContactPhone) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':emergencyContactAddress', $this->emergencyContactAddress, !empty($this->emergencyContactAddress) ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactName', $this->emergencyContactName, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactRelationship', $this->emergencyContactRelationship, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactPhone', $this->emergencyContactPhone, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactAddress', $this->emergencyContactAddress, PDO::PARAM_STR | PDO::PARAM_NULL);
 
         // Execute query
         if ($stmt->execute()) {
@@ -208,6 +227,10 @@ class Student {
                     SET
                         first_name = :firstName,
                         last_name = :lastName,
+                        middle_name = :middleName,
+                        suffix = :suffix,
+                        gender = :gender,
+                        birthday = :birthday,
                         course = :course,
                         status = :status,
                         year = :year,
@@ -227,30 +250,38 @@ class Student {
         // Clean data (ensure all properties are set before calling)
         $this->firstName = htmlspecialchars(strip_tags($this->firstName));
         $this->lastName = htmlspecialchars(strip_tags($this->lastName));
+        $this->middleName = !empty($this->middleName) ? htmlspecialchars(strip_tags($this->middleName)) : null;
+        $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
+        $this->gender = !empty($this->gender) ? htmlspecialchars(strip_tags($this->gender)) : null;
+        $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
         $this->course = htmlspecialchars(strip_tags($this->course));
         $this->status = htmlspecialchars(strip_tags($this->status));
         $this->year = htmlspecialchars(strip_tags($this->year));
-        $this->email = htmlspecialchars(strip_tags($this->email));
-        $this->phone = htmlspecialchars(strip_tags($this->phone));
+        $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
+        $this->phone = !empty($this->phone) ? htmlspecialchars(strip_tags($this->phone)) : null;
         $this->id = htmlspecialchars(strip_tags($this->id));
-        $this->emergencyContactName = htmlspecialchars(strip_tags($this->emergencyContactName));
-        $this->emergencyContactRelationship = htmlspecialchars(strip_tags($this->emergencyContactRelationship));
-        $this->emergencyContactPhone = htmlspecialchars(strip_tags($this->emergencyContactPhone));
-        $this->emergencyContactAddress = htmlspecialchars(strip_tags($this->emergencyContactAddress));
+        $this->emergencyContactName = !empty($this->emergencyContactName) ? htmlspecialchars(strip_tags($this->emergencyContactName)) : null;
+        $this->emergencyContactRelationship = !empty($this->emergencyContactRelationship) ? htmlspecialchars(strip_tags($this->emergencyContactRelationship)) : null;
+        $this->emergencyContactPhone = !empty($this->emergencyContactPhone) ? htmlspecialchars(strip_tags($this->emergencyContactPhone)) : null;
+        $this->emergencyContactAddress = !empty($this->emergencyContactAddress) ? htmlspecialchars(strip_tags($this->emergencyContactAddress)) : null;
 
         // Bind data
         $stmt->bindParam(':firstName', $this->firstName);
         $stmt->bindParam(':lastName', $this->lastName);
+        $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':gender', $this->gender, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':course', $this->course);
         $stmt->bindParam(':status', $this->status);
         $stmt->bindParam(':year', $this->year);
-        $stmt->bindParam(':email', $this->email, !empty($this->email) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':phone', $this->phone, !empty($this->phone) ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':phone', $this->phone, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':id', $this->id);
-        $stmt->bindParam(':emergencyContactName', $this->emergencyContactName, !empty($this->emergencyContactName) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':emergencyContactRelationship', $this->emergencyContactRelationship, !empty($this->emergencyContactRelationship) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':emergencyContactPhone', $this->emergencyContactPhone, !empty($this->emergencyContactPhone) ? PDO::PARAM_STR : PDO::PARAM_NULL);
-        $stmt->bindParam(':emergencyContactAddress', $this->emergencyContactAddress, !empty($this->emergencyContactAddress) ? PDO::PARAM_STR : PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactName', $this->emergencyContactName, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactRelationship', $this->emergencyContactRelationship, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactPhone', $this->emergencyContactPhone, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':emergencyContactAddress', $this->emergencyContactAddress, PDO::PARAM_STR | PDO::PARAM_NULL);
 
 
         // Execute query
@@ -286,7 +317,8 @@ class Student {
      // Helper to get a single student record (useful after update or for profile view)
     public function readOne() {
         $query = "SELECT
-                    id, student_id as studentId, first_name as firstName, last_name as lastName,
+                    id, student_id as studentId, username,
+                    first_name as firstName, last_name as lastName, middle_name as middleName, suffix, gender, birthday,
                     course, status, year, section, email, phone,
                     emergency_contact_name as emergencyContactName,
                     emergency_contact_relationship as emergencyContactRelationship,
@@ -304,8 +336,13 @@ class Student {
         if ($row) {
              // Assign properties from the fetched row
             $this->studentId = $row['studentId'];
+            $this->username = $row['username'];
             $this->firstName = $row['firstName'];
             $this->lastName = $row['lastName'];
+            $this->middleName = $row['middleName'];
+            $this->suffix = $row['suffix'];
+            $this->gender = $row['gender'];
+            $this->birthday = $row['birthday'];
             $this->course = $row['course'];
             $this->status = $row['status'];
             $this->year = $row['year'];
@@ -319,9 +356,14 @@ class Student {
              // Return as an array, ensuring all expected fields are present
              return [
                  "id" => (int)$this->id,
-                 "studentId" => $this->studentId,
+                 "studentId" => $this->studentId, // e.g., 101
+                 "username" => $this->username, // e.g., s101
                  "firstName" => $this->firstName,
                  "lastName" => $this->lastName,
+                 "middleName" => $this->middleName,
+                 "suffix" => $this->suffix,
+                 "gender" => $this->gender,
+                 "birthday" => $this->birthday,
                  "course" => $this->course,
                  "status" => $this->status,
                  "year" => $this->year,
@@ -338,31 +380,29 @@ class Student {
     }
 
 
-    // Helper function to generate student ID (e.g., s1001)
-    private function generateStudentId() {
-         // Get the last inserted ID + 1 (more reliable than MAX if rows are deleted)
-         // Or use AUTO_INCREMENT value if your DB setup allows fetching it securely
+     // Helper function to get the next expected AUTO_INCREMENT value
+    private function getNextAutoIncrement() {
         $query = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = :dbName AND TABLE_NAME = :tableName";
         $stmt = $this->conn->prepare($query);
-         // Bind the database name (get it from the config or hardcode if needed)
-         $dbName = 'campus_connect_db'; // Replace if your DB name is different
-         $stmt->bindParam(':dbName', $dbName);
-         $stmt->bindParam(':tableName', $this->table);
-         $stmt->execute();
-         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-         $nextId = ($row && $row['AUTO_INCREMENT']) ? $row['AUTO_INCREMENT'] : 1; // Start from 1 if table is empty or AUTO_INCREMENT not available
+        // Bind the database name (get it from the config or hardcode if needed)
+        $dbName = 'campus_connect_db'; // Replace if your DB name is different
+        $stmt->bindParam(':dbName', $dbName);
+        $stmt->bindParam(':tableName', $this->table);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $nextId = ($row && $row['AUTO_INCREMENT']) ? $row['AUTO_INCREMENT'] : 1; // Start from 1 if table is empty
 
-         // Fallback using MAX(id) if AUTO_INCREMENT fails
-         if ($nextId === 1) {
+        // Fallback using MAX(id) if AUTO_INCREMENT fails or is 0
+        if (!$nextId || $nextId <= 0) {
             $maxIdQuery = "SELECT MAX(id) as last_id FROM " . $this->table;
             $maxStmt = $this->conn->prepare($maxIdQuery);
             $maxStmt->execute();
             $maxRow = $maxStmt->fetch(PDO::FETCH_ASSOC);
             $nextId = ($maxRow && $maxRow['last_id']) ? $maxRow['last_id'] + 1 : 1;
-         }
-
-        return 's' . (1000 + $nextId);
+        }
+        return (int)$nextId;
     }
+
 
     // Helper function to generate section (e.g., 10A, 20B)
      private function generateSection($year) {
@@ -370,8 +410,18 @@ class Student {
             "1st Year" => "10", "2nd Year" => "20", "3rd Year" => "30", "4th Year" => "40",
          ];
          $prefix = $yearPrefixMap[$year] ?? "10"; // Default to 10 if year is invalid/missing
-         $randomLetter = chr(rand(65, 67)); // Generate A, B, or C randomly
-         return $prefix . $randomLetter;
+
+         // Simple logic for mock: Cycle A, B, C... based on existing sections for the year
+         $query = "SELECT COUNT(*) as count FROM " . $this->table . " WHERE year = :year";
+         $stmt = $this->conn->prepare($query);
+         $stmt->bindParam(':year', $year);
+         $stmt->execute();
+         $row = $stmt->fetch(PDO::FETCH_ASSOC);
+         $count = $row ? (int)$row['count'] : 0;
+
+         $sectionLetter = chr(65 + ($count % 4)); // Cycle through A, B, C, D for example
+
+         return $prefix . $sectionLetter;
     }
 
 
@@ -436,3 +486,4 @@ class Student {
 }
 ?>
 
+    

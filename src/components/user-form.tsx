@@ -166,7 +166,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     }
 
     // Check if the current form is for a Student
-    const isStudentForm = 'studentId' in (initialData || defaultValues || {});
+    const isStudentForm = initialData && 'studentId' in initialData;
     const isYearField = fieldConfig.name === 'year';
     const disableYearField = isStudentForm && isYearField && watchedStatus === 'New';
     const isDisabled = isReadOnly || disableYearField || fieldConfig.disabled || form.formState.isSubmitting; // Determine final disabled state
@@ -248,9 +248,10 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
   const isTeacher = initialData && 'teacherId' in initialData;
   const isAdmin = initialData && 'username' in initialData && !isStudent && !isTeacher;
 
-  const idLabel = isStudent ? 'Student ID' : isTeacher ? 'Teacher ID' : 'Username';
-  const idValue = initialData ? (initialData as any).studentId || (initialData as any).teacherId || (initialData as any).username || 'N/A' : 'N/A';
-  const usernameValue = initialData ? (initialData as any).studentId || (initialData as any).teacherId || (initialData as any).username || 'N/A' : 'N/A'; // Use the same value for username display
+  const idLabel = isStudent ? 'Student ID' : isTeacher ? 'Teacher ID' : isAdmin ? 'Username' : 'ID';
+  const idValue = isStudent ? (initialData as Student)?.studentId : isTeacher ? (initialData as Teacher)?.teacherId : isAdmin ? (initialData as AdminUser)?.username : 'N/A';
+  const usernameLabel = 'Username';
+  const usernameValue = initialData ? (initialData as Student)?.username || (initialData as Teacher)?.username || (initialData as AdminUser)?.username || 'N/A' : 'N/A';
 
 
   return (
@@ -288,14 +289,14 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                             <Separator />
                              <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Enrollment Information</h4>
                             <div className="space-y-3">
-                                {/* Show Student ID read-only in edit mode */}
-                                {isEditMode && initialData && isStudent && (
+                                {/* Show Student/Teacher ID read-only in edit mode */}
+                                {isEditMode && initialData && (isStudent || isTeacher) && (
                                     <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
-                                        <FormLabel className="text-right text-sm">Student ID</FormLabel>
+                                        <FormLabel className="text-right text-sm">{idLabel}</FormLabel>
                                         <FormControl className="col-span-3">
                                             <Input
                                                 className="h-9 text-sm bg-muted"
-                                                value={(initialData as Student).studentId || 'N/A'}
+                                                value={idValue}
                                                 readOnly
                                                 disabled
                                             />
@@ -303,8 +304,8 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                     </FormItem>
                                 )}
                                 {enrollmentFields.map(renderFormField)}
-                                {/* Conditionally display Section (read-only) in edit mode */}
-                                {isEditMode && 'section' in (initialData || {}) && (
+                                {/* Conditionally display Section (read-only) in edit mode for students */}
+                                {isEditMode && isStudent && initialData && 'section' in initialData && (
                                     <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
                                         <FormLabel className="text-right text-sm">Section</FormLabel>
                                         <FormControl className="col-span-3">
@@ -327,11 +328,11 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                              <div className="space-y-3">
                                 {contactFields.map(renderFormField)}
                                 {accountFields.map(renderFormField)}
-                                {/* Display Username and Password hint only in edit mode */}
+                                {/* Display Username and Password hint only in edit mode for students/teachers */}
                                 {isEditMode && initialData && (isStudent || isTeacher) && (
                                     <>
                                         <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
-                                            <FormLabel className="text-right text-sm">Username</FormLabel>
+                                            <FormLabel className="text-right text-sm">{usernameLabel}</FormLabel>
                                             <FormControl className="col-span-3">
                                                 <Input
                                                     className="h-9 text-sm bg-muted"
@@ -395,3 +396,5 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     </Dialog>
   );
 }
+
+    
