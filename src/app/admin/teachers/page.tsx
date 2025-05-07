@@ -33,7 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
 
-// Refactored form fields for Teacher
+// Refactored form fields for Teacher with new sections
 const teacherFormFields: FormFieldConfig<Teacher>[] = [
   // Personal Information Section
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
@@ -42,10 +42,11 @@ const teacherFormFields: FormFieldConfig<Teacher>[] = [
   { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr., III (optional)", section: 'personal' },
   { name: "birthday", label: "Birthday", placeholder: "YYYY-MM-DD (optional)", type: "date", section: 'personal' },
   { name: "address", label: "Address", placeholder: "Enter full address (optional)", type: "textarea", section: 'personal' },
-  { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel", section: 'personal' },
-  { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'personal' },
-  // Work Information Section
-  { name: "department", label: "Department", placeholder: "Enter department", required: true, section: 'work' },
+  // Enrollment Info (Department)
+  { name: "department", label: "Department", placeholder: "Enter department", required: true, section: 'enrollment' },
+  // Contact / Account Details
+  { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
+  { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
   // Emergency Contact Section
   { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian/Spouse Name (optional)", type: "text", section: 'emergency' },
   { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father, Spouse (optional)", type: "text", section: 'emergency' },
@@ -80,7 +81,7 @@ export default function ManageTeachersPage() {
     const fetchTeachers = async () => {
       setIsLoading(true);
        try {
-        const data = await fetchData<Teacher[]>('/api/teachers/read.php');
+        const data = await fetchData<Teacher[]>('teachers/read.php');
         setTeachers(data || []);
       } catch (error: any) {
         console.error("Failed to fetch teachers:", error);
@@ -98,11 +99,11 @@ export default function ManageTeachersPage() {
      try {
          let savedTeacher: Teacher;
          if (isEditMode && payload.id) {
-             savedTeacher = await putData<typeof payload, Teacher>(`/api/teachers/update.php/${payload.id}`, payload);
+             savedTeacher = await putData<typeof payload, Teacher>(`teachers/update.php/${payload.id}`, payload);
              setTeachers(prev => prev.map(t => t.id === savedTeacher.id ? savedTeacher : t));
              toast({ title: "Teacher Updated", description: `${savedTeacher.firstName} ${savedTeacher.lastName} has been updated.` });
          } else {
-             savedTeacher = await postData<Omit<typeof payload, 'id'>, Teacher>('/api/teachers/create.php', payload);
+             savedTeacher = await postData<Omit<typeof payload, 'id'>, Teacher>('teachers/create.php', payload);
              setTeachers(prev => [...prev, savedTeacher]);
              toast({ title: "Teacher Added", description: `${savedTeacher.firstName} ${savedTeacher.lastName} has been added.` });
          }
@@ -117,7 +118,7 @@ export default function ManageTeachersPage() {
   const handleDeleteTeacher = async (teacherId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`/api/teachers/delete.php/${teacherId}`);
+          await deleteData(`teachers/delete.php/${teacherId}`);
           setTeachers(prev => prev.filter(t => t.id !== teacherId));
           toast({ title: "Teacher Deleted", description: `Teacher record has been removed.` });
       } catch (error: any) {
@@ -131,7 +132,7 @@ export default function ManageTeachersPage() {
     const handleResetPassword = async (userId: number, lastName: string) => {
         setIsSubmitting(true);
         try {
-             await postData('/api/admin/reset_password.php', { userId, userType: 'teacher', lastName });
+             await postData('admin/reset_password.php', { userId, userType: 'teacher', lastName });
              const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
              toast({
                   title: "Password Reset Successful",
@@ -255,7 +256,7 @@ export default function ManageTeachersPage() {
         <DropdownMenuSeparator />
          <AlertDialog>
              <AlertDialogTrigger asChild>
-                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-orange-600 focus:text-orange-600 focus:bg-orange-100">
+                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-orange-600 focus:text-orange-600 focus:bg-orange-100" disabled={isSubmitting}>
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Reset Password
                  </DropdownMenuItem>
@@ -285,7 +286,7 @@ export default function ManageTeachersPage() {
          </AlertDialog>
          <AlertDialog>
              <AlertDialogTrigger asChild>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={isSubmitting}>
                      <Trash2 className="mr-2 h-4 w-4" />
                      Delete
                  </DropdownMenuItem>

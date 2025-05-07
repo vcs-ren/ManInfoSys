@@ -55,15 +55,18 @@ const yearLevelOptions = [
     { value: "4th Year", label: "4th Year" },
 ];
 
-// Updated form fields config with "enrollment" section
+// Updated form fields config with new sections
 const studentFormFields: FormFieldConfig<Student>[] = [
+  // Personal Info
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
+  // Enrollment Info
   { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true, section: 'enrollment' },
   { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'enrollment' },
-  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false }, // Adjusted condition
-  { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'personal' },
-  { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel", section: 'personal' },
+  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false },
+  // Contact / Account (Section is handled separately in viewing mode)
+  { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
+  { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel", section: 'contact' },
   // Emergency Contact Fields
   { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
   { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father, Guardian (optional)", type: "text", section: 'emergency' },
@@ -92,7 +95,7 @@ export default function ManageStudentsPage() {
     const fetchStudents = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchData<Student[]>('/api/students/read.php');
+        const data = await fetchData<Student[]>('students/read.php');
         setStudents(data || []);
       } catch (error: any) {
         console.error("Failed to fetch students:", error);
@@ -107,7 +110,7 @@ export default function ManageStudentsPage() {
   const handleSaveStudent = async (values: Student) => {
     const year = values.status === 'New' ? '1st Year' : values.year;
 
-    if (['Transferee', 'Returnee'].includes(values.status) && !year) { // Adjusted condition
+    if (['Transferee', 'Returnee'].includes(values.status) && !year) {
         toast({ variant: "destructive", title: "Validation Error", description: "Year level is required for this status." });
         throw new Error("Year level missing");
     }
@@ -135,11 +138,11 @@ export default function ManageStudentsPage() {
     try {
         let savedStudent: Student;
         if (isEditMode && payload.id) {
-            savedStudent = await putData<typeof payload, Student>(`/api/students/update.php/${payload.id}`, payload);
+            savedStudent = await putData<typeof payload, Student>(`students/update.php/${payload.id}`, payload);
             setStudents(prev => prev.map(s => s.id === savedStudent.id ? savedStudent : s));
             toast({ title: "Student Updated", description: `${savedStudent.firstName} ${savedStudent.lastName} has been updated.` });
         } else {
-            savedStudent = await postData<Omit<typeof payload, 'id'>, Student>('/api/students/create.php', payload);
+            savedStudent = await postData<Omit<typeof payload, 'id'>, Student>('students/create.php', payload);
             setStudents(prev => [...prev, savedStudent]);
             toast({ title: "Student Added", description: `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.year || savedStudent.status}, Section ${savedStudent.section}) has been added.` });
         }
@@ -157,7 +160,7 @@ export default function ManageStudentsPage() {
   const handleDeleteStudent = async (studentId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`/api/students/delete.php/${studentId}`);
+          await deleteData(`students/delete.php/${studentId}`);
           setStudents(prev => prev.filter(s => s.id !== studentId));
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
       } catch (error: any) {
@@ -171,7 +174,7 @@ export default function ManageStudentsPage() {
   const handleResetPassword = async (userId: number, lastName: string) => {
       setIsSubmitting(true);
       try {
-           await postData('/api/admin/reset_password.php', { userId, userType: 'student', lastName }); // Pass lastName
+           await postData('admin/reset_password.php', { userId, userType: 'student', lastName }); // Pass lastName
            const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
            toast({
                 title: "Password Reset Successful",
@@ -437,4 +440,3 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-

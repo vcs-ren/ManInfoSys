@@ -64,7 +64,7 @@ export type FormFieldConfig<T> = {
   disabled?: boolean;
   options?: { value: string | number; label: string }[];
   condition?: (data: Partial<T> | null | undefined) => boolean;
-  section?: 'personal' | 'enrollment' | 'emergency' | 'account'; // Updated 'work' to 'enrollment'
+  section?: 'personal' | 'enrollment' | 'emergency' | 'account' | 'contact'; // Define sections
 };
 
 export function UserForm<T extends Student | Teacher | AdminUser>({
@@ -236,10 +236,16 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     );
   };
 
-  const personalFields = formFields.filter(f => f.section === 'personal' || (!f.section && !['course', 'status', 'year', 'department', 'emergencyContactName', 'emergencyContactRelationship', 'emergencyContactPhone', 'emergencyContactAddress', 'email'].includes(f.name as string)));
-  const enrollmentFields = formFields.filter(f => f.section === 'enrollment' || ['course', 'status', 'year', 'department'].includes(f.name as string)); // Use enrollment section
-  const emergencyFields = formFields.filter(f => f.section === 'emergency' || ['emergencyContactName', 'emergencyContactRelationship', 'emergencyContactPhone', 'emergencyContactAddress'].includes(f.name as string));
-  const accountFields = formFields.filter(f => f.section === 'account' || ['email'].includes(f.name as string)); // Put email in account details
+  // Group fields by section
+  const personalFields = formFields.filter(f => f.section === 'personal');
+  const enrollmentFields = formFields.filter(f => f.section === 'enrollment');
+  const contactFields = formFields.filter(f => f.section === 'contact'); // New section for contact
+  const accountFields = formFields.filter(f => f.section === 'account'); // Keep email/account separate if needed
+  const emergencyFields = formFields.filter(f => f.section === 'emergency');
+
+  // Determine Username/ID label
+  const idLabel = initialData && 'studentId' in initialData ? 'Student ID' : 'Teacher ID';
+  const idValue = initialData ? (initialData as any).studentId || (initialData as any).teacherId || (initialData as any).username || 'N/A' : 'N/A';
 
 
   return (
@@ -272,24 +278,68 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                              </div>
                          </div>
                     )}
-                    {enrollmentFields.length > 0 && ( // Changed from workFields
+                    {enrollmentFields.length > 0 && (
                          <div className="space-y-3">
                             <Separator />
-                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Enrollment Information</h4> {/* Changed Label */}
+                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Enrollment Information</h4>
                             <div className="space-y-3">
                                 {enrollmentFields.map(renderFormField)}
+                                {/* Conditionally display Section (read-only) */}
+                                {isEditMode && 'section' in initialData && (
+                                    <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
+                                        <FormLabel className="text-right text-sm">Section</FormLabel>
+                                        <FormControl className="col-span-3">
+                                            <Input
+                                                className="h-9 text-sm bg-muted"
+                                                value={(initialData as Student).section || 'N/A'}
+                                                readOnly
+                                                disabled
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
                              </div>
                          </div>
                     )}
-                     {accountFields.length > 0 && (
+                     {(contactFields.length > 0 || accountFields.length > 0 || isEditMode) && (
                          <div className="space-y-3">
                             <Separator />
-                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Contact / Account Details</h4> {/* Combined contact and account */}
-                            <div className="space-y-3">
+                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Contact / Account Details</h4>
+                             <div className="space-y-3">
+                                {/* Display Username/ID only in edit mode */}
+                                {isEditMode && initialData && (
+                                    <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
+                                        <FormLabel className="text-right text-sm">{idLabel}</FormLabel>
+                                        <FormControl className="col-span-3">
+                                            <Input
+                                                className="h-9 text-sm bg-muted"
+                                                value={idValue}
+                                                readOnly
+                                                disabled
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                                {contactFields.map(renderFormField)}
                                 {accountFields.map(renderFormField)}
+                                {/* Display Password hint only in edit mode */}
+                                {isEditMode && initialData && (
+                                     <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
+                                         <FormLabel className="text-right text-sm">Password</FormLabel>
+                                         <FormControl className="col-span-3">
+                                            <Input
+                                                className="bg-muted text-muted-foreground italic h-9 text-sm"
+                                                value="******** (Hidden)"
+                                                readOnly
+                                                disabled
+                                                />
+                                        </FormControl>
+                                        <p className="col-span-3 col-start-2 text-xs text-muted-foreground -mt-1">Password is auto-generated/reset. User can change it in Settings.</p>
+                                     </FormItem>
+                                )}
                              </div>
                          </div>
-                    )}
+                     )}
                     {emergencyFields.length > 0 && (
                         <div className="space-y-3">
                             <Separator />
@@ -300,45 +350,6 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                         </div>
                     )}
 
-                  {/* Display System Info only when editing (always read-only here) */}
-                  {isEditMode && initialData && (
-                      <>
-                        <Separator />
-                        <div className="space-y-3 pt-2">
-                             <h4 className="text-md font-semibold text-primary border-b pb-1">System Information</h4>
-                            <div className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
-                                <Label className="text-right font-semibold text-sm">Username</Label>
-                                <Input
-                                className="col-span-3 bg-muted h-9 text-sm"
-                                value={(initialData as any).studentId || (initialData as any).teacherId || (initialData as any).username ||'N/A'}
-                                readOnly
-                                disabled
-                                />
-                            </div>
-                            {'section' in initialData && (
-                                <div className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
-                                    <Label className="text-right font-semibold text-sm">Section</Label>
-                                    <Input
-                                        className="col-span-3 bg-muted h-9 text-sm"
-                                        value={(initialData as Student).section || 'N/A'}
-                                        readOnly
-                                        disabled
-                                    />
-                                </div>
-                            )}
-                            <div className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
-                                <Label className="text-right font-semibold text-sm">Password</Label>
-                                <Input
-                                className="col-span-3 bg-muted text-muted-foreground italic h-9 text-sm"
-                                value="******** (Hidden)"
-                                readOnly
-                                disabled
-                                />
-                                <p className="col-span-3 col-start-2 text-xs text-muted-foreground -mt-1">Password is auto-generated. User can change it in Settings.</p>
-                            </div>
-                        </div>
-                      </>
-                  )}
               </div>
             </ScrollArea>
              {/* Footer with buttons - shown only when NOT read-only */}
