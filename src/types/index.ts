@@ -142,9 +142,9 @@ export interface StudentTermGrade {
 export interface AdminUser {
   id: number;
   username: string;
-  firstName: string;
-  lastName: string;
-  email?: string;
+  firstName?: string; // Made optional
+  lastName?: string; // Made optional
+  email?: string; // Email is now optional at the type level, but required by the form schema
   isSuperAdmin?: boolean; // To differentiate the main admin
   // password field should not be part of this type for security
 }
@@ -158,5 +158,12 @@ export interface DashboardStats {
     // Add more stats as needed
 }
 
+// Interface for upcoming items (simplified) - Keep this if used by mock data
+export interface UpcomingItem {
+    id: string;
+    title: string;
+    date?: string; // Date might be string from API
+    type: string; // Keep type flexible
+}
 
 // Define more types as needed (e.g., Course)

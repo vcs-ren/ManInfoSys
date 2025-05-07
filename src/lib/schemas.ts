@@ -51,12 +51,15 @@ export const teacherSchema = z.object({
 });
 
 // Schema for adding a new admin (excluding super admin capabilities)
+// Removed firstName and lastName, made email required.
 export const adminUserSchema = z.object({
   id: z.number().optional(), // For UserForm generic type, not used for creation path
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Invalid email address").optional().or(z.literal('')),
+  email: z.string().email("Valid email is required."), // Email is now required
   // username and password will be auto-generated or handled by a separate reset mechanism
+  // Need to ensure the type `AdminUser` in types/index.ts still has optional firstName/lastName
+  // if they are needed for display elsewhere (like the table). The form won't collect them.
+  firstName: z.string().optional(), // Keep optional for type compatibility if needed for display
+  lastName: z.string().optional(), // Keep optional for type compatibility if needed for display
 });
 
 
