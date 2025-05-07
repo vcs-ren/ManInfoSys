@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -25,10 +26,8 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"; // Import DropdownMenu components
+} from "@/components/ui/dropdown-menu"; // Removed DropdownMenuTrigger, Label
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
@@ -55,24 +54,35 @@ const yearLevelOptions = [
     { value: "4th Year", label: "4th Year" },
 ];
 
-// Updated form fields config with new sections
+const genderOptions = [
+    { value: "Male", label: "Male" },
+    { value: "Female", label: "Female" },
+    { value: "Other", label: "Other" },
+];
+
+// Updated form fields config with new sections and fields
 const studentFormFields: FormFieldConfig<Student>[] = [
-  // Personal Info
+  // Personal Information
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
-  // Enrollment Info
-  { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true, section: 'enrollment' },
+  { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
+  { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr. (optional)", section: 'personal' },
+  { name: "birthday", label: "Birthday", type: "date", placeholder: "YYYY-MM-DD (optional)", section: 'personal' },
+  { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
+  // Enrollment Info (Order: Status, Year, Course) - Student ID shown read-only in edit mode
   { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'enrollment' },
   { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false },
-  // Contact / Account (Section is handled separately in viewing mode)
+  { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true, section: 'enrollment' },
+  // Contact / Account Details
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
-  { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel", section: 'contact' },
+  { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
   // Emergency Contact Fields
-  { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
-  { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father, Guardian (optional)", type: "text", section: 'emergency' },
-  { name: "emergencyContactPhone", label: "Emergency Contact Phone", placeholder: "Contact Number (optional)", type: "tel", section: 'emergency' },
-  { name: "emergencyContactAddress", label: "Emergency Contact Address", placeholder: "Full Address (optional)", type: "textarea", section: 'emergency' },
+  { name: "emergencyContactName", label: "Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
+  { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father (optional)", type: "text", section: 'emergency' },
+  { name: "emergencyContactPhone", label: "Contact Number", placeholder: "Emergency contact number (optional)", type: "tel", section: 'emergency' },
+  { name: "emergencyContactAddress", label: "Address", placeholder: "Emergency contact address (optional)", type: "textarea", section: 'emergency' },
 ];
+
 
 export default function ManageStudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
@@ -89,13 +99,19 @@ export default function ManageStudentsPage() {
     emergencyContactAddress: false,
     email: false,
     phone: false,
+    middleName: false,
+    suffix: false,
+    gender: false,
+    birthday: false,
+    section: true, // Show section by default now
   });
 
   React.useEffect(() => {
     const fetchStudents = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchData<Student[]>('students/read.php');
+        // const data = await fetchData<Student[]>('students/read.php');
+         const data = await fetchData<Student[]>('/api/students/read.php'); // Use local relative path
         setStudents(data || []);
       } catch (error: any) {
         console.error("Failed to fetch students:", error);
@@ -138,11 +154,13 @@ export default function ManageStudentsPage() {
     try {
         let savedStudent: Student;
         if (isEditMode && payload.id) {
-            savedStudent = await putData<typeof payload, Student>(`students/update.php/${payload.id}`, payload);
+            // savedStudent = await putData<typeof payload, Student>(`students/update.php/${payload.id}`, payload);
+            savedStudent = await putData<typeof payload, Student>(`/api/students/update.php/${payload.id}`, payload);
             setStudents(prev => prev.map(s => s.id === savedStudent.id ? savedStudent : s));
             toast({ title: "Student Updated", description: `${savedStudent.firstName} ${savedStudent.lastName} has been updated.` });
         } else {
-            savedStudent = await postData<Omit<typeof payload, 'id'>, Student>('students/create.php', payload);
+            // savedStudent = await postData<Omit<typeof payload, 'id'>, Student>('students/create.php', payload);
+             savedStudent = await postData<Omit<typeof payload, 'id'>, Student>('/api/students/create.php', payload);
             setStudents(prev => [...prev, savedStudent]);
             toast({ title: "Student Added", description: `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.year || savedStudent.status}, Section ${savedStudent.section}) has been added.` });
         }
@@ -160,7 +178,8 @@ export default function ManageStudentsPage() {
   const handleDeleteStudent = async (studentId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`students/delete.php/${studentId}`);
+          // await deleteData(`students/delete.php/${studentId}`);
+          await deleteData(`/api/students/delete.php/${studentId}`);
           setStudents(prev => prev.filter(s => s.id !== studentId));
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
       } catch (error: any) {
@@ -174,7 +193,8 @@ export default function ManageStudentsPage() {
   const handleResetPassword = async (userId: number, lastName: string) => {
       setIsSubmitting(true);
       try {
-           await postData('admin/reset_password.php', { userId, userType: 'student', lastName }); // Pass lastName
+           // await postData('admin/reset_password.php', { userId, userType: 'student', lastName }); // Pass lastName
+           await postData('/api/admin/reset_password.php', { userId, userType: 'student', lastName });
            const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
            toast({
                 title: "Password Reset Successful",
@@ -206,7 +226,13 @@ export default function ManageStudentsPage() {
 
    const closeModal = () => {
     setIsModalOpen(false);
-  };
+     // Add a slight delay before clearing the selected student
+     // to allow the modal close animation to finish smoothly
+     setTimeout(() => {
+        setSelectedStudent(null);
+        setIsEditMode(false);
+     }, 150);
+   };
 
     const sectionOptions = React.useMemo(() => {
         const distinctSections = [...new Set(students.map(s => s.section).filter(Boolean))].sort();
@@ -228,12 +254,36 @@ export default function ManageStudentsPage() {
             },
         },
         {
+            accessorKey: "middleName",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Middle Name" />,
+            cell: ({ row }) => <div className="capitalize">{row.original.middleName || '-'}</div>,
+            enableHiding: true,
+        },
+        {
             accessorKey: "lastName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
              filterFn: (row, id, value) => {
                 return String(row.getValue(id)).toLowerCase().includes(String(value).toLowerCase());
             },
+        },
+         {
+            accessorKey: "suffix",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Suffix" />,
+            cell: ({ row }) => <div className="capitalize">{row.original.suffix || '-'}</div>,
+            enableHiding: true,
+        },
+        {
+            accessorKey: "gender",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Gender" />,
+            cell: ({ row }) => <div className="capitalize">{row.original.gender || '-'}</div>,
+            enableHiding: true,
+        },
+        {
+            accessorKey: "birthday",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Birthday" />,
+            cell: ({ row }) => <div>{row.original.birthday || '-'}</div>,
+            enableHiding: true,
         },
          {
             accessorKey: "course",
@@ -285,6 +335,7 @@ export default function ManageStudentsPage() {
             ),
             cell: ({ row }) => <div className="text-center">{row.getValue("section")}</div>,
              filterFn: (row, id, value) => value.includes(row.getValue(id)),
+             enableHiding: false, // Ensure Section is visible by default
         },
          {
             accessorKey: "email",
@@ -421,13 +472,14 @@ export default function ManageStudentsPage() {
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
+                // filterableColumnHeaders={[... Pass headers for course, status, year, section]} // Example - Implement if needed
             />
         )}
 
       {/* Use UserForm for both Add and Edit */}
       <UserForm<Student>
             isOpen={isModalOpen}
-            onOpenChange={setIsModalOpen}
+            onOpenChange={setIsOpen} // Pass setIsOpen directly
             formSchema={studentSchema}
             onSubmit={handleSaveStudent}
             title={isEditMode ? `Student Details: ${selectedStudent?.firstName} ${selectedStudent?.lastName}` : 'Add New Student'}

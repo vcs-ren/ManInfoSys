@@ -5,6 +5,7 @@ import type { StudentStatus } from "@/types"; // Import the status type
 
 const studentStatusEnum: [StudentStatus, ...StudentStatus[]] = ['New', 'Transferee', 'Returnee']; // Removed 'Continuing'
 const yearLevelEnum = ['1st Year', '2nd Year', '3rd Year', '4th Year'] as const; // Define valid year levels
+const genderEnum = ['Male', 'Female', 'Other'] as const;
 
 
 // Schema for adding/editing a student
@@ -12,6 +13,10 @@ export const studentSchema = z.object({
   id: z.number().optional(), // Optional for adding, required for editing reference
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
+  middleName: z.string().optional().or(z.literal('')), // Added
+  suffix: z.string().optional().or(z.literal('')), // Added
+  gender: z.enum(genderEnum, { required_error: "Gender is required" }).optional(), // Added optional gender
+  birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')), // Added optional birthday
   course: z.string().min(1, "Course is required"),
   status: z.enum(studentStatusEnum, { required_error: "Status is required"}), // Updated enum
   year: z.enum(yearLevelEnum).optional(), // Year is optional initially
@@ -92,12 +97,15 @@ export const submitGradesSchema = z.object({
 });
 
 
-// Schema for Profile Editing (Generic example - customize per role)
-// Student profile is mostly read-only for academic info, editable for contact
-export const profileSchema = z.object({
+// Schema for Profile Editing (Specific for Student)
+export const studentProfileSchema = z.object({
    id: z.number(), // User ID is needed to update the correct record
    firstName: z.string().min(1, "First name is required"),
    lastName: z.string().min(1, "Last name is required"),
+   middleName: z.string().optional().or(z.literal('')), // Added
+   suffix: z.string().optional().or(z.literal('')), // Added
+   gender: z.enum(genderEnum).optional(), // Added
+   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')), // Added
    email: z.string().email("Invalid email address").optional().or(z.literal('')),
    phone: z.string().optional().or(z.literal('')),
    // Detailed Emergency Contact - all optional and editable by student
@@ -105,14 +113,26 @@ export const profileSchema = z.object({
    emergencyContactRelationship: z.string().optional().or(z.literal('')),
    emergencyContactPhone: z.string().optional().or(z.literal('')),
    emergencyContactAddress: z.string().optional().or(z.literal('')),
-   // Teacher profile specific fields
-   middleName: z.string().optional().or(z.literal('')),
-   suffix: z.string().optional().or(z.literal('')),
-   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')),
-   address: z.string().optional().or(z.literal('')),
-   // Add other editable fields specific to the role if needed
-   // Password change might need a separate form/process
 });
+
+
+// Schema for Profile Editing (Specific for Teacher)
+export const teacherProfileSchema = z.object({
+    id: z.number(),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    middleName: z.string().optional().or(z.literal('')),
+    suffix: z.string().optional().or(z.literal('')),
+    birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')),
+    address: z.string().optional().or(z.literal('')),
+    email: z.string().email("Invalid email address").optional().or(z.literal('')),
+    phone: z.string().optional().or(z.literal('')),
+    emergencyContactName: z.string().optional().or(z.literal('')),
+    emergencyContactRelationship: z.string().optional().or(z.literal('')),
+    emergencyContactPhone: z.string().optional().or(z.literal('')),
+    emergencyContactAddress: z.string().optional().or(z.literal('')),
+});
+
 
 // Schema for Assigning an Adviser to a Section
 export const assignAdviserSchema = z.object({

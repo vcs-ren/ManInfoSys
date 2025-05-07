@@ -8,6 +8,10 @@ export interface Student {
   studentId: string; // e.g., "s1001" - Generated ID (1000 + DB ID)
   firstName: string;
   lastName: string;
+  middleName?: string; // Added
+  suffix?: string; // Added
+  gender?: 'Male' | 'Female' | 'Other'; // Added
+  birthday?: string; // Added (YYYY-MM-DD format)
   course: string;
   status: StudentStatus; // Replaces year level
   year?: string; // Optional year level (e.g., '1st Year', '2nd Year')
