@@ -34,14 +34,22 @@ try {
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             extract($row); // Use aliases from model query
 
+            // Create the item structure - Updated
             $teacher_item = array(
                 "id" => (int)$id, // Ensure ID is integer
                 "teacherId" => $teacherId,
                 "firstName" => $firstName,
                 "lastName" => $lastName,
+                "middleName" => $middleName, // Added
+                "suffix" => $suffix, // Added
                 "department" => $department,
                 "email" => $email,
                 "phone" => $phone,
+                "birthday" => $birthday, // Added
+                "emergencyContactName" => $emergencyContactName, // Added
+                "emergencyContactRelationship" => $emergencyContactRelationship, // Added
+                "emergencyContactPhone" => $emergencyContactPhone, // Added
+                "emergencyContactAddress" => $emergencyContactAddress // Added
             );
             array_push($teachers_arr, $teacher_item);
         }

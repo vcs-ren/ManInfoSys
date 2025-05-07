@@ -1,4 +1,5 @@
 
+
 import { z } from "zod";
 import type { StudentStatus } from "@/types"; // Import the status type
 
@@ -38,32 +39,37 @@ export const studentSchema = z.object({
 });
 
 
-// Schema for adding/editing a teacher
+// Schema for adding/editing a teacher - Updated
 export const teacherSchema = z.object({
   id: z.number().optional(),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
+  middleName: z.string().optional().or(z.literal('')), // Added optional middle name
+  suffix: z.string().optional().or(z.literal('')), // Added optional suffix
   department: z.string().min(1, "Department is required"),
   email: z.string().email("Invalid email address").optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
+  birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')), // Added optional birthday (YYYY-MM-DD)
+  // Added optional emergency contact fields
+  emergencyContactName: z.string().optional().or(z.literal('')),
+  emergencyContactRelationship: z.string().optional().or(z.literal('')),
+  emergencyContactPhone: z.string().optional().or(z.literal('')),
+  emergencyContactAddress: z.string().optional().or(z.literal('')),
   // Generated fields
   teacherId: z.string().optional(),
 });
 
 // Schema for adding a new admin (excluding super admin capabilities)
-// Removed firstName and lastName, made email required.
 export const adminUserSchema = z.object({
   id: z.number().optional(), // For UserForm generic type, not used for creation path
-  email: z.string().email("Valid email is required."), // Email is now required
-  // username and password will be auto-generated or handled by a separate reset mechanism
-  // Need to ensure the type `AdminUser` in types/index.ts still has optional firstName/lastName
-  // if they are needed for display elsewhere (like the table). The form won't collect them.
-  firstName: z.string().optional(), // Keep optional for type compatibility if needed for display
-  lastName: z.string().optional(), // Keep optional for type compatibility if needed for display
+  email: z.string().email("Valid email is required."), // Email is required
+  // Optional for type compatibility, not collected in form
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
 
 
-// Schema for validating a single grade value (numeric 0-100 only)
+// Schema for validating a single grade value (numeric 0-100 or empty/null)
 const gradeValueSchema = z.union([
     z.coerce.number().min(0, "Min 0").max(100, "Max 100").optional(), // Numeric 0-100
     z.literal(""), // Allow empty string for clearing the field
@@ -100,20 +106,6 @@ export const profileSchema = z.object({
    emergencyContactAddress: z.string().optional().or(z.literal('')),
    // Add other editable fields specific to the role if needed
    // Password change might need a separate form/process
-});
-
-// Schema for Class Schedule Entry (No longer used directly, kept for reference)
-export const scheduleEntrySchema = z.object({
-    id: z.string().optional(), // Optional for new entries
-    title: z.string().min(1, "Title is required"),
-    start: z.date({ required_error: "Start date/time is required"}),
-    end: z.date({ required_error: "End date/time is required"}),
-    type: z.enum(['class', 'event', 'exam'], { required_error: "Type is required" }),
-    location: z.string().optional(),
-    // Potentially add fields like 'teacherId' or 'sectionId' depending on context
-}).refine((data) => data.end >= data.start, {
-    message: "End date cannot be before start date",
-    path: ["end"], // Point error to 'end' field
 });
 
 // Schema for Assigning an Adviser to a Section

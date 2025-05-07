@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import * as React from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
 import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info } from "lucide-react"; // Added RotateCcw, Info
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
@@ -33,13 +34,21 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
 
-// Define form fields for the UserForm component using FormFieldConfig
+// Define form fields for the UserForm component using FormFieldConfig - Updated
 const teacherFormFields: FormFieldConfig<Teacher>[] = [
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true },
+  { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)" },
+  { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr., III (optional)" },
   { name: "department", label: "Department", placeholder: "Enter department", required: true },
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
-  { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel" },
+  { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel" },
+  { name: "birthday", label: "Birthday", placeholder: "YYYY-MM-DD (optional)", type: "date" }, // Use date type for input
+  // Emergency Contact Fields
+  { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian/Spouse Name (optional)", type: "text" },
+  { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father, Spouse (optional)", type: "text" },
+  { name: "emergencyContactPhone", label: "Emergency Contact Phone", placeholder: "Contact Number (optional)", type: "tel" },
+  { name: "emergencyContactAddress", label: "Emergency Contact Address", placeholder: "Full Address (optional)", type: "textarea" },
 ];
 
 
@@ -51,14 +60,26 @@ export default function ManageTeachersPage() {
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false); // For delete/reset password confirmation
    const { toast } = useToast();
+   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+      // Hide new optional fields by default
+     middleName: false,
+     suffix: false,
+     birthday: false,
+     email: false,
+     phone: false,
+     emergencyContactName: false,
+     emergencyContactRelationship: false,
+     emergencyContactPhone: false,
+     emergencyContactAddress: false,
+   });
 
 
   React.useEffect(() => {
     const fetchTeachers = async () => {
       setIsLoading(true);
        try {
-        const data = await fetchData<{ records: Teacher[] }>('/api/teachers/read.php');
-        setTeachers(data.records || []);
+        const data = await fetchData<Teacher[]>('/api/teachers/read.php'); // Changed: Expect array directly
+        setTeachers(data || []); // Use fetched data directly
       } catch (error: any) {
         console.error("Failed to fetch teachers:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load teacher data." });
@@ -111,7 +132,7 @@ export default function ManageTeachersPage() {
     const handleResetPassword = async (userId: number, lastName: string) => {
         setIsSubmitting(true);
         try {
-             await postData('/api/admin/reset_password.php', { userId, userType: 'teacher' });
+             await postData('/api/admin/reset_password.php', { userId, userType: 'teacher', lastName }); // Pass lastName
              const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
              toast({
                   title: "Password Reset Successful",
@@ -147,12 +168,13 @@ export default function ManageTeachersPage() {
 
     // Define dynamic department options for filter
     const departmentOptions = React.useMemo(() => {
+        if (!teachers) return []; // Handle case where teachers might be null/undefined initially
         const distinctDepartments = [...new Set(teachers.map(t => t.department).filter(Boolean))].sort();
         return distinctDepartments.map(dep => ({ label: dep, value: dep }));
     }, [teachers]);
 
 
-    // Define columns for the DataTable
+    // Define columns for the DataTable - Updated
     const columns: ColumnDef<Teacher>[] = React.useMemo(() => [
          {
             accessorKey: "teacherId",
@@ -163,17 +185,26 @@ export default function ManageTeachersPage() {
             accessorKey: "firstName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="First Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("firstName")}</div>,
-             filterFn: (row, id, value) => { // Add basic text filtering
-                return String(row.getValue(id)).toLowerCase().includes(String(value).toLowerCase());
-            },
+             filterFn: (row, id, value) => String(row.getValue(id)).toLowerCase().includes(String(value).toLowerCase()),
+        },
+         {
+            accessorKey: "middleName",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Middle Name" />,
+            cell: ({ row }) => <div className="capitalize">{row.original.middleName || '-'}</div>,
+             enableHiding: true,
+             filterFn: (row, id, value) => String(row.getValue(id) || '').toLowerCase().includes(String(value).toLowerCase()),
         },
         {
             accessorKey: "lastName",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Last Name" />,
             cell: ({ row }) => <div className="capitalize">{row.getValue("lastName")}</div>,
-             filterFn: (row, id, value) => {
-                return String(row.getValue(id)).toLowerCase().includes(String(value).toLowerCase());
-            },
+             filterFn: (row, id, value) => String(row.getValue(id)).toLowerCase().includes(String(value).toLowerCase()),
+        },
+         {
+            accessorKey: "suffix",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Suffix" />,
+            cell: ({ row }) => <div className="capitalize">{row.original.suffix || '-'}</div>,
+             enableHiding: true,
         },
          {
             accessorKey: "department",
@@ -188,17 +219,29 @@ export default function ManageTeachersPage() {
              filterFn: (row, id, value) => value.includes(row.getValue(id)),
         },
          {
+             accessorKey: "birthday",
+             header: "Birthday",
+             cell: ({ row }) => <div>{row.original.birthday || '-'}</div>,
+             enableHiding: true,
+         },
+         {
             accessorKey: "email",
             header: "Email",
-            cell: ({ row }) => <div className="lowercase">{row.getValue("email") || '-'}</div>,
+            cell: ({ row }) => <div className="lowercase">{row.original.email || '-'}</div>,
              enableHiding: true,
         },
          {
             accessorKey: "phone",
             header: "Phone",
-            cell: ({ row }) => <div>{row.getValue("phone") || '-'}</div>,
+            cell: ({ row }) => <div>{row.original.phone || '-'}</div>,
              enableHiding: true,
         },
+         // Emergency Contact Columns (Hidden by default)
+        { accessorKey: "emergencyContactName", header: "Emergency Contact Name", cell: ({ row }) => row.original.emergencyContactName || '-', enableHiding: true },
+        { accessorKey: "emergencyContactRelationship", header: "Relationship", cell: ({ row }) => row.original.emergencyContactRelationship || '-', enableHiding: true },
+        { accessorKey: "emergencyContactPhone", header: "Emergency Phone", cell: ({ row }) => row.original.emergencyContactPhone || '-', enableHiding: true },
+        { accessorKey: "emergencyContactAddress", header: "Emergency Address", cell: ({ row }) => <div className="max-w-xs truncate">{row.original.emergencyContactAddress || '-'}</div>, enableHiding: true },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     ], [departmentOptions]);
 
 
@@ -299,6 +342,8 @@ export default function ManageTeachersPage() {
                 searchPlaceholder="Search by name..."
                 searchColumnId="firstName" // Can filter by first name
                  actionMenuItems={generateActionMenuItems}
+                 columnVisibility={columnVisibility}
+                 setColumnVisibility={setColumnVisibility}
             />
         )}
 

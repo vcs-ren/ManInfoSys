@@ -28,9 +28,17 @@ export interface Teacher {
   teacherId: string; // e.g., "t1001" - Generated ID (1000 + DB ID)
   firstName: string;
   lastName: string;
+  middleName?: string; // Added
+  suffix?: string; // Added
   department: string;
   email?: string; // Optional fields
   phone?: string;
+  birthday?: string; // Added (use string YYYY-MM-DD for simplicity)
+  // Added Emergency Contact Fields
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactPhone?: string;
+  emergencyContactAddress?: string;
   // Add other relevant teacher fields
 }
 
@@ -144,7 +152,7 @@ export interface AdminUser {
   username: string;
   firstName?: string; // Made optional
   lastName?: string; // Made optional
-  email?: string; // Email is now optional at the type level, but required by the form schema
+  email?: string; // Email is required by form schema
   isSuperAdmin?: boolean; // To differentiate the main admin
   // password field should not be part of this type for security
 }

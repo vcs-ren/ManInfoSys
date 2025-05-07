@@ -36,12 +36,20 @@ if (
 }
 
 try {
-    // Assign data to teacher object properties
+    // Assign data to teacher object properties - Updated
     $teacher->firstName = $data->firstName;
     $teacher->lastName = $data->lastName;
+    $teacher->middleName = $data->middleName ?? null;
+    $teacher->suffix = $data->suffix ?? null;
     $teacher->department = $data->department;
     $teacher->email = $data->email ?? null;
     $teacher->phone = $data->phone ?? null;
+    $teacher->birthday = $data->birthday ?? null; // Expect YYYY-MM-DD
+    $teacher->emergencyContactName = $data->emergencyContactName ?? null;
+    $teacher->emergencyContactRelationship = $data->emergencyContactRelationship ?? null;
+    $teacher->emergencyContactPhone = $data->emergencyContactPhone ?? null;
+    $teacher->emergencyContactAddress = $data->emergencyContactAddress ?? null;
+
 
     // Attempt to create teacher using the model method
     $result = $teacher->create(); // create() handles insert, ID/password generation

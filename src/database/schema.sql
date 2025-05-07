@@ -1,147 +1,172 @@
--- Database schema for CampusConnect MIS
+-- Database: campus_connect_db
 
-CREATE DATABASE IF NOT EXISTS campus_connect_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
+-- Use the database
 USE campus_connect_db;
 
--- Admins Table (Typically only one record)
-CREATE TABLE IF NOT EXISTS `admins` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL UNIQUE,
-  `password_hash` varchar(255) NOT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Students Table
+-- Table structure for table `students`
 CREATE TABLE IF NOT EXISTS `students` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `student_id` varchar(20) NOT NULL UNIQUE,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `student_id` varchar(50) NOT NULL UNIQUE, -- e.g., s1001
   `first_name` varchar(100) NOT NULL,
   `last_name` varchar(100) NOT NULL,
   `course` varchar(100) NOT NULL,
   `status` enum('New','Transferee','Continuing','Returnee') NOT NULL DEFAULT 'New',
-  `year` varchar(20) NOT NULL COMMENT 'e.g., 1st Year, 2nd Year',
-  `section` varchar(20) NOT NULL COMMENT 'e.g., 10A, 20B - Section ID like CS-1-A is preferred',
-  `email` varchar(100) DEFAULT NULL,
+  `year` enum('1st Year','2nd Year','3rd Year','4th Year') DEFAULT NULL,
+  `section` varchar(50) DEFAULT NULL, -- e.g., 10A, 20B
+  `email` varchar(100) DEFAULT NULL UNIQUE,
   `phone` varchar(20) DEFAULT NULL,
   `password_hash` varchar(255) NOT NULL,
-  `emergency_contact_name` varchar(200) DEFAULT NULL,
+  `emergency_contact_name` varchar(100) DEFAULT NULL,
   `emergency_contact_relationship` varchar(50) DEFAULT NULL,
   `emergency_contact_phone` varchar(20) DEFAULT NULL,
   `emergency_contact_address` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_student_name` (`last_name`, `first_name`),
-  KEY `idx_student_course_year_section` (`course`,`year`,`section`)
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- Teachers Table
+-- Table structure for table `teachers` - Updated
 CREATE TABLE IF NOT EXISTS `teachers` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `teacher_id` varchar(20) NOT NULL UNIQUE,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `teacher_id` varchar(50) NOT NULL UNIQUE, -- e.g., t1001
   `first_name` varchar(100) NOT NULL,
   `last_name` varchar(100) NOT NULL,
+  `middle_name` varchar(100) DEFAULT NULL, -- Added
+  `suffix` varchar(20) DEFAULT NULL, -- Added
   `department` varchar(100) NOT NULL,
-  `email` varchar(100) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL UNIQUE,
   `phone` varchar(20) DEFAULT NULL,
+  `birthday` date DEFAULT NULL, -- Added
   `password_hash` varchar(255) NOT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-   KEY `idx_teacher_name` (`last_name`, `first_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- Subjects Table
-CREATE TABLE IF NOT EXISTS `subjects` (
-  `id` varchar(50) NOT NULL COMMENT 'Unique subject code, e.g., CS101, MATH101',
-  `name` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `emergency_contact_name` varchar(100) DEFAULT NULL, -- Added
+  `emergency_contact_relationship` varchar(50) DEFAULT NULL, -- Added
+  `emergency_contact_phone` varchar(20) DEFAULT NULL, -- Added
+  `emergency_contact_address` text DEFAULT NULL, -- Added
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- Sections Table
-CREATE TABLE IF NOT EXISTS `sections` (
-  `id` varchar(50) NOT NULL COMMENT 'Unique section identifier, e.g., CS-1-A',
-  `section_code` varchar(20) NOT NULL COMMENT 'Display code, e.g., 10A',
-  `course` varchar(100) NOT NULL,
-  `year_level` varchar(20) NOT NULL COMMENT 'e.g., 1st Year',
-  `adviser_id` int DEFAULT NULL COMMENT 'FK to teachers table',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_section_course_year` (`course`, `year_level`),
-  KEY `fk_section_adviser` (`adviser_id`),
-  CONSTRAINT `fk_section_adviser` FOREIGN KEY (`adviser_id`) REFERENCES `teachers` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+-- Table structure for table `admins`
+CREATE TABLE IF NOT EXISTS `admins` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL UNIQUE,
+  `first_name` varchar(100) DEFAULT NULL,
+  `last_name` varchar(100) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL UNIQUE,
+  `password_hash` varchar(255) NOT NULL,
+  `is_super_admin` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Note: Ensure student.section matches sections.id for proper linking
+-- Table structure for table `subjects`
+CREATE TABLE IF NOT EXISTS `subjects` (
+  `id` varchar(20) NOT NULL, -- Subject code, e.g., CS101
+  `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Table structure for table `sections`
+CREATE TABLE IF NOT EXISTS `sections` (
+  `id` varchar(50) NOT NULL, -- Unique section ID, e.g., CS-1-A
+  `section_code` varchar(20) NOT NULL, -- e.g. 10A, 20B (matches student section)
+  `course` varchar(100) NOT NULL,
+  `year_level` enum('1st Year','2nd Year','3rd Year','4th Year') NOT NULL,
+  `adviser_id` int(11) DEFAULT NULL, -- Foreign key to teachers table
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `adviser_id` (`adviser_id`),
+  CONSTRAINT `sections_ibfk_1` FOREIGN KEY (`adviser_id`) REFERENCES `teachers` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Announcements Table
+-- Table structure for table `section_subject_assignments`
+CREATE TABLE IF NOT EXISTS `section_subject_assignments` (
+  `id` varchar(100) NOT NULL, -- Composite ID, e.g., CS-1A-CS101
+  `section_id` varchar(50) NOT NULL,
+  `subject_id` varchar(20) NOT NULL,
+  `teacher_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `section_subject_unique` (`section_id`,`subject_id`), -- Ensures a subject is assigned only once per section
+  KEY `section_id` (`section_id`),
+  KEY `subject_id` (`subject_id`),
+  KEY `teacher_id` (`teacher_id`),
+  CONSTRAINT `ssa_ibfk_1` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `ssa_ibfk_2` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `ssa_ibfk_3` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table structure for table `announcements`
 CREATE TABLE IF NOT EXISTS `announcements` (
-  `id` int NOT NULL AUTO_INCREMENT,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL,
   `content` text NOT NULL,
-  `author_id` int DEFAULT NULL COMMENT 'FK to teachers table if author_type is Teacher',
   `author_type` enum('Admin','Teacher') NOT NULL DEFAULT 'Admin',
-  `target_course` varchar(100) DEFAULT NULL COMMENT 'Target course or NULL/all for all',
-  `target_year_level` varchar(20) DEFAULT NULL COMMENT 'Target year or NULL/all for all',
-  `target_section` varchar(50) DEFAULT NULL COMMENT 'Target section ID or NULL/all for all',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `author_id` int(11) DEFAULT NULL, -- FK to teachers.id if author_type is Teacher
+  `target_course` varchar(100) DEFAULT NULL, -- NULL or 'all' for all courses
+  `target_year_level` varchar(50) DEFAULT NULL, -- NULL or 'all' for all year levels
+  `target_section` varchar(50) DEFAULT NULL, -- NULL or 'all' for all sections
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
-  KEY `fk_announcement_author` (`author_id`),
-  KEY `idx_announcement_target` (`target_course`, `target_year_level`, `target_section`)
-  -- No FK constraint on author_id to allow Admin (NULL author_id)
+  KEY `author_id` (`author_id`)
+  -- No strict FK constraint on author_id to allow Admin author without a teacher ID
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- Section-Subject Assignments Table (Many-to-Many linking sections, subjects, and teachers)
-CREATE TABLE IF NOT EXISTS `section_subject_assignments` (
-  `id` varchar(100) NOT NULL COMMENT 'Unique ID, e.g., sectionId-subjectId',
-  `section_id` varchar(50) NOT NULL COMMENT 'FK to sections table',
-  `subject_id` varchar(50) NOT NULL COMMENT 'FK to subjects table',
-  `teacher_id` int NOT NULL COMMENT 'FK to teachers table',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_section_subject` (`section_id`, `subject_id`), -- Ensure one teacher per subject per section
-  KEY `fk_assignment_section` (`section_id`),
-  KEY `fk_assignment_subject` (`subject_id`),
-  KEY `fk_assignment_teacher` (`teacher_id`),
-  CONSTRAINT `fk_assignment_section` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_assignment_subject` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_assignment_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- Grades Table
+-- Table structure for table `grades`
 CREATE TABLE IF NOT EXISTS `grades` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `student_id` int NOT NULL COMMENT 'FK to students table',
-  `subject_id` varchar(50) NOT NULL COMMENT 'FK to subjects table',
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `student_id` int(11) NOT NULL,
+  `subject_id` varchar(20) NOT NULL,
+  `assignment_id` varchar(100) DEFAULT NULL, -- Optional: Link to specific assignment row
   `term` enum('Prelim','Midterm','Final') NOT NULL,
-  `grade` decimal(5,2) DEFAULT NULL,
+  `grade` decimal(5,2) DEFAULT NULL, -- Allow NULL grades
   `remarks` text DEFAULT NULL,
-  `submitted_by_teacher_id` int DEFAULT NULL COMMENT 'FK to teachers table',
-  `assignment_id` varchar(100) DEFAULT NULL COMMENT 'FK to section_subject_assignments',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `submitted_by_teacher_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_student_subject_term` (`student_id`, `subject_id`, `term`), -- Ensure one grade per student/subject/term
-  KEY `fk_grade_student` (`student_id`),
-  KEY `fk_grade_subject` (`subject_id`),
-  KEY `fk_grade_teacher` (`submitted_by_teacher_id`),
-  KEY `fk_grade_assignment` (`assignment_id`),
-  CONSTRAINT `fk_grade_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_grade_subject` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_grade_teacher` FOREIGN KEY (`submitted_by_teacher_id`) REFERENCES `teachers` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_grade_assignment` FOREIGN KEY (`assignment_id`) REFERENCES `section_subject_assignments` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  UNIQUE KEY `student_subject_term` (`student_id`,`subject_id`,`term`),
+  KEY `student_id` (`student_id`),
+  KEY `subject_id` (`subject_id`),
+  KEY `submitted_by_teacher_id` (`submitted_by_teacher_id`),
+  KEY `assignment_id` (`assignment_id`),
+  CONSTRAINT `grades_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `grades_ibfk_2` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `grades_ibfk_3` FOREIGN KEY (`submitted_by_teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `grades_ibfk_4` FOREIGN KEY (`assignment_id`) REFERENCES `section_subject_assignments` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Seed initial data (subjects, sections, admin) in seed.sql
+-- Add indices for better performance
+ALTER TABLE `students` ADD INDEX `idx_course` (`course`);
+ALTER TABLE `students` ADD INDEX `idx_year` (`year`);
+ALTER TABLE `students` ADD INDEX `idx_section` (`section`);
+ALTER TABLE `teachers` ADD INDEX `idx_department` (`department`);
+ALTER TABLE `sections` ADD INDEX `idx_course_year` (`course`, `year_level`);
+ALTER TABLE `announcements` ADD INDEX `idx_target` (`target_course`, `target_year_level`, `target_section`);
+ALTER TABLE `grades` ADD INDEX `idx_term` (`term`);
+
+-- Potential schedule table (more complex, example only)
+/*
+CREATE TABLE `schedule` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `assignment_id` varchar(100) NOT NULL, -- FK to section_subject_assignments
+  `day_of_week` enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
+  `start_time` time NOT NULL,
+  `end_time` time NOT NULL,
+  `room` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `assignment_id` (`assignment_id`),
+  CONSTRAINT `schedule_ibfk_1` FOREIGN KEY (`assignment_id`) REFERENCES `section_subject_assignments` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+*/
+
+-- --- END OF SCHEMA ---
