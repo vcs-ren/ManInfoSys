@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { StudentStatus } from "@/types"; // Import the status type
 
-const studentStatusEnum: [StudentStatus, ...StudentStatus[]] = ['New', 'Transferee', 'Continuing', 'Returnee'];
+const studentStatusEnum: [StudentStatus, ...StudentStatus[]] = ['New', 'Transferee', 'Returnee']; // Removed 'Continuing'
 const yearLevelEnum = ['1st Year', '2nd Year', '3rd Year', '4th Year'] as const; // Define valid year levels
 
 
@@ -13,7 +13,7 @@ export const studentSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   course: z.string().min(1, "Course is required"),
-  status: z.enum(studentStatusEnum, { required_error: "Status is required"}),
+  status: z.enum(studentStatusEnum, { required_error: "Status is required"}), // Updated enum
   year: z.enum(yearLevelEnum).optional(), // Year is optional initially
   section: z.string().optional(), // Section is now optional in the form, will be auto-assigned
   email: z.string().email("Invalid email address").optional().or(z.literal('')), // Optional email
@@ -26,8 +26,8 @@ export const studentSchema = z.object({
   // Generated fields - not part of the form input, but part of the type
   studentId: z.string().optional(),
 }).superRefine((data, ctx) => {
-    // If status is 'Continuing', 'Transferee', or 'Returnee', year is required.
-    if (['Continuing', 'Transferee', 'Returnee'].includes(data.status) && !data.year) {
+    // If status is 'Transferee' or 'Returnee', year is required.
+    if (['Transferee', 'Returnee'].includes(data.status) && !data.year) { // Adjusted condition
         ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Year level is required for this status.",
@@ -49,7 +49,7 @@ export const teacherSchema = z.object({
   address: z.string().optional().or(z.literal('')), // Added optional address
   department: z.string().min(1, "Department is required"),
   email: z.string().email("Invalid email address").optional().or(z.literal('')),
-  phone: z.string().optional().or(z.literal('')), // Renamed from contact number
+  phone: z.string().optional().or(z.literal('')), // Renamed from contact number for consistency
   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')), // Added optional birthday (YYYY-MM-DD)
   // Added optional emergency contact fields
   emergencyContactName: z.string().optional().or(z.literal('')),
@@ -105,6 +105,11 @@ export const profileSchema = z.object({
    emergencyContactRelationship: z.string().optional().or(z.literal('')),
    emergencyContactPhone: z.string().optional().or(z.literal('')),
    emergencyContactAddress: z.string().optional().or(z.literal('')),
+   // Teacher profile specific fields
+   middleName: z.string().optional().or(z.literal('')),
+   suffix: z.string().optional().or(z.literal('')),
+   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')),
+   address: z.string().optional().or(z.literal('')),
    // Add other editable fields specific to the role if needed
    // Password change might need a separate form/process
 });

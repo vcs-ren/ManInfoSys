@@ -1,7 +1,7 @@
 
 // Shared types for the application
 
-export type StudentStatus = 'New' | 'Transferee' | 'Continuing' | 'Returnee';
+export type StudentStatus = 'New' | 'Transferee' | 'Returnee'; // Removed 'Continuing'
 
 export interface Student {
   id: number; // Database ID
@@ -175,4 +175,3 @@ export interface UpcomingItem {
 }
 
 // Define more types as needed (e.g., Course)
-

@@ -64,7 +64,7 @@ export type FormFieldConfig<T> = {
   disabled?: boolean;
   options?: { value: string | number; label: string }[];
   condition?: (data: Partial<T> | null | undefined) => boolean;
-  section?: 'personal' | 'work' | 'emergency' | 'account';
+  section?: 'personal' | 'enrollment' | 'emergency' | 'account'; // Updated 'work' to 'enrollment'
 };
 
 export function UserForm<T extends Student | Teacher | AdminUser>({
@@ -110,14 +110,20 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
   }, [isOpen, isEditMode, initialData, defaultValues, form, startReadOnly]);
 
   React.useEffect(() => {
-    if (watchedStatus === 'New') {
-        form.setValue('year' as any, '1st Year', { shouldValidate: false });
-    } else if (initialData && !isEditMode) {
-        form.setValue('year' as any, (initialData as Student)?.year || '', { shouldValidate: false });
-    } else if (!isEditMode && !initialData) {
-        form.setValue('year' as any, '', { shouldValidate: true });
+    // This effect is primarily for the student form's 'year' field logic
+    if ('status' in form.getValues()) { // Check if it's likely a student form
+        if (watchedStatus === 'New') {
+            form.setValue('year' as any, '1st Year', { shouldValidate: false });
+        } else if (isEditMode && initialData && (initialData as Student).status !== 'New') {
+            // When editing and status is not 'New', set to the initial year
+             form.setValue('year' as any, (initialData as Student)?.year || '', { shouldValidate: true });
+        } else if (!isEditMode && watchedStatus !== 'New') {
+             // When adding and status is not 'New', clear the year field initially
+             form.setValue('year' as any, '', { shouldValidate: true });
+        }
     }
   }, [watchedStatus, form, isEditMode, initialData]);
+
 
   const handleFormSubmit = async (values: T) => {
     try {
@@ -132,13 +138,16 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
       });
       setIsOpen(false);
       form.reset();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Form submission error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to ${isEditMode ? 'update' : 'add'} user. Please try again.`,
-      });
+      // Avoid double-toasting if onSubmit handled it (e.g., duplicate name check)
+      if (!error?.message?.includes('Duplicate name')) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: error.message || `Failed to ${isEditMode ? 'update' : 'add'} user. Please try again.`,
+            });
+      }
     }
   };
 
@@ -156,7 +165,8 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
       return null;
     }
 
-    const isStudentForm = 'status' in form.getValues();
+    // Check if the current form is for a Student
+    const isStudentForm = 'studentId' in (initialData || defaultValues || {});
     const isYearField = fieldConfig.name === 'year';
     const disableYearField = isStudentForm && isYearField && watchedStatus === 'New';
     const isDisabled = isReadOnly || disableYearField || fieldConfig.disabled || form.formState.isSubmitting; // Determine final disabled state
@@ -226,10 +236,11 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     );
   };
 
-  const personalFields = formFields.filter(f => (f.section === 'personal' || !f.section) && !f.name.toString().toLowerCase().includes('emergency'));
-  const workFields = formFields.filter(f => f.section === 'work');
-  const emergencyFields = formFields.filter(f => f.section === 'emergency' || f.name.toString().toLowerCase().includes('emergency'));
-  const accountFields = formFields.filter(f => f.section === 'account');
+  const personalFields = formFields.filter(f => f.section === 'personal' || (!f.section && !['course', 'status', 'year', 'department', 'emergencyContactName', 'emergencyContactRelationship', 'emergencyContactPhone', 'emergencyContactAddress', 'email'].includes(f.name as string)));
+  const enrollmentFields = formFields.filter(f => f.section === 'enrollment' || ['course', 'status', 'year', 'department'].includes(f.name as string)); // Use enrollment section
+  const emergencyFields = formFields.filter(f => f.section === 'emergency' || ['emergencyContactName', 'emergencyContactRelationship', 'emergencyContactPhone', 'emergencyContactAddress'].includes(f.name as string));
+  const accountFields = formFields.filter(f => f.section === 'account' || ['email'].includes(f.name as string)); // Put email in account details
+
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -261,12 +272,21 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                              </div>
                          </div>
                     )}
-                    {workFields.length > 0 && (
+                    {enrollmentFields.length > 0 && ( // Changed from workFields
                          <div className="space-y-3">
                             <Separator />
-                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Work Information</h4>
+                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Enrollment Information</h4> {/* Changed Label */}
                             <div className="space-y-3">
-                                {workFields.map(renderFormField)}
+                                {enrollmentFields.map(renderFormField)}
+                             </div>
+                         </div>
+                    )}
+                     {accountFields.length > 0 && (
+                         <div className="space-y-3">
+                            <Separator />
+                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Contact / Account Details</h4> {/* Combined contact and account */}
+                            <div className="space-y-3">
+                                {accountFields.map(renderFormField)}
                              </div>
                          </div>
                     )}
@@ -278,15 +298,6 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                 {emergencyFields.map(renderFormField)}
                             </div>
                         </div>
-                    )}
-                    {accountFields.length > 0 && (
-                         <div className="space-y-3">
-                            <Separator />
-                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Account Details</h4>
-                            <div className="space-y-3">
-                                {accountFields.map(renderFormField)}
-                             </div>
-                         </div>
                     )}
 
                   {/* Display System Info only when editing (always read-only here) */}
@@ -336,7 +347,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                 <Button type="button" variant="outline" onClick={isEditMode ? handleCancelEdit : () => setIsOpen(false)} disabled={form.formState.isSubmitting}>
                     Cancel
                 </Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
+                <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
                     {form.formState.isSubmitting ? (isEditMode ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...</>) : (isEditMode ? 'Save Changes' : 'Add User')}
                 </Button>
                 </DialogFooter>

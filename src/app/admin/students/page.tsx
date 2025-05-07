@@ -41,10 +41,10 @@ const courseOptions = [
   // Add more courses as needed
 ];
 
+// Updated status options (removed 'Continuing')
 const statusOptions: { value: StudentStatus; label: string }[] = [
     { value: "New", label: "New" },
     { value: "Transferee", label: "Transferee" },
-    { value: "Continuing", label: "Continuing" },
     { value: "Returnee", label: "Returnee" },
 ];
 
@@ -55,13 +55,13 @@ const yearLevelOptions = [
     { value: "4th Year", label: "4th Year" },
 ];
 
-// Updated form fields config
+// Updated form fields config with "enrollment" section
 const studentFormFields: FormFieldConfig<Student>[] = [
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
-  { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true, section: 'work' }, // Changed to work section
-  { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'work' }, // Changed to work section
-  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'work', condition: (data) => data?.status ? ['Continuing', 'Transferee', 'Returnee'].includes(data.status) : false }, // Changed to work section
+  { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true, section: 'enrollment' },
+  { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'enrollment' },
+  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false }, // Adjusted condition
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'personal' },
   { name: "phone", label: "Phone", placeholder: "Enter phone (optional)", type: "tel", section: 'personal' },
   // Emergency Contact Fields
@@ -107,10 +107,23 @@ export default function ManageStudentsPage() {
   const handleSaveStudent = async (values: Student) => {
     const year = values.status === 'New' ? '1st Year' : values.year;
 
-    if (['Continuing', 'Transferee', 'Returnee'].includes(values.status) && !year) {
+    if (['Transferee', 'Returnee'].includes(values.status) && !year) { // Adjusted condition
         toast({ variant: "destructive", title: "Validation Error", description: "Year level is required for this status." });
         throw new Error("Year level missing");
     }
+
+    // Check for duplicate name only when *adding* a new student
+    if (!isEditMode) {
+        const nameExists = students.some(
+            (s) => s.firstName.toLowerCase() === values.firstName.toLowerCase() &&
+                   s.lastName.toLowerCase() === values.lastName.toLowerCase()
+        );
+        if (nameExists) {
+             toast({ variant: "destructive", title: "Duplicate Name", description: `A student named ${values.firstName} ${values.lastName} already exists.` });
+             throw new Error("Duplicate name");
+        }
+    }
+
 
     const payload = {
       ...values,
@@ -132,9 +145,12 @@ export default function ManageStudentsPage() {
         }
         closeModal();
     } catch (error: any) {
-        console.error(`Failed to ${isEditMode ? 'update' : 'add'} student:`, error);
-        toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Student`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} student. Please try again.` });
-         throw error;
+        // Avoid double-toasting if it was a duplicate name error
+        if (error.message !== "Duplicate name") {
+            console.error(`Failed to ${isEditMode ? 'update' : 'add'} student:`, error);
+            toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Student`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} student. Please try again.` });
+        }
+         throw error; // Re-throw to stop further execution in the form component
     }
   };
 
@@ -316,7 +332,7 @@ export default function ManageStudentsPage() {
         <DropdownMenuSeparator />
          <AlertDialog>
              <AlertDialogTrigger asChild>
-                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-orange-600 focus:text-orange-600 focus:bg-orange-100">
+                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-orange-600 focus:text-orange-600 focus:bg-orange-100" disabled={isSubmitting}>
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Reset Password
                  </DropdownMenuItem>
@@ -346,7 +362,7 @@ export default function ManageStudentsPage() {
          </AlertDialog>
          <AlertDialog>
              <AlertDialogTrigger asChild>
-                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={isSubmitting}>
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete
                  </DropdownMenuItem>
@@ -421,3 +437,4 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
+
