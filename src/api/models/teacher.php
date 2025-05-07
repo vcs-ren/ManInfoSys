@@ -12,6 +12,7 @@ class Teacher {
     public $lastName;
     public $middleName; // Added
     public $suffix; // Added
+    public $address; // Added
     public $department;
     public $email;
     public $phone;
@@ -37,6 +38,7 @@ class Teacher {
                     last_name as lastName,
                     middle_name as middleName,
                     suffix,
+                    address,
                     department,
                     email,
                     phone,
@@ -76,6 +78,7 @@ class Teacher {
                         last_name = :lastName,
                         middle_name = :middleName,
                         suffix = :suffix,
+                        address = :address,
                         department = :department,
                         email = :email,
                         phone = :phone,
@@ -94,6 +97,7 @@ class Teacher {
         $this->lastName = htmlspecialchars(strip_tags($this->lastName));
         $this->middleName = !empty($this->middleName) ? htmlspecialchars(strip_tags($this->middleName)) : null;
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
+        $this->address = !empty($this->address) ? htmlspecialchars(strip_tags($this->address)) : null; // Clean address
         $this->department = htmlspecialchars(strip_tags($this->department));
         $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
         $this->phone = !empty($this->phone) ? htmlspecialchars(strip_tags($this->phone)) : null;
@@ -110,6 +114,7 @@ class Teacher {
         $stmt->bindParam(':lastName', $this->lastName);
         $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':address', $this->address, PDO::PARAM_STR | PDO::PARAM_NULL); // Bind address
         $stmt->bindParam(':department', $this->department);
         $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':phone', $this->phone, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -140,6 +145,7 @@ class Teacher {
                         last_name = :lastName,
                         middle_name = :middleName,
                         suffix = :suffix,
+                        address = :address,
                         email = :email,
                         phone = :phone,
                         birthday = :birthday,
@@ -160,6 +166,7 @@ class Teacher {
         $this->lastName = htmlspecialchars(strip_tags($this->lastName));
         $this->middleName = !empty($this->middleName) ? htmlspecialchars(strip_tags($this->middleName)) : null;
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
+        $this->address = !empty($this->address) ? htmlspecialchars(strip_tags($this->address)) : null; // Clean address
         $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
         $this->phone = !empty($this->phone) ? htmlspecialchars(strip_tags($this->phone)) : null;
         $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
@@ -175,6 +182,7 @@ class Teacher {
         $stmt->bindParam(':lastName', $this->lastName);
         $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':address', $this->address, PDO::PARAM_STR | PDO::PARAM_NULL); // Bind address
         $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':phone', $this->phone, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -202,6 +210,7 @@ class Teacher {
                         last_name = :lastName,
                         middle_name = :middleName,
                         suffix = :suffix,
+                        address = :address,
                         department = :department,
                         email = :email,
                         phone = :phone,
@@ -221,6 +230,7 @@ class Teacher {
         $this->lastName = htmlspecialchars(strip_tags($this->lastName));
         $this->middleName = !empty($this->middleName) ? htmlspecialchars(strip_tags($this->middleName)) : null;
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
+        $this->address = !empty($this->address) ? htmlspecialchars(strip_tags($this->address)) : null; // Clean address
         $this->department = htmlspecialchars(strip_tags($this->department));
         $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
         $this->phone = !empty($this->phone) ? htmlspecialchars(strip_tags($this->phone)) : null;
@@ -237,6 +247,7 @@ class Teacher {
         $stmt->bindParam(':lastName', $this->lastName);
         $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
+        $stmt->bindParam(':address', $this->address, PDO::PARAM_STR | PDO::PARAM_NULL); // Bind address
         $stmt->bindParam(':department', $this->department);
         $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':phone', $this->phone, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -282,7 +293,7 @@ class Teacher {
     public function readOne() {
         $query = "SELECT
                     id, teacher_id as teacherId, first_name as firstName, last_name as lastName,
-                    middle_name as middleName, suffix,
+                    middle_name as middleName, suffix, address,
                     department, email, phone, birthday,
                     emergency_contact_name as emergencyContactName,
                     emergency_contact_relationship as emergencyContactRelationship,
@@ -303,6 +314,7 @@ class Teacher {
             $this->lastName = $row['lastName'];
             $this->middleName = $row['middleName'];
             $this->suffix = $row['suffix'];
+            $this->address = $row['address']; // Assign address
             $this->department = $row['department'];
             $this->email = $row['email'];
             $this->phone = $row['phone'];
@@ -320,6 +332,7 @@ class Teacher {
                  "lastName" => $this->lastName,
                  "middleName" => $this->middleName,
                  "suffix" => $this->suffix,
+                 "address" => $this->address, // Include address
                  "department" => $this->department,
                  "email" => $this->email,
                  "phone" => $this->phone,

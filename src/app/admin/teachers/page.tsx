@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from "react";
@@ -34,17 +33,20 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
 
-// Define form fields for the UserForm component using FormFieldConfig - Updated
+// Refactored form fields for Teacher
 const teacherFormFields: FormFieldConfig<Teacher>[] = [
+  // Personal Information Section (Conceptual Grouping)
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true },
   { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)" },
   { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr., III (optional)" },
-  { name: "department", label: "Department", placeholder: "Enter department", required: true },
-  { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
-  { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel" },
   { name: "birthday", label: "Birthday", placeholder: "YYYY-MM-DD (optional)", type: "date" }, // Use date type for input
-  // Emergency Contact Fields
+  { name: "address", label: "Address", placeholder: "Enter full address (optional)", type: "textarea" },
+  { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel" },
+  { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email" },
+  // Work Information Section (Conceptual Grouping)
+  { name: "department", label: "Department", placeholder: "Enter department", required: true },
+  // Emergency Contact Section (Conceptual Grouping)
   { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian/Spouse Name (optional)", type: "text" },
   { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father, Spouse (optional)", type: "text" },
   { name: "emergencyContactPhone", label: "Emergency Contact Phone", placeholder: "Contact Number (optional)", type: "tel" },
@@ -65,6 +67,7 @@ export default function ManageTeachersPage() {
      middleName: false,
      suffix: false,
      birthday: false,
+     address: false, // Hide new address field
      email: false,
      phone: false,
      emergencyContactName: false,
@@ -224,6 +227,12 @@ export default function ManageTeachersPage() {
              cell: ({ row }) => <div>{row.original.birthday || '-'}</div>,
              enableHiding: true,
          },
+          {
+             accessorKey: "address",
+             header: "Address",
+             cell: ({ row }) => <div className="max-w-xs truncate">{row.original.address || '-'}</div>,
+             enableHiding: true,
+         },
          {
             accessorKey: "email",
             header: "Email",
@@ -231,7 +240,7 @@ export default function ManageTeachersPage() {
              enableHiding: true,
         },
          {
-            accessorKey: "phone",
+            accessorKey: "phone", // Renamed from contact number
             header: "Phone",
             cell: ({ row }) => <div>{row.original.phone || '-'}</div>,
              enableHiding: true,
@@ -356,7 +365,7 @@ export default function ManageTeachersPage() {
           onSubmit={handleSaveTeacher}
           title={isEditMode ? `Edit Teacher: ${selectedTeacher?.firstName} ${selectedTeacher?.lastName}` : 'Add New Teacher'}
           description={isEditMode ? "Update the teacher's information below. Username and password are managed by the system." : "Fill in the details below. Credentials are generated upon creation."}
-          formFields={teacherFormFields}
+          formFields={teacherFormFields} // Use the refactored form fields
           isEditMode={isEditMode}
           initialData={isEditMode ? selectedTeacher : undefined}
         />

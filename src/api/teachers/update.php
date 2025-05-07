@@ -56,6 +56,7 @@ try {
     $teacher->lastName = $data->lastName;
     $teacher->middleName = $data->middleName ?? null;
     $teacher->suffix = $data->suffix ?? null;
+    $teacher->address = $data->address ?? null; // Assign address
     $teacher->department = $data->department;
     $teacher->email = $data->email ?? null;
     $teacher->phone = $data->phone ?? null;

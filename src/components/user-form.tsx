@@ -34,11 +34,12 @@ import {
 } from "@/components/ui/select"; // Import Select components
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { Student, Teacher } from "@/types";
+import type { Student, Teacher, AdminUser } from "@/types";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea"; // Import Textarea
+import { Separator } from "@/components/ui/separator"; // Import Separator
 
-interface UserFormProps<T extends Student | Teacher> {
+interface UserFormProps<T extends Student | Teacher | AdminUser> { // Updated to accept AdminUser
   trigger?: React.ReactNode; // Trigger is now optional
   isOpen?: boolean; // Optional prop to control dialog state externally
   onOpenChange?: (open: boolean) => void; // Optional handler for external control
@@ -62,9 +63,10 @@ export type FormFieldConfig<T> = {
   disabled?: boolean; // Make field read-only
   options?: { value: string | number; label: string }[]; // Options for select dropdown
   condition?: (data: Partial<T> | null | undefined) => boolean; // Conditional rendering
+  section?: 'personal' | 'work' | 'emergency' | 'account'; // Optional section grouping
 };
 
-export function UserForm<T extends Student | Teacher>({
+export function UserForm<T extends Student | Teacher | AdminUser>({ // Updated to accept AdminUser
   trigger,
   isOpen: isOpenProp, // Rename prop to avoid conflict with internal state
   onOpenChange: onOpenChangeProp, // Rename prop
@@ -109,7 +111,7 @@ export function UserForm<T extends Student | Teacher>({
        if (watchedStatus === 'New') {
            form.setValue('year' as any, '1st Year', { shouldValidate: false }); // Set year, avoid immediate validation
        } else if (initialData && !isEditMode) { // Reset year if status changes from New on ADD mode
-            form.setValue('year' as any, initialData.year || '', { shouldValidate: false });
+            form.setValue('year' as any, (initialData as Student)?.year || '', { shouldValidate: false });
        } else if (!isEditMode && !initialData) { // Reset year if status changes on ADD mode (no initial data)
             form.setValue('year' as any, '', { shouldValidate: true }); // Clear year if not New
        }
@@ -119,9 +121,9 @@ export function UserForm<T extends Student | Teacher>({
 
   const handleFormSubmit = async (values: T) => {
     try {
-       // Override year if status is 'New' just before submitting
-        if (values.status === 'New') {
-            values.year = '1st Year' as any;
+       // Override year if status is 'New' just before submitting (for Students)
+        if ('status' in values && values.status === 'New') {
+            (values as Student).year = '1st Year';
         }
        console.log("Submitting values:", values);
       await onSubmit(values); // Call the provided onSubmit function
@@ -144,135 +146,196 @@ export function UserForm<T extends Student | Teacher>({
   // Get current form values to pass to condition function
   const currentFormValues = useWatch({ control: form.control });
 
+  // Helper function to render a form field
+  const renderFormField = (fieldConfig: FormFieldConfig<T>) => {
+      // Check condition if it exists
+        if (fieldConfig.condition && !fieldConfig.condition(currentFormValues)) {
+            return null; // Don't render field if condition is not met
+        }
+
+        // Special handling for year field when status is 'New' (for Student)
+        const isStudentForm = 'status' in form.getValues();
+        const isYearField = fieldConfig.name === 'year';
+        const disableYearField = isStudentForm && isYearField && watchedStatus === 'New';
+
+
+        return (
+            <FormField
+                key={String(fieldConfig.name)}
+                control={form.control}
+                name={fieldConfig.name as any} // Cast needed due to complex typing
+                render={({ field }) => (
+                <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1"> {/* Reduced gap-y */}
+                    <FormLabel className="text-right text-sm">{fieldConfig.label}{fieldConfig.required && !disableYearField ? '*' : ''}</FormLabel> {/* Smaller label */}
+                    <FormControl className="col-span-3">
+                        {fieldConfig.type === 'select' ? (
+                            <Select
+                                onValueChange={field.onChange}
+                                // Ensure the value passed to Select is always a string
+                                value={field.value ? String(field.value) : undefined}
+                                disabled={fieldConfig.disabled || disableYearField || form.formState.isSubmitting}
+                            >
+                                {/* Apply w-full to the trigger */}
+                                <SelectTrigger className="w-full h-9 text-sm"> {/* Smaller trigger */}
+                                    <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
+                                </SelectTrigger>
+                                {/* Ensure SelectContent pops over other elements */}
+                                <SelectContent>
+                                    {(fieldConfig.options || []).map((option) => (
+                                        <SelectItem key={option.value} value={String(option.value)} className="text-sm"> {/* Smaller item */}
+                                        {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        ) : fieldConfig.type === 'textarea' ? ( // Handle textarea
+                            <Textarea
+                                placeholder={fieldConfig.placeholder}
+                                disabled={fieldConfig.disabled || form.formState.isSubmitting}
+                                {...field}
+                                value={field.value ?? ''}
+                                className="text-sm min-h-[60px]" // Smaller textarea
+                            />
+                        ) : (
+                            <Input
+                                placeholder={fieldConfig.placeholder}
+                                type={fieldConfig.type || "text"}
+                                disabled={fieldConfig.disabled || disableYearField || form.formState.isSubmitting}
+                                {...field}
+                                // Handle number input type properly
+                                value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value ?? '')} // Use nullish coalescing
+                                onChange={(e) => {
+                                    if (fieldConfig.type === 'number') {
+                                    const numericValue = e.target.value === '' ? '' : Number(e.target.value);
+                                    field.onChange(isNaN(numericValue as number) ? '' : numericValue); // Handle NaN
+                                    } else {
+                                    field.onChange(e.target.value);
+                                    }
+                                }}
+                                className="h-9 text-sm" // Smaller input
+                            />
+                        )}
+
+                    </FormControl>
+                    {isStudentForm && isYearField && disableYearField && (
+                        <p className="col-span-3 col-start-2 text-xs text-muted-foreground -mt-1">Set to 1st Year for New students.</p>
+                    )}
+                    <FormMessage className="col-span-3 col-start-2 text-xs" /> {/* Smaller message */}
+                </FormItem>
+                )}
+            />
+        );
+  };
+
+  // Group fields by section
+    const personalFields = formFields.filter(f => (f.section === 'personal' || !f.section) && !f.name.toString().toLowerCase().includes('emergency'));
+    const workFields = formFields.filter(f => f.section === 'work');
+    const emergencyFields = formFields.filter(f => f.section === 'emergency' || f.name.toString().toLowerCase().includes('emergency'));
+    const accountFields = formFields.filter(f => f.section === 'account');
+
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {/* Render DialogTrigger only if trigger is provided and not controlled externally */}
       {!isControlled && trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-lg"> {/* Increased max width */}
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)}>
-            <ScrollArea className="max-h-[60vh] p-1 pr-6"> {/* Added ScrollArea */}
-              <div className="grid gap-4 py-4">
-                {formFields.map((fieldConfig) => {
-                    // Check condition if it exists
-                    if (fieldConfig.condition && !fieldConfig.condition(currentFormValues)) {
-                        return null; // Don't render field if condition is not met
-                    }
+            <ScrollArea className="max-h-[70vh] p-1 pr-6"> {/* Increased max height */}
+                <div className="space-y-6 py-4"> {/* Increased overall spacing */}
 
-                    // Special handling for year field when status is 'New'
-                    const isYearField = fieldConfig.name === 'year';
-                    const disableYearField = isYearField && watchedStatus === 'New';
+                    {/* Personal Information Section */}
+                    {personalFields.length > 0 && (
+                         <div className="space-y-3">
+                            <h4 className="text-md font-semibold text-primary border-b pb-1">Personal Information</h4>
+                            <div className="space-y-3"> {/* Inner spacing for fields */}
+                                {personalFields.map(renderFormField)}
+                             </div>
+                         </div>
+                    )}
 
-                    return (
-                        <FormField
-                            key={String(fieldConfig.name)}
-                            control={form.control}
-                            name={fieldConfig.name as any} // Cast needed due to complex typing
-                            render={({ field }) => (
-                            <FormItem className="grid grid-cols-4 items-center gap-4">
-                                <FormLabel className="text-right">{fieldConfig.label}{fieldConfig.required && !disableYearField ? '*' : ''}</FormLabel>
-                                <FormControl className="col-span-3">
-                                    {fieldConfig.type === 'select' ? (
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            // Ensure the value passed to Select is always a string
-                                            value={field.value ? String(field.value) : undefined}
-                                            disabled={fieldConfig.disabled || disableYearField || form.formState.isSubmitting}
-                                        >
-                                            {/* Apply w-full to the trigger */}
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
-                                            </SelectTrigger>
-                                            {/* Ensure SelectContent pops over other elements */}
-                                            <SelectContent>
-                                                {(fieldConfig.options || []).map((option) => (
-                                                    <SelectItem key={option.value} value={String(option.value)}>
-                                                    {option.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    ) : fieldConfig.type === 'textarea' ? ( // Handle textarea
-                                        <Textarea
-                                            placeholder={fieldConfig.placeholder}
-                                            disabled={fieldConfig.disabled || form.formState.isSubmitting}
-                                            {...field}
-                                            value={field.value ?? ''}
-                                        />
-                                    ) : (
-                                        <Input
-                                            placeholder={fieldConfig.placeholder}
-                                            type={fieldConfig.type || "text"}
-                                            disabled={fieldConfig.disabled || disableYearField || form.formState.isSubmitting}
-                                            {...field}
-                                            // Handle number input type properly
-                                            value={fieldConfig.type === 'number' && typeof field.value === 'number' ? field.value : (field.value ?? '')} // Use nullish coalescing
-                                            onChange={(e) => {
-                                                if (fieldConfig.type === 'number') {
-                                                const numericValue = e.target.value === '' ? '' : Number(e.target.value);
-                                                field.onChange(isNaN(numericValue as number) ? '' : numericValue); // Handle NaN
-                                                } else {
-                                                field.onChange(e.target.value);
-                                                }
-                                            }}
-                                        />
-                                    )}
+                     {/* Work Information Section */}
+                    {workFields.length > 0 && (
+                         <div className="space-y-3">
+                            <Separator />
+                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Work Information</h4>
+                            <div className="space-y-3">
+                                {workFields.map(renderFormField)}
+                             </div>
+                         </div>
+                    )}
 
-                                </FormControl>
-                                {isYearField && disableYearField && (
-                                     <p className="col-span-3 col-start-2 text-xs text-muted-foreground">Set to 1st Year for New students.</p>
-                                )}
-                                <FormMessage className="col-span-3 col-start-2" />
-                            </FormItem>
-                            )}
-                        />
-                    );
-                })}
+                    {/* Emergency Contact Section */}
+                    {emergencyFields.length > 0 && (
+                        <div className="space-y-3">
+                            <Separator />
+                            <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Emergency Contact</h4>
+                            <div className="space-y-3">
+                                {emergencyFields.map(renderFormField)}
+                            </div>
+                        </div>
+                    )}
+
+                     {/* Account Information Section */}
+                    {accountFields.length > 0 && (
+                         <div className="space-y-3">
+                            <Separator />
+                             <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Account Details</h4>
+                            <div className="space-y-3">
+                                {accountFields.map(renderFormField)}
+                             </div>
+                         </div>
+                    )}
+
+
                  {/* Display generated username/password/section only in edit mode */}
                   {isEditMode && initialData && (
                       <>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right font-semibold">Username</Label>
-                            <Input
-                            className="col-span-3 bg-muted"
-                            value={(initialData as any).studentId || (initialData as any).teacherId || 'N/A'}
-                            readOnly
-                            disabled
-                            />
-                        </div>
-                         {/* Display Section for Students in Edit Mode */}
-                        {'section' in initialData && (
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label className="text-right font-semibold">Section</Label>
+                        <Separator />
+                        <div className="space-y-3 pt-2">
+                             <h4 className="text-md font-semibold text-primary border-b pb-1">System Information</h4>
+                            <div className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
+                                <Label className="text-right font-semibold text-sm">Username</Label>
                                 <Input
-                                    className="col-span-3 bg-muted"
-                                    value={(initialData as Student).section || 'N/A'}
-                                    readOnly
-                                    disabled
+                                className="col-span-3 bg-muted h-9 text-sm"
+                                value={(initialData as any).studentId || (initialData as any).teacherId || (initialData as any).username ||'N/A'}
+                                readOnly
+                                disabled
                                 />
                             </div>
-                        )}
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right font-semibold">Password</Label>
-                            <Input
-                            className="col-span-3 bg-muted text-muted-foreground italic"
-                            value="******** (Hidden)" // Show placeholder instead of actual password
-                            readOnly
-                            disabled
-                            />
-                             <p className="col-span-3 col-start-2 text-xs text-muted-foreground">Password is auto-generated and securely stored. Contact admin if needed.</p>
+                            {/* Display Section for Students in Edit Mode */}
+                            {'section' in initialData && (
+                                <div className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
+                                    <Label className="text-right font-semibold text-sm">Section</Label>
+                                    <Input
+                                        className="col-span-3 bg-muted h-9 text-sm"
+                                        value={(initialData as Student).section || 'N/A'}
+                                        readOnly
+                                        disabled
+                                    />
+                                </div>
+                            )}
+                            <div className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
+                                <Label className="text-right font-semibold text-sm">Password</Label>
+                                <Input
+                                className="col-span-3 bg-muted text-muted-foreground italic h-9 text-sm"
+                                value="******** (Hidden)" // Show placeholder instead of actual password
+                                readOnly
+                                disabled
+                                />
+                                <p className="col-span-3 col-start-2 text-xs text-muted-foreground -mt-1">Password is auto-generated. User can change it in Settings.</p>
+                            </div>
                         </div>
-
                       </>
                   )}
 
               </div>
             </ScrollArea>
-            <DialogFooter>
+            <DialogFooter className="mt-4">
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={form.formState.isSubmitting}>
                 Cancel
               </Button>
@@ -286,4 +349,3 @@ export function UserForm<T extends Student | Teacher>({
     </Dialog>
   );
 }
-

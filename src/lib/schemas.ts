@@ -46,9 +46,10 @@ export const teacherSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   middleName: z.string().optional().or(z.literal('')), // Added optional middle name
   suffix: z.string().optional().or(z.literal('')), // Added optional suffix
+  address: z.string().optional().or(z.literal('')), // Added optional address
   department: z.string().min(1, "Department is required"),
   email: z.string().email("Invalid email address").optional().or(z.literal('')),
-  phone: z.string().optional().or(z.literal('')),
+  phone: z.string().optional().or(z.literal('')), // Renamed from contact number
   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')), // Added optional birthday (YYYY-MM-DD)
   // Added optional emergency contact fields
   emergencyContactName: z.string().optional().or(z.literal('')),
@@ -79,7 +80,7 @@ const gradeValueSchema = z.union([
 
 // Schema for submitting grades for all terms at once
 export const submitGradesSchema = z.object({
-    assignmentId: z.string(), // ID linking student and subject
+    assignmentId: z.string(), // ID linking student and subject for this context
     studentId: z.number(),
     subjectId: z.string(),
     prelimGrade: gradeValueSchema,

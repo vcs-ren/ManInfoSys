@@ -1,5 +1,4 @@
 
-
 // Shared types for the application
 
 export type StudentStatus = 'New' | 'Transferee' | 'Continuing' | 'Returnee';
@@ -30,9 +29,10 @@ export interface Teacher {
   lastName: string;
   middleName?: string; // Added
   suffix?: string; // Added
+  address?: string; // Added teacher's address
   department: string;
   email?: string; // Optional fields
-  phone?: string;
+  phone?: string; // Renamed from contact number for consistency
   birthday?: string; // Added (use string YYYY-MM-DD for simplicity)
   // Added Emergency Contact Fields
   emergencyContactName?: string;
@@ -175,3 +175,4 @@ export interface UpcomingItem {
 }
 
 // Define more types as needed (e.g., Course)
+

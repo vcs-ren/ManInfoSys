@@ -43,6 +43,7 @@ try {
                 "middleName" => $middleName, // Added
                 "suffix" => $suffix, // Added
                 "department" => $department,
+                "address" => $address, // Added address
                 "email" => $email,
                 "phone" => $phone,
                 "birthday" => $birthday, // Added
