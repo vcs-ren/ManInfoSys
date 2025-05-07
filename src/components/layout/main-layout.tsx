@@ -30,8 +30,9 @@ const allNavItems: NavItemGroup[] = [
             { href: '/admin/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
             { href: '/admin/students', label: 'Manage Students', icon: 'Users' },
             { href: '/admin/teachers', label: 'Manage Teachers', icon: 'UserCog' },
-            { href: '/admin/assignments', label: 'Section Management', icon: 'ClipboardList' }, // Updated label and href
-            { href: '/admin/settings', label: 'Settings', icon: 'Settings' }, // Added Settings
+            { href: '/admin/admins', label: 'Manage Admins', icon: 'ShieldAlert' }, // Added Manage Admins
+            { href: '/admin/assignments', label: 'Section Management', icon: 'ClipboardList' },
+            { href: '/admin/settings', label: 'Settings', icon: 'Settings' },
         ]
     },
      {
@@ -41,7 +42,7 @@ const allNavItems: NavItemGroup[] = [
             { href: '/teacher/profile', label: 'Profile', icon: 'UserCircle' },
             { href: '/teacher/grades', label: 'Submit Grades', icon: 'ClipboardCheck' },
             { href: '/teacher/schedule', label: 'View Schedule', icon: 'CalendarClock' },
-            { href: '/teacher/settings', label: 'Settings', icon: 'Settings' }, // Added Settings
+            { href: '/teacher/settings', label: 'Settings', icon: 'Settings' },
         ]
     },
     {
@@ -51,7 +52,7 @@ const allNavItems: NavItemGroup[] = [
             { href: '/student/profile', label: 'Profile', icon: 'UserCircle' },
             { href: '/student/grades', label: 'View Grades', icon: 'BookOpenCheck' },
             { href: '/student/schedule', label: 'Class Schedule', icon: 'CalendarDays' },
-            { href: '/student/settings', label: 'Settings', icon: 'Settings' }, // Added Settings
+            { href: '/student/settings', label: 'Settings', icon: 'Settings' },
         ]
     },
 ];

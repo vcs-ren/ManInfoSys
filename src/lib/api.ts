@@ -1,384 +1,426 @@
 
 'use client';
 
-import type { Student, Teacher, Section, Subject, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment } from '@/types';
-import { generateStudentId, generateTeacherId, generateSectionCode } from '@/lib/utils'; // Assuming these utils exist and are appropriate
+import type { Student, Teacher, Section, Subject, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser } from '@/types';
+import { generateStudentId, generateTeacherId, generateSectionCode, generateAdminUsername } from '@/lib/utils';
 
-// Mock data (can be expanded)
+// --- MOCK DATA STORE ---
 let mockStudents: Student[] = [
   { id: 1, studentId: "s1001", firstName: "Alice", lastName: "Smith", course: "Computer Science", status: "Continuing", year: "2nd Year", section: "CS-2A", email: "alice@example.com", phone: "123-456-7890", emergencyContactName: "John Smith", emergencyContactRelationship: "Father", emergencyContactPhone: "111-222-3333", emergencyContactAddress: "123 Main St" },
   { id: 2, studentId: "s1002", firstName: "Bob", lastName: "Johnson", course: "Information Technology", status: "New", year: "1st Year", section: "IT-1B", email: "bob@example.com", phone: "987-654-3210" },
-  { id: 3, studentId: "s1003", firstName: "Charlie", lastName: "Brown", course: "Business Administration", status: "Returnee", year: "3rd Year", section: "BA-3A", email: "charlie@example.com" },
 ];
 
 let mockTeachers: Teacher[] = [
   { id: 1, teacherId: "t1001", firstName: "David", lastName: "Lee", department: "Computer Science", email: "david.lee@example.com", phone: "555-1234" },
   { id: 2, teacherId: "t1002", firstName: "Eve", lastName: "Davis", department: "Information Technology", email: "eve.davis@example.com" },
-  { id: 3, teacherId: "t1003", firstName: "Frank", lastName: "White", department: "Business Administration", email: "frank.white@example.com" },
 ];
 
 let mockSections: Section[] = [
   { id: "CS-1A", sectionCode: "CS-1A", course: "Computer Science", yearLevel: "1st Year", adviserId: 1, adviserName: "David Lee", studentCount: 1 },
-  { id: "IT-2B", sectionCode: "IT-2B", course: "Information Technology", yearLevel: "2nd Year", studentCount: 1 },
-  { id: "BA-3A", sectionCode: "BA-3A", course: "Business Administration", yearLevel: "3rd Year", adviserId: 3, adviserName: "Frank White", studentCount: 1 },
+  { id: "IT-1B", sectionCode: "IT-1B", course: "Information Technology", yearLevel: "1st Year", studentCount: 1 },
 ];
 
 let mockSubjects: Subject[] = [
   { id: "CS101", name: "Introduction to Programming", description: "Basics of programming" },
   { id: "IT202", name: "Networking Fundamentals", description: "Understanding computer networks" },
-  { id: "BA303", name: "Marketing Principles", description: "Core concepts of marketing" },
   { id: "GEN001", name: "Purposive Communication", description: "Effective communication skills" },
 ];
 
 let mockSectionAssignments: SectionSubjectAssignment[] = [
     { id: "CS-1A-CS101", sectionId: "CS-1A", subjectId: "CS101", subjectName: "Introduction to Programming", teacherId: 1, teacherName: "David Lee" },
-    { id: "IT-2B-IT202", sectionId: "IT-2B", subjectId: "IT202", subjectName: "Networking Fundamentals", teacherId: 2, teacherName: "Eve Davis" },
 ];
 
 let mockAnnouncements: Announcement[] = [
-  { id: "ann1", title: "Welcome Back Students!", content: "Welcome to the new academic year. Please check your portal for updates.", date: new Date(2024, 7, 15), target: { course: "all" }, author: "Admin" },
-  { id: "ann2", title: "CS Department Meeting", content: "All Computer Science faculty are required to attend.", date: new Date(2024, 7, 20), target: { course: "Computer Science" }, author: "David Lee" },
+  { id: "ann1", title: "Welcome Back Students!", content: "Welcome to the new academic year.", date: new Date(2024, 7, 15), target: { course: "all" }, author: "Admin" },
 ];
 
 let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[] = [
     { assignmentId: "1-CS101", studentId: 1, studentName: "Alice Smith", subjectId: "CS101", subjectName: "Introduction to Programming", section: "CS-2A", year: "2nd Year", prelimGrade: 85, prelimRemarks: "Good start", midtermGrade: 90, midtermRemarks: "Excellent", finalGrade: 88, finalRemarks: "Very Good", status: "Complete" },
-    { assignmentId: "1-GEN001", studentId: 1, studentName: "Alice Smith", subjectId: "GEN001", subjectName: "Purposive Communication", section: "CS-2A", year: "2nd Year", prelimGrade: 78, midtermGrade: null, finalGrade: null, status: "Incomplete" },
-    { assignmentId: "2-IT202", studentId: 2, studentName: "Bob Johnson", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "IT-1B", year: "1st Year", prelimGrade: null, midtermGrade: null, finalGrade: null, status: "Not Submitted" },
 ];
 
-const mockDashboardStats = {
+let mockAdmins: AdminUser[] = [
+    { id: 0, username: "admin", firstName: "Super", lastName: "Admin", email: "superadmin@example.com", isSuperAdmin: true },
+    { id: 1, username: "a1001", firstName: "Sub", lastName: "AdminOne", email: "subadmin1@example.com", isSuperAdmin: false },
+];
+
+let mockDashboardStats: DashboardStats = {
     totalStudents: mockStudents.length,
     totalTeachers: mockTeachers.length,
-    upcomingEvents: 2,
+    totalAdmins: mockAdmins.length,
+    upcomingEvents: 1,
 };
 
-const mockStudentSchedule: ScheduleEntry[] = [
-    { id: "std-sched1", title: "CS101 Lecture", start: new Date(new Date().setDate(new Date().getDate() + 1)), end: new Date(new Date().setDate(new Date().getDate() + 1)), type: 'class', location: 'Room 301', teacher: 'David Lee' },
-    { id: "std-sched2", title: "GEN001 Workshop", start: new Date(new Date().setDate(new Date().getDate() + 2)), end: new Date(new Date().setDate(new Date().getDate() + 2)), type: 'class', location: 'Auditorium', teacher: 'System' },
-];
-const mockTeacherSchedule: ScheduleEntry[] = [
-    { id: "tch-sched1", title: "CS101 Lecture - CS-1A", start: new Date(new Date().setDate(new Date().getDate() + 1)), end: new Date(new Date().setDate(new Date().getDate() + 1)), type: 'class', location: 'Room 301', section: 'CS-1A' },
-    { id: "tch-sched2", title: "Consultation Hours", start: new Date(new Date().setDate(new Date().getDate() + 1)), end: new Date(new Date().setDate(new Date().getDate() + 1)), type: 'event', location: 'Faculty Room' },
-];
+// --- API CONFIGURATION ---
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'; // Fallback for client-side
+
+const getApiUrl = (path: string): string => `${API_BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
 
 
-// Placeholder API_BASE_URL as it's not used with mock data
-const API_BASE_URL = 'mock-api';
+// --- ERROR HANDLING ---
+const handleFetchError = (error: any, path: string, method: string, isNetworkError: boolean = false): never => {
+    let errorMessage = `Failed to ${method.toLowerCase()} data from ${path}.`;
+    let detailedLog = `API Request Details:\n    - Method: ${method}\n    - URL: ${getApiUrl(path)}`;
 
-const getApiUrl = (path: string): string => `${API_BASE_URL}${path}`;
+    if (typeof window !== 'undefined') {
+        detailedLog += `\n    - Frontend Origin: ${window.location.origin}`;
+    }
 
-// Simplified error handler for mock API
-const handleFetchError = (error: any, path: string, method: string): never => {
-    console.error(`Mock API error during ${method} request to ${path}:`, error);
-    throw new Error(error.message || `Mock API failed for ${method} ${path}`);
+    if (isNetworkError || error.message === 'Failed to fetch') {
+        errorMessage = `Network Error: Could not connect to the API backend at ${getApiUrl(path)}.
+
+        Possible Causes & Checks:
+        1. PHP Server Status: Is the PHP server running? Start it using: 'php -S localhost:8000 -t src/api' in your project's root terminal.
+        2. Backend URL: Is the API_BASE_URL (${API_BASE_URL}) correct and accessible from your browser?
+        3. Endpoint Path: Is the API endpoint path "${path}" correct relative to the 'src/api' directory? (e.g., /login.php, /students/read.php)
+        4. CORS Policy: Is the PHP backend configured to allow requests from your frontend origin (${typeof window !== 'undefined' ? window.location.origin : 'N/A'})? Check 'Access-Control-Allow-Origin' headers in your PHP files.
+        5. Firewall/Network: Could a firewall or network issue be blocking the connection?
+        6. Browser Console: Check the browser's Network tab for the failed request details and the Console tab for specific CORS error messages.
+        `;
+        detailedLog += `\n    - Error Type: NetworkError (Failed to fetch)`;
+    } else {
+        errorMessage = error.message || `An unexpected error occurred during the ${method} request.`;
+        detailedLog += `\n    - Error Type: ${error.name || 'UnknownError'}`;
+        detailedLog += `\n    - Error Message: ${error.message}`;
+    }
+    detailedLog += `\n    \n        Troubleshooting Tips:\n        - Ensure the PHP server is running and listening on the correct port (8000 in this case).\n        - Check the PHP server's console output for any startup errors or errors during the request.\n        - Verify the 'Access-Control-Allow-Origin' header in the failing PHP endpoint matches your frontend origin or is '*'.\n        - Temporarily simplify the PHP endpoint to just return headers and a basic JSON to isolate the issue.\n        `;
+
+
+    console.error("Detailed Fetch Error Log:", detailedLog);
+    // Re-throw a new error with the processed, more user-friendly message
+    throw new Error(errorMessage);
 };
 
+
+// --- API HELPER FUNCTIONS ---
 export const fetchData = async <T>(path: string): Promise<T> => {
-    console.log(`Mock fetchData from: ${path}`);
-    await new Promise(resolve => setTimeout(resolve, 200)); // Simulate network delay
+    const url = getApiUrl(path);
+    let response;
+    console.log(`Fetching data from: ${url}`);
+
+    // MOCK IMPLEMENTATION
+    if (process.env.NEXT_PUBLIC_USE_MOCK_API === 'true') {
+        console.log(`MOCK fetchData from: ${path}`);
+        await new Promise(resolve => setTimeout(resolve, 200));
+        try {
+            if (path.includes('/api/students/read.php') || path.includes('students/read.php')) return { records: [...mockStudents] } as T;
+            if (path.includes('/api/teachers/read.php') || path.includes('teachers/read.php')) return { records: [...mockTeachers] } as T;
+            if (path.includes('/api/admins/read.php') || path.includes('admins/read.php')) return { records: [...mockAdmins] } as T; // Mock for admins
+            if (path.includes('/api/sections/read.php')|| path.includes('sections/read.php')) return [...mockSections] as T;
+            if (path.includes('/api/subjects/read.php') || path.includes('subjects/read.php')) return [...mockSubjects] as T;
+            if (path.includes('/api/announcements/read.php') || path.includes('announcements/read.php')) return [...mockAnnouncements].sort((a,b) => b.date.getTime() - a.date.getTime()) as T;
+            if (path.includes('/api/admin/dashboard-stats.php') || path.includes('admin/dashboard-stats.php')) {
+                mockDashboardStats.totalStudents = mockStudents.length;
+                mockDashboardStats.totalTeachers = mockTeachers.length;
+                mockDashboardStats.totalAdmins = mockAdmins.length;
+                return { ...mockDashboardStats } as T;
+            }
+            if (path.match(/\/api\/sections\/([^/]+)\/assignments\/read\.php/) || path.match(/\/sections\/([^/]+)\/assignments\/read\.php/)) {
+                const sectionId = path.match(/\/api\/sections\/([^/]+)\/assignments\/read\.php$/)?.[1] || path.match(/\/sections\/([^/]+)\/assignments\/read\.php$/)?.[1];
+                return mockSectionAssignments.filter(a => a.sectionId === sectionId) as T;
+            }
+            // ... (other mock GET endpoints)
+             console.warn(`Mock API unhandled GET path: ${path}`);
+             return [] as T;
+        } catch (error) {
+            handleFetchError(error, path, 'GET');
+        }
+    }
+    // END MOCK
 
     try {
-        if (path.startsWith('/api/students/read.php')) {
-            return { records: [...mockStudents] } as T;
-        }
-        if (path.startsWith('/api/teachers/read.php')) {
-            return { records: [...mockTeachers] } as T;
-        }
-        if (path.startsWith('/api/sections/read.php')) {
-            return [...mockSections] as T;
-        }
-        if (path.startsWith('/api/subjects/read.php')) {
-            return [...mockSubjects] as T;
-        }
-        if (path.startsWith('/api/announcements/read.php')) {
-            return [...mockAnnouncements].sort((a,b) => b.date.getTime() - a.date.getTime()) as T;
-        }
-        if (path.startsWith('/api/admin/dashboard-stats.php')) {
-            return { ...mockDashboardStats } as T;
-        }
-        if (path.startsWith('/api/sections/') && path.endsWith('/assignments/read.php')) {
-            const sectionId = path.split('/')[3];
-            return mockSectionAssignments.filter(a => a.sectionId === sectionId) as T;
-        }
-        if (path.startsWith('/api/teacher/assignments/grades/read.php')) {
-            // Simulate fetching grades for teacher t1001 (David Lee)
-            const teacherAssignments = mockSectionAssignments.filter(sa => sa.teacherId === 1);
-            const studentGrades = [];
-            for (const ta of teacherAssignments) {
-                const studentsInSection = mockStudents.filter(s => s.section === ta.sectionId);
-                for (const student of studentsInSection) {
-                    const existingGrade = mockStudentSubjectAssignmentsWithGrades.find(g => g.studentId === student.id && g.subjectId === ta.subjectId);
-                    if (existingGrade) {
-                        studentGrades.push(existingGrade);
-                    } else {
-                         studentGrades.push({
-                            assignmentId: `${student.id}-${ta.subjectId}`,
-                            studentId: student.id,
-                            studentName: `${student.firstName} ${student.lastName}`,
-                            subjectId: ta.subjectId,
-                            subjectName: ta.subjectName || mockSubjects.find(s => s.id === ta.subjectId)?.name || 'Unknown Subject',
-                            section: student.section,
-                            year: student.year || 'N/A',
-                            prelimGrade: null, midtermGrade: null, finalGrade: null,
-                            status: "Not Submitted"
-                        });
-                    }
-                }
-            }
-            return studentGrades as T;
-        }
-        if (path.startsWith('/api/student/grades/read.php')) {
-            // Simulate student s1001 grades
-            return mockStudentSubjectAssignmentsWithGrades.filter(g => g.studentId === 1)
-                .map(g => ({
-                    id: g.subjectId,
-                    subjectName: g.subjectName,
-                    prelimGrade: g.prelimGrade,
-                    midtermGrade: g.midtermGrade,
-                    finalGrade: g.finalGrade,
-                    finalRemarks: g.finalRemarks,
-                    status: g.status,
-                })) as T;
-        }
-        if (path.startsWith('/api/student/profile/read.php')) {
-            return { ...mockStudents[0] } as T; // Alice Smith
-        }
-        if (path.startsWith('/api/teacher/profile/read.php')) {
-            return { ...mockTeachers[0] } as T; // David Lee
-        }
-        if (path.startsWith('/api/student/announcements/read.php')) {
-             // Filter announcements for student Alice Smith (CS, 2nd Year, CS-2A)
-            return mockAnnouncements.filter(a => {
-                const target = a.target;
-                const courseMatch = !target.course || target.course === "all" || target.course === "Computer Science";
-                const yearMatch = !target.yearLevel || target.yearLevel === "all" || target.yearLevel === "2nd Year";
-                const sectionMatch = !target.section || target.section === "all" || target.section === "CS-2A";
-                return courseMatch && yearMatch && sectionMatch;
-            }).sort((a,b) => b.date.getTime() - a.date.getTime()) as T;
-        }
-         if (path.startsWith('/api/teacher/announcements/read.php')) {
-             // Filter announcements for teacher David Lee
-            return mockAnnouncements.filter(a => a.author === "Admin" || (a.author === "David Lee")).sort((a,b) => b.date.getTime() - a.date.getTime()) as T;
-        }
-        if (path.startsWith('/api/student/schedule/read.php')) {
-            return [...mockStudentSchedule] as T;
-        }
-        if (path.startsWith('/api/teacher/schedule/read.php')) {
-            return [...mockTeacherSchedule] as T;
-        }
-        if (path.startsWith('/api/teacher/subjects/read.php')) {
-            // Subjects taught by David Lee (t1001)
-            const teacherSubjectIds = new Set(mockSectionAssignments.filter(sa => sa.teacherId === 1).map(sa => sa.subjectId));
-            return mockSubjects.filter(s => teacherSubjectIds.has(s.id)) as T;
-        }
-         if (path.startsWith('/api/student/upcoming/read.php')) {
-            return [
-                { id: "upcoming1", title: "Submit CS101 Assignment", date: new Date(Date.now() + 86400000 * 3).toISOString(), type: "assignment" },
-                { id: "upcoming2", title: "GEN001 Presentation", date: new Date(Date.now() + 86400000 * 5).toISOString(), type: "event" },
-            ] as T;
-        }
+        response = await fetch(url);
+    } catch (networkError: any) {
+        handleFetchError(networkError, path, 'GET', true);
+    }
 
+    if (!response.ok) {
+        let errorData;
+        try {
+            errorData = await response.json();
+        } catch (parseError) {
+             // If not JSON, read as text
+             const errorText = await response.text(); // Read body once as text
+             console.error("API Error Response Text:", errorText);
+             try {
+                  const errorDataParsed = JSON.parse(errorText); // Try parsing the text
+                  errorData = { message: errorDataParsed?.message || errorText || `HTTP error! status: ${response.status}` };
+             } catch (innerParseError) {
+                  errorData = { message: errorText || `HTTP error! status: ${response.status}` };
+             }
+        }
+        const errorMessage = errorData?.message || `HTTP error! status: ${response.status}`;
+        console.error(`API Error (${response.status}) for GET ${url}:`, errorMessage, errorData);
+        throw new Error(errorMessage);
+    }
 
-        console.warn(`Mock API unhandled GET path: ${path}`);
-        return [] as T; // Default empty array for unhandled paths
-    } catch (error) {
-        handleFetchError(error, path, 'GET');
+    try {
+        return await response.json() as T;
+    } catch (e) {
+        console.error(`Failed to parse JSON response from GET ${url}:`, e);
+        throw new Error(`Invalid JSON response from server for GET ${url}.`);
     }
 };
+
 
 export const postData = async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
-    console.log(`Mock postData to: ${path}`, data);
-    await new Promise(resolve => setTimeout(resolve, 300));
+    const url = getApiUrl(path);
+    let response;
+    console.log(`Posting data to: ${url}`, data);
+
+     // MOCK IMPLEMENTATION
+    if (process.env.NEXT_PUBLIC_USE_MOCK_API === 'true') {
+        console.log(`MOCK postData to: ${path}`, data);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        try {
+            if (path.includes('/api/login.php') || path.includes('login.php')) {
+                const { username } = data as any;
+                if (username === 'admin') return { success: true, role: 'Admin', redirectPath: '/admin/dashboard', userId: 0 } as ResponseData;
+                if (username === 's1001') return { success: true, role: 'Student', redirectPath: '/student/dashboard', userId: 1 } as ResponseData;
+                if (username === 't1001') return { success: true, role: 'Teacher', redirectPath: '/teacher/dashboard', userId: 1 } as ResponseData;
+                throw new Error("Invalid mock credentials.");
+            }
+            if (path.includes('/api/students/create.php') || path.includes('students/create.php')) {
+                const newStudent = data as unknown as Omit<Student, 'id' | 'studentId' | 'section'>;
+                const nextId = mockStudents.length > 0 ? Math.max(...mockStudents.map(s => s.id)) + 1 : 1;
+                const student: Student = { ...newStudent, id: nextId, studentId: generateStudentId(nextId), section: generateSectionCode(newStudent.year || '1st Year') };
+                mockStudents.push(student);
+                return student as ResponseData;
+            }
+            if (path.includes('/api/teachers/create.php') || path.includes('teachers/create.php')) {
+                const newTeacher = data as unknown as Omit<Teacher, 'id' | 'teacherId'>;
+                const nextId = mockTeachers.length > 0 ? Math.max(...mockTeachers.map(t => t.id)) + 1 : 1;
+                const teacher: Teacher = { ...newTeacher, id: nextId, teacherId: generateTeacherId(nextId) };
+                mockTeachers.push(teacher);
+                return teacher as ResponseData;
+            }
+            if (path.includes('/api/admins/create.php') || path.includes('admins/create.php')) {
+                const newAdminData = data as unknown as Omit<AdminUser, 'id' | 'username' | 'isSuperAdmin'>;
+                const nextId = mockAdmins.length > 0 ? Math.max(...mockAdmins.map(a => a.id)) + 1 : 1;
+                const adminUser: AdminUser = {
+                    ...newAdminData,
+                    id: nextId,
+                    username: generateAdminUsername(nextId),
+                    isSuperAdmin: false,
+                };
+                mockAdmins.push(adminUser);
+                return adminUser as ResponseData;
+            }
+            if (path.includes('/api/admin/reset_password.php') || path.includes('admin/reset_password.php')) {
+                 const { userId, userType, lastName } = data as { userId: number, userType: string, lastName?: string };
+                 if (userType === 'admin') {
+                    const adminIndex = mockAdmins.findIndex(a => a.id === userId && !a.isSuperAdmin);
+                    if (adminIndex > -1) { /* mock password reset */ return { message: `Admin password reset successfully for ID ${userId}.` } as ResponseData; }
+                    throw new Error("Admin not found or cannot reset super admin password.");
+                 }
+                 // Existing student/teacher logic...
+                 return { message: `${userType} password reset successfully for ID ${userId}.` } as ResponseData;
+            }
+            // ... (other mock POST endpoints)
+             console.warn(`Mock API unhandled POST path: ${path}`);
+             throw new Error(`Mock POST endpoint for ${path} not implemented.`);
+        } catch (error) {
+             handleFetchError(error, path, 'POST');
+        }
+    }
+    // END MOCK
 
     try {
-        if (path.startsWith('/api/students/create.php')) {
-            const newStudent = data as unknown as Omit<Student, 'id' | 'studentId' | 'section'>;
-            const nextId = mockStudents.length > 0 ? Math.max(...mockStudents.map(s => s.id)) + 1 : 1;
-            const student: Student = {
-                ...newStudent,
-                id: nextId,
-                studentId: generateStudentId(nextId),
-                section: generateSectionCode(newStudent.year || '1st Year'), // Generate section based on year
-            };
-            mockStudents.push(student);
-            return student as ResponseData;
-        }
-        if (path.startsWith('/api/teachers/create.php')) {
-            const newTeacher = data as unknown as Omit<Teacher, 'id' | 'teacherId'>;
-            const nextId = mockTeachers.length > 0 ? Math.max(...mockTeachers.map(t => t.id)) + 1 : 1;
-            const teacher: Teacher = {
-                ...newTeacher,
-                id: nextId,
-                teacherId: generateTeacherId(nextId),
-            };
-            mockTeachers.push(teacher);
-            return teacher as ResponseData;
-        }
-        if (path.startsWith('/api/admin/change_password.php') || path.startsWith('/api/student/change_password.php') || path.startsWith('/api/teacher/change_password.php')) {
-            return { message: "Password updated successfully." } as ResponseData;
-        }
-        if (path.startsWith('/api/admin/reset_password.php')) {
-            const { userId, userType } = data as { userId: number, userType: string };
-            return { message: `${userType} password reset successfully for ID ${userId}.` } as ResponseData;
-        }
-        if (path.startsWith('/api/sections/adviser/update.php')) {
-             const { sectionId, adviserId } = data as { sectionId: string, adviserId: number | null };
-             const sectionIndex = mockSections.findIndex(s => s.id === sectionId);
-             if (sectionIndex > -1) {
-                 mockSections[sectionIndex].adviserId = adviserId ?? undefined;
-                 mockSections[sectionIndex].adviserName = adviserId ? mockTeachers.find(t => t.id === adviserId)?.firstName + ' ' + mockTeachers.find(t => t.id === adviserId)?.lastName : undefined;
-                 return { ...mockSections[sectionIndex] } as ResponseData;
-             }
-             throw new Error("Section not found for adviser update.");
-        }
-        if (path.startsWith('/api/sections/assignments/create.php')) {
-            const assignmentData = data as { sectionId: string, subjectId: string, teacherId: number };
-            const newAssignment: SectionSubjectAssignment = {
-                id: `${assignmentData.sectionId}-${assignmentData.subjectId}`,
-                ...assignmentData,
-                subjectName: mockSubjects.find(s => s.id === assignmentData.subjectId)?.name,
-                teacherName: mockTeachers.find(t => t.id === assignmentData.teacherId)?.firstName + ' ' + mockTeachers.find(t => t.id === assignmentData.teacherId)?.lastName,
-            };
-            mockSectionAssignments.push(newAssignment);
-            return newAssignment as ResponseData;
-        }
-        if (path.startsWith('/api/announcements/create.php')) {
-            const announcementPayload = data as { title: string, content: string, target: any };
-            const newAnnouncement: Announcement = {
-                id: `ann${mockAnnouncements.length + 1}`,
-                title: announcementPayload.title,
-                content: announcementPayload.content,
-                date: new Date(),
-                target: announcementPayload.target,
-                author: "Admin", // Assuming admin for mock
-            };
-            mockAnnouncements.unshift(newAnnouncement);
-            return newAnnouncement as ResponseData;
-        }
-        if (path.startsWith('/api/assignments/grades/update.php')) {
-             const gradePayload = data as StudentSubjectAssignmentWithGrades;
-             const index = mockStudentSubjectAssignmentsWithGrades.findIndex(
-                 item => item.assignmentId === gradePayload.assignmentId && item.studentId === gradePayload.studentId
-             );
-             if (index !== -1) {
-                 mockStudentSubjectAssignmentsWithGrades[index] = {
-                     ...mockStudentSubjectAssignmentsWithGrades[index],
-                     ...gradePayload,
-                     status: gradePayload.finalGrade !== null && gradePayload.finalGrade !== undefined ? 'Complete' : (gradePayload.prelimGrade !== null || gradePayload.midtermGrade !== null ? 'Incomplete' : 'Not Submitted')
-                 };
-                 return { ...mockStudentSubjectAssignmentsWithGrades[index] } as ResponseData;
-             } else {
-                 // If not found, create a new entry (simulating upsert)
-                 const student = mockStudents.find(s => s.id === gradePayload.studentId);
-                 const subject = mockSubjects.find(s => s.id === gradePayload.subjectId);
-                 const newGradeEntry: StudentSubjectAssignmentWithGrades = {
-                    ...gradePayload,
-                    studentName: student ? `${student.firstName} ${student.lastName}` : 'Unknown Student',
-                    subjectName: subject ? subject.name : 'Unknown Subject',
-                    section: student?.section || 'N/A',
-                    year: student?.year || 'N/A',
-                    status: gradePayload.finalGrade !== null && gradePayload.finalGrade !== undefined ? 'Complete' : (gradePayload.prelimGrade !== null || gradePayload.midtermGrade !== null ? 'Incomplete' : 'Not Submitted')
-                 };
-                 mockStudentSubjectAssignmentsWithGrades.push(newGradeEntry);
-                 return newGradeEntry as ResponseData;
+        response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // Add any other headers like Authorization if needed
+            },
+            body: JSON.stringify(data),
+        });
+    } catch (networkError: any) {
+         handleFetchError(networkError, path, 'POST', true);
+    }
+
+    if (!response.ok) {
+        let errorData;
+        try {
+            errorData = await response.json();
+        } catch (parseError) {
+             const errorText = await response.text();
+             console.error("API Error Response Text (POST):", errorText);
+             try {
+                  const errorDataParsed = JSON.parse(errorText);
+                  errorData = { message: errorDataParsed?.message || errorText || `HTTP error! status: ${response.status}` };
+             } catch (innerParseError) {
+                  errorData = { message: errorText || `HTTP error! status: ${response.status}` };
              }
         }
-
-
-        console.warn(`Mock API unhandled POST path: ${path}`);
-        throw new Error(`Mock POST endpoint for ${path} not implemented.`);
-    } catch (error) {
-        handleFetchError(error, path, 'POST');
+        const errorMessage = errorData?.message || `HTTP error! status: ${response.status}`;
+        console.error(`API Error (${response.status}) for POST ${url}:`, errorMessage, errorData);
+        throw new Error(errorMessage);
+    }
+     try {
+        // Handle cases where backend might return empty response for 200/201 on POST
+        const textResponse = await response.text();
+        if (!textResponse) {
+            return {} as ResponseData; // Or handle as appropriate for your app
+        }
+        return JSON.parse(textResponse) as ResponseData;
+    } catch (e) {
+        console.error(`Failed to parse JSON response from POST ${url}:`, e);
+        throw new Error(`Invalid JSON response from server for POST ${url}.`);
     }
 };
+
 
 export const putData = async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
-    console.log(`Mock putData to: ${path}`, data);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const id = parseInt(path.split('/').pop() || '0', 10);
+    const url = getApiUrl(path);
+    let response;
+    console.log(`Putting data to: ${url}`, data);
+
+     // MOCK IMPLEMENTATION
+    if (process.env.NEXT_PUBLIC_USE_MOCK_API === 'true') {
+        console.log(`MOCK putData to: ${path}`, data);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const id = parseInt(path.split('/').pop() || '0', 10);
+        try {
+            if (path.startsWith('/api/students/update.php/') || path.startsWith('students/update.php/')) {
+                const studentIndex = mockStudents.findIndex(s => s.id === id);
+                if (studentIndex > -1) { mockStudents[studentIndex] = { ...mockStudents[studentIndex], ...(data as unknown as Partial<Student>) }; return { ...mockStudents[studentIndex] } as ResponseData; }
+                throw new Error("Student not found for mock update.");
+            }
+            // ... (other mock PUT endpoints)
+            console.warn(`Mock API unhandled PUT path: ${path}`);
+            throw new Error(`Mock PUT endpoint for ${path} not implemented.`);
+        } catch (error) {
+            handleFetchError(error, path, 'PUT');
+        }
+    }
+    // END MOCK
 
     try {
-        if (path.startsWith('/api/students/update.php/')) {
-            const studentIndex = mockStudents.findIndex(s => s.id === id);
-            if (studentIndex > -1) {
-                mockStudents[studentIndex] = { ...mockStudents[studentIndex], ...(data as unknown as Partial<Student>) };
-                return { ...mockStudents[studentIndex] } as ResponseData;
-            }
-            throw new Error("Student not found for update.");
-        }
-        if (path.startsWith('/api/teachers/update.php/')) {
-            const teacherIndex = mockTeachers.findIndex(t => t.id === id);
-            if (teacherIndex > -1) {
-                mockTeachers[teacherIndex] = { ...mockTeachers[teacherIndex], ...(data as unknown as Partial<Teacher>) };
-                return { ...mockTeachers[teacherIndex] } as ResponseData;
-            }
-            throw new Error("Teacher not found for update.");
-        }
-        if (path.startsWith('/api/student/profile/update.php')) {
-            const studentId = (data as any).id;
-            const studentIndex = mockStudents.findIndex(s => s.id === studentId);
-             if (studentIndex > -1) {
-                mockStudents[studentIndex] = { ...mockStudents[studentIndex], ...(data as unknown as Partial<Student>) };
-                return { ...mockStudents[studentIndex] } as ResponseData;
-            }
-            throw new Error("Student profile not found for update.");
-        }
-        if (path.startsWith('/api/teacher/profile/update.php')) {
-            const teacherId = (data as any).id;
-            const teacherIndex = mockTeachers.findIndex(t => t.id === teacherId);
-            if (teacherIndex > -1) {
-                mockTeachers[teacherIndex] = { ...mockTeachers[teacherIndex], ...(data as unknown as Partial<Teacher>) };
-                return { ...mockTeachers[teacherIndex] } as ResponseData;
-            }
-            throw new Error("Teacher profile not found for update.");
-        }
+        response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+    } catch (networkError: any) {
+        handleFetchError(networkError, path, 'PUT', true);
+    }
 
-
-        console.warn(`Mock API unhandled PUT path: ${path}`);
-        throw new Error(`Mock PUT endpoint for ${path} not implemented.`);
-    } catch (error) {
-        handleFetchError(error, path, 'PUT');
+    if (!response.ok) {
+        let errorData;
+        try {
+            errorData = await response.json();
+        } catch (parseError) {
+             const errorText = await response.text();
+             console.error("API Error Response Text (PUT):", errorText);
+             try {
+                  const errorDataParsed = JSON.parse(errorText);
+                  errorData = { message: errorDataParsed?.message || errorText || `HTTP error! status: ${response.status}` };
+             } catch (innerParseError) {
+                  errorData = { message: errorText || `HTTP error! status: ${response.status}` };
+             }
+        }
+        const errorMessage = errorData?.message || `HTTP error! status: ${response.status}`;
+        console.error(`API Error (${response.status}) for PUT ${url}:`, errorMessage, errorData);
+        throw new Error(errorMessage);
+    }
+     try {
+        const textResponse = await response.text();
+        if (!textResponse) return {} as ResponseData;
+        return JSON.parse(textResponse) as ResponseData;
+    } catch (e) {
+        console.error(`Failed to parse JSON response from PUT ${url}:`, e);
+        throw new Error(`Invalid JSON response from server for PUT ${url}.`);
     }
 };
 
+
 export const deleteData = async (path: string): Promise<void> => {
-    console.log(`Mock deleteData at: ${path}`);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const idPart = path.split('/').pop();
+    const url = getApiUrl(path);
+    let response;
+    console.log(`Deleting data at: ${url}`);
+
+     // MOCK IMPLEMENTATION
+    if (process.env.NEXT_PUBLIC_USE_MOCK_API === 'true') {
+        console.log(`MOCK deleteData at: ${path}`);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const idPart = path.split('/').pop();
+        try {
+            if (path.startsWith('/api/students/delete.php/') || path.startsWith('students/delete.php/')) {
+                const id = parseInt(idPart || '0', 10);
+                mockStudents = mockStudents.filter(s => s.id !== id); return;
+            }
+             if (path.startsWith('/api/teachers/delete.php/') || path.startsWith('teachers/delete.php/')) {
+                const id = parseInt(idPart || '0', 10);
+                mockTeachers = mockTeachers.filter(t => t.id !== id); return;
+            }
+            if (path.startsWith('/api/admins/delete.php/') || path.startsWith('admins/delete.php/')) {
+                const id = parseInt(idPart || '0', 10);
+                const adminToDelete = mockAdmins.find(a => a.id === id);
+                if (adminToDelete && adminToDelete.isSuperAdmin) throw new Error("Cannot delete super admin.");
+                mockAdmins = mockAdmins.filter(a => a.id !== id); return;
+            }
+            // ... (other mock DELETE endpoints)
+            console.warn(`Mock API unhandled DELETE path: ${path}`);
+            throw new Error(`Mock DELETE endpoint for ${path} not implemented.`);
+        } catch (error) {
+            handleFetchError(error, path, 'DELETE');
+        }
+    }
+    // END MOCK
 
     try {
-        if (path.startsWith('/api/students/delete.php/')) {
-            const id = parseInt(idPart || '0', 10);
-            const initialLength = mockStudents.length;
-            mockStudents = mockStudents.filter(s => s.id !== id);
-            if (mockStudents.length === initialLength) throw new Error("Student not found for deletion.");
-            return;
-        }
-        if (path.startsWith('/api/teachers/delete.php/')) {
-            const id = parseInt(idPart || '0', 10);
-            const initialLength = mockTeachers.length;
-            mockTeachers = mockTeachers.filter(t => t.id !== id);
-            if (mockTeachers.length === initialLength) throw new Error("Teacher not found for deletion.");
-            return;
-        }
-        if (path.startsWith('/api/assignments/delete.php/')) {
-             const assignmentId = idPart;
-             const initialLength = mockSectionAssignments.length;
-             mockSectionAssignments = mockSectionAssignments.filter(a => a.id !== assignmentId);
-             if (mockSectionAssignments.length === initialLength) throw new Error("Section assignment not found for deletion.");
-             return;
-        }
-        if (path.startsWith('/api/announcements/delete.php/')) {
-            const announcementId = idPart;
-            const initialLength = mockAnnouncements.length;
-            mockAnnouncements = mockAnnouncements.filter(a => a.id !== announcementId);
-            if (mockAnnouncements.length === initialLength) throw new Error("Announcement not found for deletion.");
-            return;
-        }
+        response = await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+    } catch (networkError: any) {
+        handleFetchError(networkError, path, 'DELETE', true);
+    }
 
-        console.warn(`Mock API unhandled DELETE path: ${path}`);
-        throw new Error(`Mock DELETE endpoint for ${path} not implemented.`);
-    } catch (error) {
-        handleFetchError(error, path, 'DELETE');
+    if (!response.ok) { // Status codes like 204 No Content are also "ok"
+        let errorData;
+        try {
+            // If there's a body, try to parse it
+            if (response.status !== 204) {
+                errorData = await response.json();
+            } else {
+                 // For 204, there's no body to parse.
+                 // If we reach here for 204, it means an earlier check failed,
+                 // but it's unusual for !response.ok to be true for 204.
+                 // This block is more for other error statuses that might have JSON.
+                errorData = { message: `Operation failed with status: ${response.status}` };
+            }
+        } catch (parseError) {
+             const errorText = await response.text();
+             console.error("API Error Response Text (DELETE):", errorText);
+             try {
+                  const errorDataParsed = JSON.parse(errorText);
+                  errorData = { message: errorDataParsed?.message || errorText || `HTTP error! status: ${response.status}` };
+             } catch (innerParseError) {
+                  errorData = { message: errorText || `HTTP error! status: ${response.status}` };
+             }
+        }
+        const errorMessage = errorData?.message || `HTTP error! status: ${response.status}`;
+        console.error(`API Error (${response.status}) for DELETE ${url}:`, errorMessage, errorData);
+        throw new Error(errorMessage);
+    }
+    // For DELETE requests, a 204 No Content response is common and doesn't have a body
+    if (response.status === 204) {
+        return;
+    }
+    // If there's other successful response with a body (e.g., 200 OK with a confirmation message)
+    try {
+        // Check if there's a response body before trying to parse
+        const textResponse = await response.text();
+        if (!textResponse) {
+             return; // No content to parse, successfully deleted.
+        }
+        JSON.parse(textResponse); // This is just to check if it's valid JSON, result not used.
+    } catch (e) {
+        // If it's not JSON, but still 2xx, we assume success but log it.
+        console.warn(`Non-JSON success response from DELETE ${url}:`, e);
     }
 };

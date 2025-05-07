@@ -16,6 +16,11 @@ export function generateTeacherId(dbId: number): string {
     return `t${1000 + dbId}`;
 }
 
+// Helper function to generate admin username (e.g., a1001)
+export function generateAdminUsername(dbId: number): string {
+    return `a${1000 + dbId}`;
+}
+
 // Helper function to generate section code (e.g., 10A, 20B)
 export function generateSectionCode(year: string): string {
     const yearPrefixMap: { [key: string]: string } = {
@@ -28,6 +33,8 @@ export function generateSectionCode(year: string): string {
 
     // Simple logic to cycle through A, B, C based on some counter or random for mock
     // For a real system, this needs to be more robust, e.g., count existing sections for that year.
-    const randomLetter = String.fromCharCode(65 + (Math.floor(Math.random() * 3))); // A, B, or C
-    return `${prefix}${randomLetter}`;
+    // For now, let's use a pseudo-random letter based on current time to vary it a bit for mocks
+    const letters = ['A', 'B', 'C', 'D'];
+    const letterIndex = Math.floor(Math.random() * letters.length); // More random sections for mock
+    return `${prefix}${letters[letterIndex]}`;
 }

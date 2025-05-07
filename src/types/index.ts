@@ -84,7 +84,7 @@ export interface Announcement {
     id: string; // Unique identifier
     title: string;
     content: string;
-    date: Date;
+    date: Date; // Changed to Date type
     target: {
         course?: string | 'all'; // Specific course or 'all'
         yearLevel?: string | 'all'; // Specific year level or 'all'
@@ -137,6 +137,25 @@ export interface StudentTermGrade {
     finalGrade?: number | null; // Numeric grade only
     finalRemarks?: string; // Optional final remark from teacher
     status: 'Not Submitted' | 'Incomplete' | 'Complete'; // Derived status
+}
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  isSuperAdmin?: boolean; // To differentiate the main admin
+  // password field should not be part of this type for security
+}
+
+// Interface for dashboard stats fetched from API
+export interface DashboardStats {
+    totalStudents: number;
+    totalTeachers: number;
+    totalAdmins: number; // Added totalAdmins
+    upcomingEvents: number;
+    // Add more stats as needed
 }
 
 

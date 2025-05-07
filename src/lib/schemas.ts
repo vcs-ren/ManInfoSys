@@ -50,6 +50,16 @@ export const teacherSchema = z.object({
   teacherId: z.string().optional(),
 });
 
+// Schema for adding a new admin (excluding super admin capabilities)
+export const adminUserSchema = z.object({
+  id: z.number().optional(), // For UserForm generic type, not used for creation path
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email address").optional().or(z.literal('')),
+  // username and password will be auto-generated or handled by a separate reset mechanism
+});
+
+
 // Schema for validating a single grade value (numeric 0-100 only)
 const gradeValueSchema = z.union([
     z.coerce.number().min(0, "Min 0").max(100, "Max 100").optional(), // Numeric 0-100
