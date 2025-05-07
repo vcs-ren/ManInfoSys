@@ -30,7 +30,7 @@ const allNavItems: NavItemGroup[] = [
             { href: '/admin/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
             { href: '/admin/students', label: 'Manage Students', icon: 'Users' },
             { href: '/admin/teachers', label: 'Manage Teachers', icon: 'UserCog' },
-            { href: '/admin/admins', label: 'Manage Admins', icon: 'ShieldAlert' }, // Added Manage Admins
+            // { href: '/admin/admins', label: 'Manage Admins', icon: 'ShieldAlert' }, // Removed Manage Admins
             { href: '/admin/assignments', label: 'Section Management', icon: 'ClipboardList' },
             { href: '/admin/settings', label: 'Settings', icon: 'Settings' },
         ]
