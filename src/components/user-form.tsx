@@ -138,7 +138,9 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
       //   title: `Success`,
       //   description: `${isEditMode ? 'User updated' : 'User added'} successfully.`,
       // });
-      setIsOpen(false);
+      if (setIsOpen) {
+        setIsOpen(false);
+      }
       form.reset();
     } catch (error: any) {
       console.error("Form submission error:", error);
@@ -188,7 +190,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                   value={field.value ? String(field.value) : undefined}
                   disabled={isDisabled}
                 >
-                  <SelectTrigger className="w-full h-9 text-sm">
+                  <SelectTrigger className="w-full text-sm"> {/* Removed h-9 */}
                     <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -223,7 +225,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                       field.onChange(e.target.value);
                     }
                   }}
-                  className="h-9 text-sm"
+                  className="text-sm" // Removed h-9
                   readOnly={isReadOnly} // Explicitly set readOnly for input
                 />
               )}
@@ -298,7 +300,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                         <FormLabel className="text-right text-sm">{idLabel}</FormLabel>
                                         <FormControl className="col-span-3">
                                             <Input
-                                                className="h-9 text-sm bg-muted"
+                                                className="text-sm bg-muted" // Removed h-9
                                                 value={idValue}
                                                 readOnly
                                                 disabled
@@ -313,7 +315,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                         <FormLabel className="text-right text-sm">Section</FormLabel>
                                         <FormControl className="col-span-3">
                                             <Input
-                                                className="h-9 text-sm bg-muted"
+                                                className="text-sm bg-muted" // Removed h-9
                                                 value={(initialData as Student).section || 'N/A'}
                                                 readOnly
                                                 disabled
@@ -335,7 +337,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                         <FormLabel className="text-right text-sm">{idLabel}</FormLabel>
                                         <FormControl className="col-span-3">
                                             <Input
-                                                className="h-9 text-sm bg-muted"
+                                                className="text-sm bg-muted" // Removed h-9
                                                 value={idValue}
                                                 readOnly
                                                 disabled
@@ -361,7 +363,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                             <FormLabel className="text-right text-sm">{usernameLabel}</FormLabel>
                                             <FormControl className="col-span-3">
                                                 <Input
-                                                    className="h-9 text-sm bg-muted"
+                                                    className="text-sm bg-muted" // Removed h-9
                                                     value={usernameValue}
                                                     readOnly
                                                     disabled
@@ -372,7 +374,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                             <FormLabel className="text-right text-sm">Password</FormLabel>
                                             <FormControl className="col-span-3">
                                                 <Input
-                                                    className="bg-muted text-muted-foreground italic h-9 text-sm"
+                                                    className="bg-muted text-muted-foreground italic text-sm" // Removed h-9
                                                     value="******** (Hidden)"
                                                     readOnly
                                                     disabled
@@ -400,7 +402,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
              {/* Footer with buttons - shown only when NOT read-only */}
             {!isReadOnly && (
                 <DialogFooter className="mt-4">
-                <Button type="button" variant="outline" onClick={isEditMode ? handleCancelEdit : () => setIsOpen(false)} disabled={form.formState.isSubmitting}>
+                <Button type="button" variant="outline" onClick={isEditMode ? handleCancelEdit : () => setIsOpen && setIsOpen(false)} disabled={form.formState.isSubmitting}>
                     Cancel
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting || (isEditMode && !form.formState.isDirty)}>
@@ -411,7 +413,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
              {/* Close button for read-only mode */}
              {isReadOnly && (
                   <DialogFooter className="mt-4">
-                     <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                     <Button type="button" variant="outline" onClick={() => setIsOpen && setIsOpen(false)}>
                          Close
                     </Button>
                   </DialogFooter>
@@ -422,3 +424,4 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     </Dialog>
   );
 }
+
