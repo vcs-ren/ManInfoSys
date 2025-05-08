@@ -69,7 +69,8 @@ export default function AdminDashboardPage() {
               <div className="text-2xl font-bold">{stats.totalTeachers}</div> {/* Backend key remains totalTeachers */}
             </CardContent>
           </Card>
-           <Card onClick={() => handleCardClick('/admin/admins')} className="cursor-pointer hover:shadow-md transition-shadow">
+           {/* Removed onClick and hover styles from this card */}
+           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
@@ -101,5 +102,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
