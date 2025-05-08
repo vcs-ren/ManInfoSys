@@ -17,13 +17,15 @@ export function generateStudentUsername(studentId: string): string {
 }
 
 // Renamed function to generate faculty ID (e.g., t1001)
+// Helper function to generate teacher ID based on department (e.g., t1001 or a1001)
 export function generateTeacherId(dbId: number): string { // Keep function name for compatibility with backend expectations if necessary
-    return `t${1000 + dbId}`; // Example: if dbId=1, teacherId='t1001'
+    return `${1000 + dbId}`;
 }
 
-// Helper function to generate faculty username (e.g., t1001)
+// Helper function to generate faculty username (e.g., t1001 or a1001)
 export function generateTeacherUsername(teacherId: string): string { // Keep function name for compatibility
-    return `${teacherId}`; // Username is the same as teacherId
+     return `${teacherId}`; // Username is the same as teacherId
+
 }
 
 // Helper function to generate admin username (e.g., a1001)
@@ -44,5 +46,3 @@ export function generateSectionCode(year: string): string {
     const letterIndex = Math.floor(Math.random() * letters.length);
     return `${prefix}${letters[letterIndex]}`;
 }
-
-    
