@@ -1,13 +1,13 @@
 
 'use client';
 
-import type { Student, Teacher, Section, Subject, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem } from '@/types';
-import { generateStudentUsername, generateTeacherId, generateSectionCode, generateAdminUsername, generateTeacherUsername } from '@/lib/utils'; // Updated imports
+import type { Student, Teacher, Section, Subject, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, AdminRole } from '@/types'; // Added Program, AdminRole
+import { generateStudentUsername, generateTeacherId, generateSectionCode, generateAdminUsername, generateTeacherUsername } from '@/lib/utils';
 
 // --- MOCK DATA STORE ---
-let nextStudentDbId = 3; // Start after initial mocks
+let nextStudentDbId = 3;
 let nextTeacherDbId = 3;
-let nextAdminDbId = 2;
+let nextAdminDbId = 2; // Start after initial mocks
 
 let mockStudents: Student[] = [
   { id: 1, studentId: "101", username: "s101", firstName: "Alice", lastName: "Smith", course: "Computer Science", status: "Returnee", year: "2nd Year", section: "CS-2A", email: "alice@example.com", phone: "123-456-7890", emergencyContactName: "John Smith", emergencyContactRelationship: "Father", emergencyContactPhone: "111-222-3333", emergencyContactAddress: "123 Main St" },
@@ -15,41 +15,61 @@ let mockStudents: Student[] = [
 ];
 
 let mockTeachers: Teacher[] = [
-  { id: 1, teacherId: "t1001", username: "t1001", firstName: "David", lastName: "Lee", department: "Computer Science", email: "david.lee@example.com", phone: "555-1234" },
-  { id: 2, teacherId: "t1002", username: "t1002", firstName: "Eve", lastName: "Davis", department: "Information Technology", email: "eve.davis@example.com" },
+  { id: 1, teacherId: "t1001", username: "t1001", firstName: "David", lastName: "Lee", department: "Computer Science", email: "david.lee@example.com", phone: "555-1234", employmentType: 'Regular' },
+  { id: 2, teacherId: "t1002", username: "t1002", firstName: "Eve", lastName: "Davis", department: "Information Technology", email: "eve.davis@example.com", employmentType: 'Part Time' },
 ];
 
+let mockPrograms: Program[] = [
+    { id: "CS", name: "Computer Science", description: "Focuses on algorithms, data structures, and software development.", courses: {
+        "1st Year": [{ id: "CS101", name: "Introduction to Programming", description: "Fundamentals of programming.", programId: "CS", yearLevel: "1st Year" }],
+        "2nd Year": [{ id: "CS201", name: "Data Structures", description: "Study of data organization.", programId: "CS", yearLevel: "2nd Year" }],
+        "3rd Year": [],
+        "4th Year": [],
+    }},
+    { id: "IT", name: "Information Technology", description: "Focuses on network administration, system management, and web technologies.", courses: {
+        "1st Year": [{ id: "IT101", name: "IT Fundamentals", description: "Basics of IT.", programId: "IT", yearLevel: "1st Year" }],
+        "2nd Year": [],
+        "3rd Year": [],
+        "4th Year": [],
+    }},
+];
+
+// Update mockSections to use programId
 let mockSections: Section[] = [
-    { id: "CS-1A", sectionCode: "CS-1A", course: "Computer Science", yearLevel: "1st Year", adviserId: 1, adviserName: "David Lee", studentCount: 0 }, // Updated student count
-    { id: "CS-2A", sectionCode: "CS-2A", course: "Computer Science", yearLevel: "2nd Year", adviserId: 1, adviserName: "David Lee", studentCount: 1 }, // Added CS-2A for Alice
-    { id: "IT-1B", sectionCode: "IT-1B", course: "Information Technology", yearLevel: "1st Year", studentCount: 1 },
+    { id: "CS-1A", sectionCode: "CS-1A", programId: "CS", programName: "Computer Science", yearLevel: "1st Year", adviserId: 1, adviserName: "David Lee", studentCount: 0 },
+    { id: "CS-2A", sectionCode: "CS-2A", programId: "CS", programName: "Computer Science", yearLevel: "2nd Year", adviserId: 1, adviserName: "David Lee", studentCount: 1 },
+    { id: "IT-1B", sectionCode: "IT-1B", programId: "IT", programName: "Information Technology", yearLevel: "1st Year", studentCount: 1 },
 ];
 
+// Add programId and yearLevel to mockSubjects
 let mockSubjects: Subject[] = [
-  { id: "CS101", name: "Introduction to Programming", description: "Basics of programming" },
-  { id: "IT202", name: "Networking Fundamentals", description: "Understanding computer networks" },
-  { id: "GEN001", name: "Purposive Communication", description: "Effective communication skills" },
+  { id: "CS101", name: "Introduction to Programming", description: "Basics of programming", programId: "CS", yearLevel: "1st Year" },
+  { id: "IT202", name: "Networking Fundamentals", description: "Understanding computer networks", programId: "IT", yearLevel: "2nd Year" }, // Example, might be IT
+  { id: "GEN001", name: "Purposive Communication", description: "Effective communication skills" }, // General subject, no specific program/year
+  { id: "CS201", name: "Data Structures", description: "Study of data organization.", programId: "CS", yearLevel: "2nd Year" },
+  { id: "IT101", name: "IT Fundamentals", description: "Basics of IT.", programId: "IT", yearLevel: "1st Year" },
+
 ];
 
 let mockSectionAssignments: SectionSubjectAssignment[] = [
-    { id: "CS-2A-CS101", sectionId: "CS-2A", subjectId: "CS101", subjectName: "Introduction to Programming", teacherId: 1, teacherName: "David Lee" },
-    { id: "IT-1B-IT202", sectionId: "IT-1B", subjectId: "IT202", subjectName: "Networking Fundamentals", teacherId: 2, teacherName: "Eve Davis" },
+    { id: "CS-2A-CS201", sectionId: "CS-2A", subjectId: "CS201", subjectName: "Data Structures", teacherId: 1, teacherName: "David Lee" },
+    { id: "IT-1B-IT101", sectionId: "IT-1B", subjectId: "IT101", subjectName: "IT Fundamentals", teacherId: 2, teacherName: "Eve Davis" },
 ];
 
+// Update mockAnnouncements target to use programId
 let mockAnnouncements: Announcement[] = [
-  { id: "ann1", title: "Welcome Back Students!", content: "Welcome to the new academic year.", date: new Date(2024, 7, 15), target: { course: "all" }, author: "Admin" },
+  { id: "ann1", title: "Welcome Back Students!", content: "Welcome to the new academic year.", date: new Date(2024, 7, 15), target: { programId: "all" }, author: "Admin" },
 ];
 
 let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[] = [
-    // Alice's grades (Student ID 1, Section CS-2A)
-    { assignmentId: "1-CS101", studentId: 1, studentName: "Alice Smith", subjectId: "CS101", subjectName: "Introduction to Programming", section: "CS-2A", year: "2nd Year", prelimGrade: 85, prelimRemarks: "Good start", midtermGrade: 90, midtermRemarks: "Excellent", finalGrade: 88, finalRemarks: "Very Good", status: "Complete" },
-    // Bob's grades (Student ID 2, Section IT-1B) - Example, maybe no grades yet
-    { assignmentId: "2-IT202", studentId: 2, studentName: "Bob Johnson", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "IT-1B", year: "1st Year", prelimGrade: null, prelimRemarks: "", midtermGrade: null, midtermRemarks: "", finalGrade: null, finalRemarks: "", status: "Not Submitted" },
+    { assignmentId: "1-CS201", studentId: 1, studentName: "Alice Smith", subjectId: "CS201", subjectName: "Data Structures", section: "CS-2A", year: "2nd Year", prelimGrade: 85, prelimRemarks: "Good start", midtermGrade: 90, midtermRemarks: "Excellent", finalGrade: 88, finalRemarks: "Very Good", status: "Complete" },
+    { assignmentId: "2-IT101", studentId: 2, studentName: "Bob Johnson", subjectId: "IT101", subjectName: "IT Fundamentals", section: "IT-1B", year: "1st Year", prelimGrade: null, prelimRemarks: "", midtermGrade: null, midtermRemarks: "", finalGrade: null, finalRemarks: "", status: "Not Submitted" },
 ];
 
+// Update mockAdmins to remove names and add role
 let mockAdmins: AdminUser[] = [
-    { id: 0, username: "admin", firstName: "Super", lastName: "Admin", email: "superadmin@example.com", isSuperAdmin: true },
-    { id: 1, username: "a1001", firstName: "Sub", lastName: "AdminOne", email: "subadmin1@example.com", isSuperAdmin: false }
+    { id: 0, username: "admin", email: "superadmin@example.com", role: "Super Admin", isSuperAdmin: true },
+    { id: 1, username: "a1001", email: "subadmin1@example.com", role: "Sub Admin", isSuperAdmin: false }
 ];
 
 let mockDashboardStats: DashboardStats = {
@@ -59,30 +79,28 @@ let mockDashboardStats: DashboardStats = {
     upcomingEvents: 1,
 };
 
-// Re-add mock test users for login - REMOVED PASSWORD CHECK
+// Update mockTestUsers for login (no password check anymore)
 let mockTestUsers = [
     { username: "admin", role: "Admin", userId: 0 },
-    { username: "s101", role: "Student", userId: 1 }, // Use username from mockStudents
-    { username: "t1001", role: "Teacher", userId: 1 }, // Use username from mockTeachers
+    { username: "s101", role: "Student", userId: 1 },
+    { username: "t1001", role: "Teacher", userId: 1 },
+    { username: "a1001", role: "Admin", userId: 1 }, // Add Sub Admin test user
 ];
 
-
 // --- API CONFIGURATION ---
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'; // Fallback for client-side
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'; // Use localhost:8000 for PHP backend
 
 const getApiUrl = (path: string): string => {
-    // Ensure the base URL doesn't have a trailing slash
     const baseUrl = API_BASE_URL.replace(/\/$/, '');
-    // Ensure the path starts with a slash
     const formattedPath = path.startsWith('/') ? path : `/${path}`;
-    // Remove '/api' prefix if it exists, as PHP paths are relative to src/api
+    // REMOVE /api prefix for PHP calls
     const finalPath = formattedPath.startsWith('/api/') ? formattedPath.substring(4) : formattedPath;
     return `${baseUrl}${finalPath}`;
 };
 
 // --- ERROR HANDLING ---
 const handleFetchError = (error: any, path: string, method: string, isNetworkError: boolean = false): never => {
-    const targetUrl = getApiUrl(path); // Calculate the target URL
+    const targetUrl = getApiUrl(path);
     let errorMessage = `Failed to ${method.toLowerCase()} data from ${targetUrl}.`;
     let detailedLog = `API Request Details:\n    - Method: ${method}\n    - URL: ${targetUrl}`;
 
@@ -96,7 +114,7 @@ const handleFetchError = (error: any, path: string, method: string, isNetworkErr
         Possible Causes & Checks:
         1. PHP Server Status: Is the PHP server running? Start it using: 'php -S localhost:8000 -t src/api' in your project's root terminal.
         2. Backend URL: Is the API_BASE_URL (${API_BASE_URL}) correct and accessible from your browser?
-        3. Endpoint Path: Is the API endpoint path "${path}" correct relative to the 'src/api' directory? (e.g., /login.php, /students/read.php)
+        3. Endpoint Path: Is the API endpoint path "${finalPath(path)}" correct relative to the 'src/api' directory? (e.g., /login.php, /students/read.php)
         4. CORS Policy: Is the PHP backend configured to allow requests from your frontend origin (${typeof window !== 'undefined' ? window.location.origin : 'N/A'})? Check 'Access-Control-Allow-Origin' headers in your PHP files.
         5. Firewall/Network: Could a firewall or network issue be blocking the connection?
         6. Browser Console: Check the browser's Network tab for the failed request details and the Console tab for specific CORS error messages.
@@ -111,38 +129,50 @@ const handleFetchError = (error: any, path: string, method: string, isNetworkErr
 
 
     console.error("Detailed Fetch Error Log:", detailedLog);
-    // Re-throw a new error with the processed, more user-friendly message
     throw new Error(errorMessage);
 };
 
+// Helper to get final path without /api/
+const finalPath = (path: string) => {
+     const formattedPath = path.startsWith('/') ? path : `/${path}`;
+     return formattedPath.startsWith('/api/') ? formattedPath.substring(4) : formattedPath;
+}
 
 // --- API HELPER FUNCTIONS ---
 export const fetchData = async <T>(path: string): Promise<T> => {
-    const url = getApiUrl(path);
-    let response;
-    console.log(`MOCK fetchData from: ${path}`);
+    const phpPath = finalPath(path); // Use the final path for mock logic matching
+    console.log(`MOCK fetchData from: ${phpPath}`);
     await new Promise(resolve => setTimeout(resolve, 200));
     try {
-        // Mock implementation remains the same as previous version
-        if (path.includes('students/read.php')) return [...mockStudents] as T;
-        if (path.includes('teachers/read.php')) return [...mockTeachers] as T;
-        if (path.includes('admins/read.php')) return [...mockAdmins] as T;
-        if (path.includes('sections/read.php')) return [...mockSections] as T;
-        if (path.includes('subjects/read.php')) return [...mockSubjects] as T;
-        if (path.includes('announcements/read.php') || path.includes('student/announcements/read.php') || path.includes('teacher/announcements/read.php')) {
+        if (phpPath === '/students/read.php') return [...mockStudents] as T;
+        if (phpPath === '/teachers/read.php') return [...mockTeachers] as T;
+        if (phpPath === '/admins/read.php') return [...mockAdmins] as T;
+        if (phpPath === '/programs/read.php') return [...mockPrograms] as T; // Added programs endpoint
+        if (phpPath === '/sections/read.php') {
+             return [...mockSections.map(s => ({
+                 ...s,
+                 programName: mockPrograms.find(p => p.id === s.programId)?.name || s.programId, // Add programName
+             }))] as T;
+        }
+        if (phpPath === '/subjects/read.php') return [...mockSubjects] as T;
+        if (phpPath === '/announcements/read.php' || phpPath === '/student/announcements/read.php' || phpPath === '/teacher/announcements/read.php') {
             return [...mockAnnouncements].sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
-        if (path.includes('admin/dashboard-stats.php')) {
+        if (phpPath === '/admin/dashboard-stats.php') {
             mockDashboardStats.totalStudents = mockStudents.length;
             mockDashboardStats.totalTeachers = mockTeachers.length;
             mockDashboardStats.totalAdmins = mockAdmins.length;
             return { ...mockDashboardStats } as T;
         }
-         if (path.match(/sections\/([^/]+)\/assignments\/read\.php/)) {
-            const sectionId = path.match(/sections\/([^/]+)\/assignments\/read\.php$/)?.[1];
-            return mockSectionAssignments.filter(a => a.sectionId === sectionId) as T;
+         if (phpPath.match(/^\/sections\/([^/]+)\/assignments$/)) { // Adjusted regex
+            const sectionId = phpPath.match(/^\/sections\/([^/]+)\/assignments$/)?.[1];
+             return mockSectionAssignments.filter(a => a.sectionId === sectionId).map(a => ({
+                 ...a,
+                 subjectName: mockSubjects.find(s => s.id === a.subjectId)?.name || a.subjectId, // Add subjectName
+                 teacherName: mockTeachers.find(t => t.id === a.teacherId)?.firstName + ' ' + mockTeachers.find(t => t.id === a.teacherId)?.lastName || `Teacher ID ${a.teacherId}`, // Add teacherName
+             })) as T;
         }
-         if (path.includes('student/grades/read.php')) {
+         if (phpPath === '/student/grades/read.php') {
              const studentGrades = mockStudentSubjectAssignmentsWithGrades
                 .filter(g => g.studentId === 1) // Assuming student ID 1 for mock
                 .map(g => ({
@@ -156,24 +186,23 @@ export const fetchData = async <T>(path: string): Promise<T> => {
                 }));
             return studentGrades as T;
         }
-         if (path.includes('teacher/assignments/grades/read.php')) {
-             // Assuming teacher ID 1 for mock
+         if (phpPath === '/teacher/assignments/grades/read.php') {
              return mockStudentSubjectAssignmentsWithGrades.filter(g => {
                  const assignment = mockSectionAssignments.find(a => a.subjectId === g.subjectId && g.section === a.sectionId);
-                 return assignment?.teacherId === 1;
+                 return assignment?.teacherId === 1; // Assuming teacher ID 1
              }) as T;
          }
-         if (path.includes('student/profile/read.php')) {
+         if (phpPath === '/student/profile/read.php') {
              const student = mockStudents.find(s => s.id === 1); // Assuming student ID 1
-             if (student) return { ...student } as T; // Return a copy
+             if (student) return { ...student } as T;
              throw new Error("Mock student profile not found.");
         }
-        if (path.includes('teacher/profile/read.php')) {
+        if (phpPath === '/teacher/profile/read.php') {
              const teacher = mockTeachers.find(t => t.id === 1); // Assuming teacher ID 1
-             if (teacher) return { ...teacher } as T; // Return a copy
+             if (teacher) return { ...teacher } as T;
              throw new Error("Mock teacher profile not found.");
         }
-         if (path.includes('student/schedule/read.php')) {
+         if (phpPath === '/student/schedule/read.php') {
             const studentSection = mockStudents.find(s => s.id === 1)?.section; // Assuming student ID 1
             const schedule: ScheduleEntry[] = [];
             mockSectionAssignments
@@ -187,7 +216,7 @@ export const fetchData = async <T>(path: string): Promise<T> => {
                      endTime.setHours(startTime.getHours() + 1);
                      schedule.push({
                         id: `${assign.id}-${formatDate(startTime)}`,
-                        title: `${assign.subjectName} - ${assign.sectionId}`,
+                        title: `${assign.subjectName || assign.subjectId} - ${assign.sectionId}`,
                         start: startTime,
                         end: endTime,
                         type: 'class',
@@ -197,7 +226,7 @@ export const fetchData = async <T>(path: string): Promise<T> => {
                 });
              return schedule as T;
         }
-         if (path.includes('teacher/schedule/read.php')) {
+         if (phpPath === '/teacher/schedule/read.php') {
             const schedule: ScheduleEntry[] = [];
             mockSectionAssignments
                 .filter(a => a.teacherId === 1) // Assuming teacher ID 1
@@ -210,7 +239,7 @@ export const fetchData = async <T>(path: string): Promise<T> => {
                      endTime.setHours(startTime.getHours() + 1);
                      schedule.push({
                          id: `${assign.id}-${formatDate(startTime)}`,
-                        title: `${assign.subjectName} - ${assign.sectionId}`,
+                         title: `${assign.subjectName || assign.subjectId} - ${assign.sectionId}`,
                         start: startTime,
                         end: endTime,
                         type: 'class',
@@ -220,11 +249,11 @@ export const fetchData = async <T>(path: string): Promise<T> => {
                 });
              return schedule as T;
         }
-         if (path.includes('teacher/subjects/read.php')) {
+         if (phpPath === '/teacher/subjects/read.php') {
              const subjectIds = new Set(mockSectionAssignments.filter(a => a.teacherId === 1).map(a => a.subjectId)); // Assuming teacher ID 1
              return mockSubjects.filter(s => subjectIds.has(s.id)) as T;
          }
-          if (path.includes('student/upcoming/read.php')) {
+          if (phpPath === '/student/upcoming/read.php') {
              const upcoming: UpcomingItem[] = [];
               const studentSchedule = mockSectionAssignments
                 .filter(a => a.sectionId === mockStudents.find(s => s.id === 1)?.section) // Assuming student ID 1
@@ -235,7 +264,7 @@ export const fetchData = async <T>(path: string): Promise<T> => {
                      startTime.setHours(8 + index, 0, 0, 0);
                      return {
                          id: `${assign.id}-${formatDate(startTime)}`,
-                         title: `${assign.subjectName} Class`,
+                         title: `${assign.subjectName || assign.subjectId} Class`,
                          date: startTime.toISOString(),
                          type: 'class',
                      };
@@ -249,22 +278,20 @@ export const fetchData = async <T>(path: string): Promise<T> => {
              return upcoming.slice(0, 5) as T;
          }
 
-        console.warn(`Mock API unhandled GET path: ${path}`);
+        console.warn(`Mock API unhandled GET path: ${phpPath}`);
         return [] as T;
     } catch (error: any) {
-        // handleFetchError(error, path, 'GET'); // Commented out for mock data focus
-        console.error(`Error in mock fetchData for ${path}:`, error);
+        console.error(`Error in mock fetchData for ${phpPath}:`, error);
         throw error; // Re-throw original error for now
     }
 };
 
 export const postData = async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
-    const url = getApiUrl(path);
-    let response;
-    console.log(`MOCK postData to: ${path}`, data);
+    const phpPath = finalPath(path);
+    console.log(`MOCK postData to: ${phpPath}`, data);
     await new Promise(resolve => setTimeout(resolve, 300));
     try {
-         if (path.includes('login.php')) {
+         if (phpPath === '/login.php') {
              const { username } = data as any;
              const user = mockTestUsers.find(u => u.username === username);
              if (user) {
@@ -273,10 +300,10 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
              }
              throw new Error("Invalid mock credentials.");
         }
-         if (path.includes('students/create.php')) {
+         if (phpPath === '/students/create.php') {
             const newStudentData = data as unknown as Omit<Student, 'id' | 'studentId' | 'section' | 'username'>;
             const nextId = nextStudentDbId++;
-            const studentIdStr = `${100 + nextId}`; // Generate ID string like "103"
+            const studentIdStr = generateStudentId(nextId);
             const username = generateStudentUsername(studentIdStr);
             const section = generateSectionCode(newStudentData.year || '1st Year');
             const student: Student = {
@@ -289,10 +316,10 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
             mockStudents.push(student);
             return student as ResponseData;
         }
-         if (path.includes('teachers/create.php')) {
+         if (phpPath === '/teachers/create.php') {
             const newTeacherData = data as unknown as Omit<Teacher, 'id' | 'teacherId' | 'username'>;
             const nextId = nextTeacherDbId++;
-            const teacherIdStr = generateTeacherId(nextId); // e.g., t1003
+            const teacherIdStr = generateTeacherId(nextId);
             const username = generateTeacherUsername(teacherIdStr);
             const teacher: Teacher = {
                 ...newTeacherData,
@@ -303,23 +330,60 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
             mockTeachers.push(teacher);
             return teacher as ResponseData;
         }
-         if (path.includes('admins/create.php')) {
-             // Mock creating an admin user - only uses email
-            const newAdminData = data as unknown as Pick<AdminUser, 'email'>;
+         if (phpPath === '/admins/create.php') {
+            const newAdminData = data as unknown as Pick<AdminUser, 'email' | 'role'>;
             const nextId = nextAdminDbId++;
             const adminUser: AdminUser = {
                 id: nextId,
-                username: generateAdminUsername(nextId), // e.g., a1002
+                username: generateAdminUsername(nextId),
                 email: newAdminData.email,
-                firstName: 'Admin', // Placeholder
-                lastName: `User ${nextId}`, // Placeholder
-                isSuperAdmin: false,
+                role: newAdminData.role,
+                isSuperAdmin: newAdminData.role === 'Super Admin', // Set based on role
             };
             mockAdmins.push(adminUser);
             return adminUser as ResponseData;
         }
-         if (path.includes('admin/reset_password.php')) {
-             const { userId, userType, lastName } = data as { userId: number, userType: string, lastName?: string };
+        if (phpPath === '/programs/create.php') {
+            const newProgramData = data as unknown as Omit<Program, 'courses'> & { id: string };
+            const newProgram: Program = {
+                ...newProgramData,
+                courses: { // Initialize with empty courses
+                    "1st Year": [],
+                    "2nd Year": [],
+                    "3rd Year": [],
+                    "4th Year": [],
+                },
+            };
+             if (mockPrograms.some(p => p.id === newProgram.id)) {
+                throw new Error("Program with this ID already exists.");
+            }
+            mockPrograms.push(newProgram);
+            return newProgram as ResponseData;
+        }
+        if (phpPath.match(/^\/programs\/([^/]+)\/courses\/add$/)) {
+             const programId = phpPath.match(/^\/programs\/([^/]+)\/courses\/add$/)?.[1];
+             const courseData = data as Subject;
+             const programIndex = mockPrograms.findIndex(p => p.id === programId);
+             if (programIndex > -1) {
+                const year = courseData.yearLevel || "1st Year"; // Default to 1st year if not specified
+                 if (!mockPrograms[programIndex].courses[year]) {
+                     mockPrograms[programIndex].courses[year] = [];
+                 }
+                // Ensure unique course ID within the program/year? (Or globally?)
+                const newCourseId = courseData.id || `${programId}-${year.charAt(0)}-${mockPrograms[programIndex].courses[year].length + 1}`;
+                 const newCourse: Subject = {
+                    ...courseData,
+                    id: newCourseId,
+                    programId: programId,
+                    yearLevel: year,
+                 };
+                 mockPrograms[programIndex].courses[year].push(newCourse);
+                 return newCourse as ResponseData;
+             }
+             throw new Error("Program not found.");
+        }
+         if (phpPath === '/admin/reset_password.php') {
+             const { userId, userType } = data as { userId: number, userType: string }; // Removed lastName
               const userArray = userType === 'student' ? mockStudents : userType === 'teacher' ? mockTeachers : mockAdmins;
               const userIndex = userArray.findIndex(u => u.id === userId);
 
@@ -332,7 +396,7 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
                }
              throw new Error(`${userType} with ID ${userId} not found.`);
         }
-        if (path.includes('announcements/create.php')) {
+        if (phpPath === '/announcements/create.php') {
             const newAnnData = data as { title: string; content: string; target: any };
             const nextId = `ann${mockAnnouncements.length + 1}`;
             const newAnnouncement: Announcement = {
@@ -340,15 +404,14 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
                 title: newAnnData.title,
                 content: newAnnData.content,
                 date: new Date(),
-                target: newAnnData.target,
-                author: "Admin" // Assuming admin creates via this endpoint in mock
+                target: newAnnData.target, // Includes programId now
+                author: "Admin"
             };
             mockAnnouncements.unshift(newAnnouncement);
             return newAnnouncement as ResponseData;
         }
-         if (path.includes('sections/adviser/update.php')) {
-             const urlParts = path.split('/');
-             const sectionId = urlParts[urlParts.length - 2];
+         if (phpPath.match(/^\/sections\/([^/]+)\/adviser$/)) { // Adjusted regex
+             const sectionId = phpPath.match(/^\/sections\/([^/]+)\/adviser$/)?.[1];
              const { adviserId } = data as { adviserId: number | null };
              const sectionIndex = mockSections.findIndex(s => s.id === sectionId);
              if (sectionIndex > -1) {
@@ -359,7 +422,7 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
              }
              throw new Error("Section not found.");
          }
-         if (path.includes('sections/assignments/create.php')) {
+         if (phpPath === '/sections/assignments/create.php') {
              const { sectionId, subjectId, teacherId } = data as { sectionId: string; subjectId: string; teacherId: number };
              const subject = mockSubjects.find(s => s.id === subjectId);
              const teacher = mockTeachers.find(t => t.id === teacherId);
@@ -367,7 +430,6 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
               if (mockSectionAssignments.some(a => a.id === assignmentId)) {
                    throw new Error("This subject is already assigned to this section.");
               }
-
              const newAssignment: SectionSubjectAssignment = {
                  id: assignmentId,
                  sectionId,
@@ -379,7 +441,7 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
              mockSectionAssignments.push(newAssignment);
              return newAssignment as ResponseData;
          }
-         if (path.includes('assignments/grades/update.php')) {
+         if (phpPath === '/assignments/grades/update.php') {
               const gradeData = data as StudentSubjectAssignmentWithGrades;
               const index = mockStudentSubjectAssignmentsWithGrades.findIndex(a => a.assignmentId === gradeData.assignmentId && a.studentId === gradeData.studentId);
               if (index > -1) {
@@ -419,28 +481,27 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
                     return newEntry as ResponseData;
                }
          }
-        if (path.includes('admin/change_password.php')) return { message: "Admin password updated successfully." } as ResponseData;
-        if (path.includes('student/change_password.php')) return { message: "Student password updated successfully." } as ResponseData;
-        if (path.includes('teacher/change_password.php')) return { message: "Teacher password updated successfully." } as ResponseData;
+        if (phpPath === '/admin/change_password.php') return { message: "Admin password updated successfully." } as ResponseData;
+        if (phpPath === '/student/change_password.php') return { message: "Student password updated successfully." } as ResponseData;
+        if (phpPath === '/teacher/change_password.php') return { message: "Teacher password updated successfully." } as ResponseData;
 
-        console.warn(`Mock API unhandled POST path: ${path}`);
-         throw new Error(`Mock POST endpoint for ${path} not implemented.`);
+        console.warn(`Mock API unhandled POST path: ${phpPath}`);
+         throw new Error(`Mock POST endpoint for ${phpPath} not implemented.`);
     } catch (error: any) {
-         // handleFetchError(error, path, 'POST'); // Commented out for mock data focus
-         console.error(`Error in mock postData for ${path}:`, error);
+         console.error(`Error in mock postData for ${phpPath}:`, error);
          throw error; // Re-throw original error
     }
 };
 
 export const putData = async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
-    const url = getApiUrl(path);
-    let response;
-    console.log(`MOCK putData to: ${path}`, data);
+    const phpPath = finalPath(path);
+    console.log(`MOCK putData to: ${phpPath}`, data);
     await new Promise(resolve => setTimeout(resolve, 300));
-    const idStr = path.split('/').pop() || '';
-    const id = parseInt(idStr, 10);
+    const idStr = phpPath.split('/').pop() || '';
+
     try {
-         if (path.includes('students/update.php/')) {
+         if (phpPath.startsWith('/students/update.php/')) {
+            const id = parseInt(idStr, 10);
             const studentIndex = mockStudents.findIndex(s => s.id === id);
             if (studentIndex > -1) {
                 mockStudents[studentIndex] = { ...mockStudents[studentIndex], ...(data as unknown as Partial<Student>) };
@@ -448,7 +509,8 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
             }
             throw new Error("Student not found for mock update.");
         }
-         if (path.includes('teachers/update.php/')) {
+         if (phpPath.startsWith('/teachers/update.php/')) {
+            const id = parseInt(idStr, 10);
             const teacherIndex = mockTeachers.findIndex(t => t.id === id);
              if (teacherIndex > -1) {
                 mockTeachers[teacherIndex] = { ...mockTeachers[teacherIndex], ...(data as unknown as Partial<Teacher>) };
@@ -456,7 +518,7 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
             }
             throw new Error("Teacher not found for mock update.");
         }
-          if (path.includes('student/profile/update.php')) {
+         if (phpPath === '/student/profile/update.php') {
             const profileData = data as Student;
             const index = mockStudents.findIndex(s => s.id === profileData.id);
             if (index > -1) {
@@ -465,7 +527,7 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
             }
             throw new Error("Mock student profile not found for update.");
         }
-         if (path.includes('teacher/profile/update.php')) {
+         if (phpPath === '/teacher/profile/update.php') {
              const profileData = data as Teacher;
              const index = mockTeachers.findIndex(t => t.id === profileData.id);
              if (index > -1) {
@@ -474,74 +536,109 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
              }
              throw new Error("Mock teacher profile not found for update.");
          }
+          if (phpPath.startsWith('/programs/update.php/')) {
+             const programId = idStr;
+             const programIndex = mockPrograms.findIndex(p => p.id === programId);
+             if (programIndex > -1) {
+                 mockPrograms[programIndex] = { ...mockPrograms[programIndex], ...(data as unknown as Partial<Program>) };
+                 // Ensure courses structure is preserved if not updated
+                 if (!(data as any).courses) {
+                    mockPrograms[programIndex].courses = mockPrograms[programIndex].courses || { "1st Year": [], "2nd Year": [], "3rd Year": [], "4th Year": [] };
+                 }
+                 return { ...mockPrograms[programIndex] } as ResponseData;
+             }
+             throw new Error("Program not found for mock update.");
+         }
 
-        console.warn(`Mock API unhandled PUT path: ${path}`);
-        throw new Error(`Mock PUT endpoint for ${path} not implemented.`);
+
+        console.warn(`Mock API unhandled PUT path: ${phpPath}`);
+        throw new Error(`Mock PUT endpoint for ${phpPath} not implemented.`);
     } catch (error: any) {
-        // handleFetchError(error, path, 'PUT'); // Commented out for mock data focus
-        console.error(`Error in mock putData for ${path}:`, error);
+        console.error(`Error in mock putData for ${phpPath}:`, error);
         throw error; // Re-throw original error
     }
 };
 
 export const deleteData = async (path: string): Promise<void> => {
-    const url = getApiUrl(path);
-    let response;
-    console.log(`MOCK deleteData at: ${path}`);
+    const phpPath = finalPath(path);
+    console.log(`MOCK deleteData at: ${phpPath}`);
     await new Promise(resolve => setTimeout(resolve, 300));
-    const idPart = path.split('/').pop();
+    const idPart = phpPath.split('/').pop() || '';
+    const parts = phpPath.split('/');
+
     try {
-         if (path.includes('students/delete.php/')) {
+         if (phpPath.startsWith('/students/delete.php/')) {
             const id = parseInt(idPart || '0', 10);
             const initialLength = mockStudents.length;
             mockStudents = mockStudents.filter(s => s.id !== id);
             if (mockStudents.length === initialLength) throw new Error("Student not found for mock delete.");
             return;
         }
-         if (path.includes('teachers/delete.php/')) {
+         if (phpPath.startsWith('/teachers/delete.php/')) {
             const id = parseInt(idPart || '0', 10);
             const initialLength = mockTeachers.length;
             mockTeachers = mockTeachers.filter(t => t.id !== id);
              if (mockTeachers.length === initialLength) throw new Error("Teacher not found for mock delete.");
             return;
         }
-         if (path.includes('admins/delete.php/')) {
+         if (phpPath.startsWith('/admins/delete.php/')) {
             const id = parseInt(idPart || '0', 10);
             const adminToDelete = mockAdmins.find(a => a.id === id);
             if (!adminToDelete) throw new Error("Admin not found for mock delete.");
             if (adminToDelete.isSuperAdmin) throw new Error("Cannot delete super admin.");
             mockAdmins = mockAdmins.filter(a => a.id !== id); return;
         }
-         if (path.includes('announcements/delete.php/')) {
+         if (phpPath.startsWith('/announcements/delete.php/')) {
              const id = idPart;
              const initialLength = mockAnnouncements.length;
              mockAnnouncements = mockAnnouncements.filter(a => a.id !== id);
               if (mockAnnouncements.length === initialLength) throw new Error("Announcement not found for mock delete.");
              return;
          }
-         if (path.includes('assignments/delete.php/')) {
+         if (phpPath.startsWith('/assignments/delete.php/')) {
              const id = idPart;
              const initialLength = mockSectionAssignments.length;
              mockSectionAssignments = mockSectionAssignments.filter(a => a.id !== id);
              if (mockSectionAssignments.length === initialLength) throw new Error("Assignment not found for mock delete.");
              return;
          }
+         if (phpPath.startsWith('/programs/delete.php/')) {
+             const programId = idPart;
+             const initialLength = mockPrograms.length;
+             mockPrograms = mockPrograms.filter(p => p.id !== programId);
+             if (mockPrograms.length === initialLength) throw new Error("Program not found for mock delete.");
+             // Also remove related sections, subjects, assignments? Depends on cascade rules.
+             // mockSections = mockSections.filter(s => s.programId !== programId);
+             // mockSubjects = mockSubjects.filter(s => s.programId !== programId);
+             // mockSectionAssignments = mockSectionAssignments.filter(a => !a.id.startsWith(`${programId}-`)); // Crude way, assumes ID format
+             return;
+         }
+         if (phpPath.match(/^\/programs\/([^/]+)\/courses\/delete\/([^/]+)\/([^/]+)$/)) { // programs/{programId}/courses/delete/{yearLevel}/{courseId}
+             const [, programId, yearLevelEncoded, courseId] = phpPath.match(/^\/programs\/([^/]+)\/courses\/delete\/([^/]+)\/([^/]+)$/) || [];
+             const yearLevel = decodeURIComponent(yearLevelEncoded);
+             const programIndex = mockPrograms.findIndex(p => p.id === programId);
+             if (programIndex > -1 && mockPrograms[programIndex].courses[yearLevel]) {
+                const initialLength = mockPrograms[programIndex].courses[yearLevel].length;
+                mockPrograms[programIndex].courses[yearLevel] = mockPrograms[programIndex].courses[yearLevel].filter(c => c.id !== courseId);
+                if (mockPrograms[programIndex].courses[yearLevel].length === initialLength) throw new Error("Course not found in program/year for mock delete.");
+                return;
+             }
+             throw new Error("Program or year level not found for deleting course.");
+         }
 
-        console.warn(`Mock API unhandled DELETE path: ${path}`);
-        throw new Error(`Mock DELETE endpoint for ${path} not implemented.`);
+
+        console.warn(`Mock API unhandled DELETE path: ${phpPath}`);
+        throw new Error(`Mock DELETE endpoint for ${phpPath} not implemented.`);
     } catch (error: any) {
-         // handleFetchError(error, path, 'DELETE'); // Commented out for mock data focus
-         console.error(`Error in mock deleteData for ${path}:`, error);
+         console.error(`Error in mock deleteData for ${phpPath}:`, error);
          throw error; // Re-throw original error
     }
 };
 
-// Helper function for formatting dates (adjust format as needed)
+// Helper function for formatting dates
 function formatDate(date: Date): string {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}${month}${day}`;
 }
-
-    

@@ -3,6 +3,7 @@
 
 export type StudentStatus = 'New' | 'Transferee' | 'Returnee'; // Removed 'Continuing'
 export type EmploymentType = 'Regular' | 'Part Time'; // Added employment type
+export type AdminRole = 'Super Admin' | 'Sub Admin'; // Added Admin Roles
 
 export interface Student {
   id: number; // Database ID
@@ -10,22 +11,21 @@ export interface Student {
   username: string; // e.g., "s101", "s102" - Generated username (s + studentId)
   firstName: string;
   lastName: string;
-  middleName?: string; // Added
-  suffix?: string; // Added
-  gender?: 'Male' | 'Female' | 'Other'; // Added
-  birthday?: string; // Added (YYYY-MM-DD format)
+  middleName?: string;
+  suffix?: string;
+  gender?: 'Male' | 'Female' | 'Other';
+  birthday?: string; // YYYY-MM-DD format
   course: string; // Keep backend key, label as "Program" in UI
   status: StudentStatus;
   year?: string; // Optional year level (e.g., '1st Year', '2nd Year')
   section: string; // e.g., "10A", "20B" - Auto-generated
-  email?: string; // Optional fields
+  email?: string;
   phone?: string;
   // Detailed emergency contact info
   emergencyContactName?: string;
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
   emergencyContactAddress?: string;
-  // Add other relevant student fields
 }
 
 export interface Teacher {
@@ -34,21 +34,20 @@ export interface Teacher {
   username: string; // e.g., "t1001", "t1002" - Generated username (same as teacherId)
   firstName: string;
   lastName: string;
-  middleName?: string; // Added
-  suffix?: string; // Added
-  gender?: 'Male' | 'Female' | 'Other'; // Added
-  employmentType?: EmploymentType; // Added
+  middleName?: string;
+  suffix?: string;
+  gender?: 'Male' | 'Female' | 'Other';
+  employmentType?: EmploymentType;
   address?: string; // Added teacher's address
-  department: string; // Make department optional? No, required in form
-  email?: string; // Optional fields
-  phone?: string; // Renamed from contact number for consistency
-  birthday?: string; // Added (use string YYYY-MM-DD for simplicity)
+  department: string;
+  email?: string;
+  phone?: string;
+  birthday?: string; // YYYY-MM-DD format
   // Added Emergency Contact Fields
   emergencyContactName?: string;
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
   emergencyContactAddress?: string;
-  // Add other relevant teacher fields
 }
 
 // Defines the grading periods
@@ -65,26 +64,39 @@ export interface StudentGradeEntry {
     remarks?: string;
 }
 
+// Represents a program offered by the institution
+export interface Program {
+    id: string; // Unique identifier (e.g., "CS")
+    name: string; // Full name (e.g., "Computer Science")
+    description?: string;
+    courses: { // Courses grouped by year level
+        [yearLevel: string]: Subject[]; // e.g., "1st Year": [Subject, Subject, ...]
+    };
+}
 
-// Represents a specific class section
+
+// Represents a specific class section (now references Program ID)
 export interface Section {
     id: string; // Unique identifier for the section (e.g., "CS-1A")
     sectionCode: string; // e.g., "1A", "2B" - Auto-generated based on year and count
-    course: string; // Keep backend key, label as "Program" in UI (e.g., "Computer Science")
+    programId: string; // References Program.id (e.g., "CS")
+    programName?: string; // Denormalized program name
     yearLevel: string; // e.g., "1st Year"
-    adviserId?: number; // ID of the assigned adviser (previously teacherId)
-    adviserName?: string; // Optional: Denormalized adviser name for display (previously teacherName)
-    studentCount?: number; // Optional: Number of students in the section
+    adviserId?: number;
+    adviserName?: string;
+    studentCount?: number;
 }
 
-// Represents a course (previously Subject)
-export interface Subject { // Keep name Subject for now to avoid breaking existing code, but it means Course
+// Represents a course (Subject remains the internal name for consistency)
+export interface Subject {
     id: string; // Unique identifier (e.g., "CS101")
     name: string; // e.g., "Introduction to Programming"
     description?: string;
+    programId?: string; // Reference to the Program it belongs to
+    yearLevel?: string; // Year level this course is typically taken
 }
 
-// Represents the assignment of a teacher to a course(subject) within a specific section
+// Represents the assignment of a teacher to a course within a specific section
 export interface SectionSubjectAssignment {
     id: string; // Unique ID for the assignment itself (e.g., sectionId-subjectId)
     sectionId: string;
@@ -102,7 +114,7 @@ export interface Announcement {
     content: string;
     date: Date; // Changed to Date type
     target: {
-        course?: string | 'all' | null; // Program/Course target
+        programId?: string | 'all' | null; // Program target using Program ID
         yearLevel?: string | 'all' | null; // Specific year level or 'all' or null
         section?: string | 'all' | null; // Specific section or 'all' or null
     };
@@ -155,18 +167,16 @@ export interface StudentTermGrade {
 export interface AdminUser {
   id: number;
   username: string;
-  firstName?: string; // Made optional
-  lastName?: string; // Made optional
   email?: string; // Email is required by form schema
-  isSuperAdmin?: boolean; // To differentiate the main admin
-  // password field should not be part of this type for security
+  role: AdminRole; // Added role
+  isSuperAdmin?: boolean; // Keep this for quick identification of the main admin
 }
 
 // Interface for dashboard stats fetched from API
 export interface DashboardStats {
     totalStudents: number;
     totalTeachers: number;
-    totalAdmins: number; // Added totalAdmins
+    totalAdmins: number;
     upcomingEvents: number;
     // Add more stats as needed
 }
