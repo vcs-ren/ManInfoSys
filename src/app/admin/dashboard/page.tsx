@@ -21,6 +21,7 @@ export default function AdminDashboardPage() {
       setIsLoading(true);
       setError(null);
       try {
+        // Use fetchData helper, ensure path is correct relative to API base URL
         const data = await fetchData<DashboardStats>('admin/dashboard-stats.php');
         setStats(data);
       } catch (err: any) {
@@ -51,34 +52,40 @@ export default function AdminDashboardPage() {
 
       {stats && !isLoading && !error && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Enrolled Students Card */}
           <Card onClick={() => handleCardClick('/admin/students')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle> {/* Changed Title */}
+              <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalStudents}</div>
             </CardContent>
           </Card>
+
+          {/* Teaching Staff Card */}
            <Card onClick={() => handleCardClick('/admin/teachers')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Teaching Staff</CardTitle> {/* Changed Title */}
+              <CardTitle className="text-sm font-medium">Teaching Staff</CardTitle>
               <UserCog className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalTeachers}</div>
             </CardContent>
           </Card>
-           {/* Removed onClick and hover styles from this card */}
-           <Card>
+
+           {/* Administrative Staff Card - Now uses totalAdmins */}
+           <Card onClick={() => handleCardClick('/admin/admins')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Administrative Staff</CardTitle> {/* Changed Title */}
+              <CardTitle className="text-sm font-medium">Administrative Staff</CardTitle>
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalAdmins}</div>
             </CardContent>
           </Card>
+
+          {/* Upcoming Events Card */}
           <Card onClick={() => handleCardClick('/admin/assignments')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Upcoming Events/Tasks</CardTitle>
@@ -102,4 +109,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
