@@ -23,14 +23,11 @@ $db = $database->getConnection();
 //     exit();
 // }
 
-// Define the ID of the Super Admin to exclude
-define('SUPER_ADMIN_ID', 0); // Assuming Super Admin ID is 0
-
 // Initialize stats array
 $stats = array(
     "totalStudents" => 0,
-    "totalTeachers" => 0, // Represents Teaching Staff
-    "totalAdmins" => 0, // Represents Administrative Staff (excluding Super Admin)
+    "totalTeachers" => 0, // Represents Teaching Staff (department = 'Teaching')
+    "totalAdmins" => 0, // Represents Administrative Staff (department = 'Administrative')
     "upcomingEvents" => 0 // Placeholder, implement event fetching if needed
 );
 
@@ -49,15 +46,9 @@ try {
     $rowTeachers = $stmtTeachers->fetch(PDO::FETCH_ASSOC);
     $stats["totalTeachers"] = (int)$rowTeachers['count'];
 
-    // Query for total administrative staff (from admins table, excluding Super Admin ID 0)
-    // AND teachers table where department is 'Administrative'
-    $queryAdmins = "SELECT
-                        (SELECT COUNT(*) FROM admins WHERE id != :superAdminId) +
-                        (SELECT COUNT(*) FROM teachers WHERE department = 'Administrative')
-                    AS count";
+    // Query for total administrative staff (from teachers table where department is 'Administrative')
+    $queryAdmins = "SELECT COUNT(*) as count FROM teachers WHERE department = 'Administrative'";
     $stmtAdmins = $db->prepare($queryAdmins);
-    $superAdminId = SUPER_ADMIN_ID; // Use the defined constant
-    $stmtAdmins->bindParam(':superAdminId', $superAdminId, PDO::PARAM_INT);
     $stmtAdmins->execute();
     $rowAdmins = $stmtAdmins->fetch(PDO::FETCH_ASSOC);
     $stats["totalAdmins"] = (int)$rowAdmins['count'];
