@@ -21,9 +21,14 @@ export default function ViewGradesPage() {
     const fetchGrades = async () => {
       setIsLoading(true);
       try {
-        // Use the fetchData helper with the relative PHP endpoint path
-        const data = await fetchData<StudentTermGrade[]>('/api/student/grades/read.php');
-        setGrades(data || []);
+        // Mock data for student grades
+        await new Promise(resolve => setTimeout(resolve, 300));
+         const mockStudentGrades: StudentTermGrade[] = [
+            { id: "CS101", subjectName: "Introduction to Programming", prelimGrade: 85, midtermGrade: 90, finalGrade: 88, finalRemarks: "Very Good", status: "Complete" },
+            { id: "IT202", subjectName: "Networking Fundamentals", prelimGrade: null, midtermGrade: null, finalGrade: null, finalRemarks: null, status: "Not Submitted" },
+            // Add more mock grades if needed
+        ];
+        setGrades(mockStudentGrades || []);
       } catch (error: any) {
         console.error("Failed to fetch grades:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Could not load grades." });
@@ -39,7 +44,7 @@ export default function ViewGradesPage() {
   const columns: ColumnDef<StudentTermGrade>[] = React.useMemo(() => [
     {
         accessorKey: "subjectName",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Subject" />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Course(subject)" />,
         cell: ({ row }) => <div className="font-medium">{row.getValue("subjectName")}</div>,
     },
     {

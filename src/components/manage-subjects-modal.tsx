@@ -36,13 +36,13 @@ interface ManageSubjectsModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   section: Section;
-  subjects: Subject[];
+  subjects: Subject[]; // Now representing available courses/subjects
   teachers: Teacher[];
   assignments: SectionSubjectAssignment[];
   onAddAssignment: (sectionId: string, subjectId: string, teacherId: number) => Promise<void> | void;
   onDeleteAssignment: (assignmentId: string) => Promise<void> | void;
   isLoadingAssignments: boolean;
-  isLoadingSubjects: boolean;
+  isLoadingSubjects: boolean; // Renamed for clarity
   isLoadingTeachers: boolean;
 }
 
@@ -56,7 +56,7 @@ export function ManageSubjectsModal({
   onAddAssignment,
   onDeleteAssignment,
   isLoadingAssignments,
-  isLoadingSubjects,
+  isLoadingSubjects, // Renamed
   isLoadingTeachers,
 }: ManageSubjectsModalProps) {
   const [selectedSubjectId, setSelectedSubjectId] = React.useState<string>("");
@@ -67,7 +67,7 @@ export function ManageSubjectsModal({
 
   const handleAddClick = async () => {
       if (!selectedSubjectId || !selectedTeacherId) {
-          toast({ variant: "warning", title: "Selection Required", description: "Please select both a subject and a teacher." });
+          toast({ variant: "warning", title: "Selection Required", description: "Please select both a course(subject) and a teacher." });
           return;
       }
 
@@ -79,7 +79,7 @@ export function ManageSubjectsModal({
 
       // Check if subject is already assigned
       if (assignments.some(a => a.subjectId === selectedSubjectId)) {
-          toast({ variant: "warning", title: "Already Assigned", description: "This subject is already assigned to the section." });
+          toast({ variant: "warning", title: "Already Assigned", description: "This course(subject) is already assigned to the section." });
           return;
       }
 
@@ -120,29 +120,29 @@ export function ManageSubjectsModal({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
-          <DialogTitle>Manage Subjects for {section.sectionCode}</DialogTitle>
+          <DialogTitle>Manage Courses(subjects) for {section.sectionCode}</DialogTitle>
           <DialogDescription>
-            Assign subjects and teachers for the {section.course} - {section.yearLevel} section. {/* Use course for backend, but label "Program" */}
+            Assign courses(subjects) and teachers for the {section.course} - {section.yearLevel} section.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4 items-end">
           {/* Subject Selection */}
           <div className="space-y-1">
-            <Label htmlFor="subject-select">Subject</Label>
+            <Label htmlFor="subject-select">Course(subject)</Label>
             <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={isLoadingSubjects || isLoadingAssignments || isSubmittingAdd}>
               <SelectTrigger id="subject-select">
-                <SelectValue placeholder="Select Subject..." />
+                <SelectValue placeholder="Select Course(subject)..." />
               </SelectTrigger>
               <SelectContent>
                  {isLoadingSubjects ? (
-                    <SelectItem value="loading" disabled>Loading subjects...</SelectItem>
+                    <SelectItem value="loading" disabled>Loading courses...</SelectItem>
                  ) : availableSubjects.length > 0 ? (
                     availableSubjects.map((sub) => (
                         <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
                     ))
                  ) : (
-                    <SelectItem value="no-subjects" disabled>No unassigned subjects</SelectItem>
+                    <SelectItem value="no-subjects" disabled>No unassigned courses(subjects)</SelectItem>
                  )}
               </SelectContent>
             </Select>
@@ -178,7 +178,7 @@ export function ManageSubjectsModal({
             className="md:self-end"
           >
              {isSubmittingAdd ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-             Assign Subject
+             Assign Course(subject)
           </Button>
         </div>
 
@@ -189,7 +189,7 @@ export function ManageSubjectsModal({
             <Table>
                 <TableHeader>
                 <TableRow>
-                    <TableHead>Subject</TableHead>
+                    <TableHead>Course(subject)</TableHead>
                     <TableHead>Assigned Teacher</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                 </TableRow>
@@ -229,7 +229,7 @@ export function ManageSubjectsModal({
                 ) : (
                     <TableRow>
                     <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
-                        No subjects assigned yet.
+                        No courses(subjects) assigned yet.
                     </TableCell>
                     </TableRow>
                 )}

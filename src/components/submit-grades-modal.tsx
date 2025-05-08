@@ -97,8 +97,10 @@ export function SubmitGradesModal({
         const convertToNumberOrNull = (val: unknown): number | null => {
             if (val === "" || val === null || typeof val === 'undefined') return null;
             const num = Number(val);
-            return isNaN(num) || !isFinite(num) ? null : num;
+            // Ensure only numbers 0-100 are valid, treat others as null
+            return isNaN(num) || !isFinite(num) || num < 0 || num > 100 ? null : num;
         };
+
 
         const payload: GradePayload = {
             assignmentId: values.assignmentId,
@@ -168,7 +170,10 @@ export function SubmitGradesModal({
                                      value={field.value ?? ""}
                                      onChange={(e) => {
                                         const val = e.target.value;
-                                        field.onChange(val === '' ? '' : val);
+                                         // Allow empty string or valid numbers
+                                         if (val === '' || (/^\d*$/.test(val) && Number(val) >= 0 && Number(val) <= 100)) {
+                                             field.onChange(val);
+                                         }
                                     }}
                                      />
                             </FormControl>
@@ -214,7 +219,9 @@ export function SubmitGradesModal({
                                      value={field.value ?? ""}
                                      onChange={(e) => {
                                         const val = e.target.value;
-                                        field.onChange(val === '' ? '' : val);
+                                        if (val === '' || (/^\d*$/.test(val) && Number(val) >= 0 && Number(val) <= 100)) {
+                                             field.onChange(val);
+                                         }
                                     }}/>
                             </FormControl>
                              <FormMessage />
@@ -258,7 +265,9 @@ export function SubmitGradesModal({
                                      value={field.value ?? ""}
                                      onChange={(e) => {
                                         const val = e.target.value;
-                                        field.onChange(val === '' ? '' : val);
+                                        if (val === '' || (/^\d*$/.test(val) && Number(val) >= 0 && Number(val) <= 100)) {
+                                             field.onChange(val);
+                                         }
                                     }}/>
                             </FormControl>
                             <FormMessage />

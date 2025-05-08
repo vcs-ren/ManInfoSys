@@ -62,14 +62,25 @@ export default function SubmitGradesPage() {
       const fetchDataAndSubjects = async () => {
           setIsLoading(true);
           try {
-              const [assignmentsData, subjectsData] = await Promise.all([
-                  fetchData<StudentSubjectAssignmentWithGrades[]>('/api/teacher/assignments/grades/read.php'),
-                  fetchData<Subject[]>('/api/teacher/subjects/read.php')
-              ]);
+            // Mock data for assignments and subjects
+            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
 
-              setAllAssignments(assignmentsData || []);
-              setFilteredAssignments(assignmentsData || []);
-              setSubjects([{ id: "all", name: "All Subjects" }, ...(subjectsData || [])]);
+            const mockAssignmentsData: StudentSubjectAssignmentWithGrades[] = [
+                { assignmentId: "1-CS101", studentId: 1, studentName: "Alice Smith", subjectId: "CS101", subjectName: "Introduction to Programming", section: "CS-2A", year: "2nd Year", prelimGrade: 85, prelimRemarks: "Good start", midtermGrade: 90, midtermRemarks: "Excellent", finalGrade: 88, finalRemarks: "Very Good", status: "Complete" },
+                { assignmentId: "2-IT202", studentId: 2, studentName: "Bob Johnson", subjectId: "IT202", subjectName: "Networking Fundamentals", section: "IT-1B", year: "1st Year", prelimGrade: null, prelimRemarks: "", midtermGrade: null, midtermRemarks: "", finalGrade: null, finalRemarks: "", status: "Not Submitted" },
+                // Add more mock assignment/grade data if needed
+            ];
+
+            const mockSubjectsData: Subject[] = [
+                { id: "CS101", name: "Introduction to Programming", description: "Basics of programming" },
+                { id: "IT202", name: "Networking Fundamentals", description: "Understanding computer networks" },
+                { id: "GEN001", name: "Purposive Communication", description: "Effective communication skills" },
+            ];
+
+
+              setAllAssignments(mockAssignmentsData || []);
+              setFilteredAssignments(mockAssignmentsData || []);
+              setSubjects([{ id: "all", name: "All Courses(subjects)" }, ...(mockSubjectsData || [])]); // Adjusted "All Subjects" label
           } catch (error: any) {
               console.error("Failed to fetch grading data:", error);
               toast({ variant: "destructive", title: "Error", description: error.message || "Could not load grading data. Please refresh." });
@@ -109,18 +120,29 @@ export default function SubmitGradesPage() {
      console.log(`Submitting grades for assignment: ${values.assignmentId}`, payload);
 
     try {
-        // Use postData helper for the API call
-        const updatedAssignment = await postData<typeof payload, StudentSubjectAssignmentWithGrades>(
-            `/api/assignments/grades/update.php`, // Send assignmentId in payload
-            payload
-            // Or adjust path if ID is needed in URL: `/api/assignments/${values.assignmentId}/grades/update.php`
-        );
+        // Simulate POST request
+        await new Promise(resolve => setTimeout(resolve, 300));
+        console.log("Mock submitting grades:", payload);
+
+        const updatedAssignmentData = {
+            ...selectedAssignment,
+            ...payload
+        };
+
+         // Recalculate status based on submitted grades
+        let status: 'Not Submitted' | 'Incomplete' | 'Complete' = 'Not Submitted';
+        if (updatedAssignmentData.prelimGrade !== null || updatedAssignmentData.midtermGrade !== null || updatedAssignmentData.finalGrade !== null) {
+            status = 'Incomplete';
+        }
+        if (updatedAssignmentData.finalGrade !== null) {
+            status = 'Complete';
+        }
+        updatedAssignmentData.status = status;
 
          const updateState = (prev: StudentSubjectAssignmentWithGrades[]) =>
             prev.map(assign =>
-                 // Use assignmentId for matching, which is unique per student-subject pair in this context
-                assign.assignmentId === updatedAssignment.assignmentId && assign.studentId === updatedAssignment.studentId
-                ? updatedAssignment
+                assign.assignmentId === updatedAssignmentData.assignmentId && assign.studentId === updatedAssignmentData.studentId
+                ? updatedAssignmentData
                 : assign
             );
 
@@ -148,7 +170,7 @@ export default function SubmitGradesPage() {
     },
     ...(selectedSubjectId === 'all' ? [{
         accessorKey: "subjectName",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="Subject" />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Course(subject)" />, // Changed label
     } as ColumnDef<StudentSubjectAssignmentWithGrades>] : []),
      {
         accessorKey: "year",
@@ -237,15 +259,15 @@ export default function SubmitGradesPage() {
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5" /> Filter Students</CardTitle>
-                <CardDescription>Select Subject, Year Level, and Section to filter the list.</CardDescription>
+                <CardDescription>Select Course(subject), Year Level, and Section to filter the list.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col md:flex-row gap-4">
                  {/* Subject Filter */}
                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="subject-filter">Subject</Label>
+                    <Label htmlFor="subject-filter">Course(subject)</Label>
                     <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={isLoading}>
                         <SelectTrigger id="subject-filter">
-                            <SelectValue placeholder="Select subject..." />
+                            <SelectValue placeholder="Select course..." />
                         </SelectTrigger>
                         <SelectContent>
                             {subjects.map((sub) => (

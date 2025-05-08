@@ -59,7 +59,7 @@ export type Term = 'Prelim' | 'Midterm' | 'Final';
 export interface StudentGradeEntry {
     id?: string; // Optional: ID if stored in a DB
     studentId: number;
-    subjectId: string;
+    subjectId: string; // Represents the Course ID
     term: Term;
     grade: number | null; // Only numeric or null
     remarks?: string;
@@ -77,20 +77,19 @@ export interface Section {
     studentCount?: number; // Optional: Number of students in the section
 }
 
-// Represents a subject
-export interface Subject {
+// Represents a course (previously Subject)
+export interface Subject { // Keep name Subject for now to avoid breaking existing code, but it means Course
     id: string; // Unique identifier (e.g., "CS101")
-    name: string; // e.g., "Mathematics 101"
+    name: string; // e.g., "Introduction to Programming"
     description?: string;
-    // Potentially add program/year level relevance
 }
 
-// Represents the assignment of a teacher to a subject within a specific section
+// Represents the assignment of a teacher to a course(subject) within a specific section
 export interface SectionSubjectAssignment {
     id: string; // Unique ID for the assignment itself (e.g., sectionId-subjectId)
     sectionId: string;
-    subjectId: string;
-    subjectName?: string; // Denormalized subject name
+    subjectId: string; // Course ID
+    subjectName?: string; // Denormalized course name
     teacherId: number;
     teacherName?: string; // Denormalized teacher name
 }
@@ -103,7 +102,7 @@ export interface Announcement {
     content: string;
     date: Date; // Changed to Date type
     target: {
-        course?: string | 'all' | null; // Keep backend key, label as "Program" in UI
+        course?: string | 'all' | null; // Program/Course target
         yearLevel?: string | 'all' | null; // Specific year level or 'all' or null
         section?: string | 'all' | null; // Specific section or 'all' or null
     };
@@ -114,7 +113,7 @@ export interface Announcement {
 
 export interface ScheduleEntry {
     id: string; // Unique identifier for the schedule entry
-    title: string; // e.g., "Math 101 - Section A"
+    title: string; // e.g., "Introduction to Programming - CS-1A"
     start: Date;
     end: Date;
     type: 'class' | 'event' | 'exam';
@@ -125,15 +124,13 @@ export interface ScheduleEntry {
 
 
 // Type for displaying student-subject assignments in the teacher's grade submission table
-// Includes placeholder grades for each term. Status is used internally for logic,
-// but the UI might display "Passed"/"Failed" in the Remarks column if status is "Complete".
 export interface StudentSubjectAssignmentWithGrades {
-    assignmentId: string; // Unique ID combining section-subject for this context (e.g., CS-1A-CS101)
+    assignmentId: string; // Unique ID combining student-subject for this context
     studentId: number;
     studentName: string;
-    subjectId: string;
-    subjectName: string;
-    section: string; // Section Code (e.g., 1A)
+    subjectId: string; // Course ID
+    subjectName: string; // Course Name
+    section: string; // Section Code (e.g., CS-1A)
     year: string; // Add year level for filtering
     prelimGrade?: number | null; // Numeric grade only (or null/undefined)
     prelimRemarks?: string | null;
@@ -141,15 +138,13 @@ export interface StudentSubjectAssignmentWithGrades {
     midtermRemarks?: string | null;
     finalGrade?: number | null; // Numeric grade only (or null/undefined)
     finalRemarks?: string | null;
-    // Status calculated based on term grades, used for internal logic
     status: 'Not Submitted' | 'Incomplete' | 'Complete';
 }
 
-// Type representing the grades a student sees (per subject across terms)
-// This replaces the previous simple Grade type
+// Type representing the grades a student sees (per subject/course across terms)
 export interface StudentTermGrade {
     id: string; // Can be subjectId or a unique identifier for the row
-    subjectName: string;
+    subjectName: string; // Course Name
     prelimGrade?: number | null; // Numeric grade only
     midtermGrade?: number | null; // Numeric grade only
     finalGrade?: number | null; // Numeric grade only
@@ -183,5 +178,3 @@ export interface UpcomingItem {
     date?: string; // Date might be string from API
     type: string; // Keep type flexible
 }
-
-// Define more types as needed (e.g., Course)

@@ -44,8 +44,6 @@ export const studentSchema = z.object({
         path: ["year"],
         });
     }
-    // If status is 'New', year should not be provided or will be ignored/overwritten.
-    // No explicit validation needed here as it's handled in the submission logic.
 });
 
 
@@ -102,7 +100,7 @@ const gradeValueSchema = z.union([
 export const submitGradesSchema = z.object({
     assignmentId: z.string(), // ID linking student and subject for this context
     studentId: z.number(),
-    subjectId: z.string(),
+    subjectId: z.string(), // Course ID
     prelimGrade: gradeValueSchema,
     prelimRemarks: z.string().optional().or(z.literal('')).nullable(),
     midtermGrade: gradeValueSchema,
@@ -164,7 +162,7 @@ export const assignAdviserSchema = z.object({
 export const announcementSchema = z.object({
   title: z.string().min(1, "Announcement title is required"),
   content: z.string().min(10, "Announcement content must be at least 10 characters"),
-  targetCourse: z.string().optional(), // Allow 'all' or specific course value
+  targetCourse: z.string().optional(), // Program/Course target
   targetYearLevel: z.string().optional(), // Allow 'all' or specific year level value
   targetSection: z.string().optional(), // Allow 'all' or specific section value
 });
@@ -182,7 +180,7 @@ export const passwordChangeSchema = z.object({
 
 // Schema for Assigning a Subject and Teacher in the Manage Subjects Modal
 export const assignSubjectSchema = z.object({
-  subjectId: z.string().min(1, "Please select a subject."),
+  subjectId: z.string().min(1, "Please select a course(subject)."), // Changed label
   teacherId: z.coerce.number({ invalid_type_error: "Please select a teacher." }).min(1, "Please select a teacher."),
 });
 

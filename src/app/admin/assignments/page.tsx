@@ -102,16 +102,25 @@ export default function AssignmentsAnnouncementsPage() {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [sectionsData, teachersData, subjectsData, announcementsData] = await Promise.all([
-          fetchData<Section[]>('sections/read.php'), // Use relative paths
-          fetchData<Teacher[]>('teachers/read.php'), // Adjust for potential nesting and ensure array
-          fetchData<Subject[]>('subjects/read.php'),
-          fetchData<Announcement[]>('announcements/read.php'),
+        // Use mock data
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+        setSections([
+            { id: "CS-1A", sectionCode: "CS-1A", course: "Computer Science", yearLevel: "1st Year", adviserId: 1, adviserName: "David Lee", studentCount: 0 },
+            { id: "CS-2A", sectionCode: "CS-2A", course: "Computer Science", yearLevel: "2nd Year", adviserId: 1, adviserName: "David Lee", studentCount: 1 },
+            { id: "IT-1B", sectionCode: "IT-1B", course: "Information Technology", yearLevel: "1st Year", studentCount: 1 },
         ]);
-        setSections(sectionsData || []);
-        setTeachers(teachersData || []);
-        setSubjects(subjectsData || []);
-        setAnnouncements(announcementsData || []);
+         setTeachers([
+            { id: 1, teacherId: "t1001", username: "t1001", firstName: "David", lastName: "Lee", department: "Computer Science", email: "david.lee@example.com", phone: "555-1234" },
+            { id: 2, teacherId: "t1002", username: "t1002", firstName: "Eve", lastName: "Davis", department: "Information Technology", email: "eve.davis@example.com" },
+        ]);
+         setSubjects([
+            { id: "CS101", name: "Introduction to Programming", description: "Basics of programming" },
+            { id: "IT202", name: "Networking Fundamentals", description: "Understanding computer networks" },
+            { id: "GEN001", name: "Purposive Communication", description: "Effective communication skills" },
+        ]);
+         setAnnouncements([
+            { id: "ann1", title: "Welcome Back Students!", content: "Welcome to the new academic year.", date: new Date(2024, 7, 15), target: { course: "all" }, author: "Admin" },
+        ]);
       } catch (error: any) {
         console.error("Failed to fetch initial data:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load page data. Please refresh." });
@@ -128,12 +137,16 @@ export default function AssignmentsAnnouncementsPage() {
             const fetchAssignments = async () => {
                 setIsLoadingAssignments(true);
                 try {
-                    // Adjust path based on PHP routing: Requires {sectionId} in path
-                    const assignmentsData = await fetchData<SectionSubjectAssignment[]>(`sections/${selectedSection.id}/assignments/read.php`);
-                    setSelectedSectionAssignments(assignmentsData || []);
+                    // Simulate fetching assignments
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    const mockAssignments: SectionSubjectAssignment[] = [
+                         { id: "CS-2A-CS101", sectionId: "CS-2A", subjectId: "CS101", subjectName: "Introduction to Programming", teacherId: 1, teacherName: "David Lee" },
+                         { id: "IT-1B-IT202", sectionId: "IT-1B", subjectId: "IT202", subjectName: "Networking Fundamentals", teacherId: 2, teacherName: "Eve Davis" },
+                    ];
+                    setSelectedSectionAssignments(mockAssignments.filter(a => a.sectionId === selectedSection.id));
                 } catch (error: any) {
                     console.error("Failed to fetch assignments:", error);
-                     toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load subject assignments. Check URL format or backend logs." });
+                     toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load subject assignments." });
                 } finally {
                     setIsLoadingAssignments(false);
                 }
@@ -161,20 +174,23 @@ export default function AssignmentsAnnouncementsPage() {
         const teacher = teachers.find(t => t.id === teacherId);
         const subjectName = subject?.name || `Subject ${subjectId}`;
         const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : `Teacher ${teacherId}`;
+        const assignmentId = `${sectionId}-${subjectId}`; // Generate ID client-side for mock
 
-        const newAssignmentPayload = {
+        const newAssignment: SectionSubjectAssignment = {
+            id: assignmentId,
             sectionId: sectionId,
             subjectId: subjectId,
             teacherId: teacherId,
+            subjectName: subjectName, // Include names for immediate display
+            teacherName: teacherName,
         };
 
         setIsLoadingAssignments(true);
         try {
-            const savedAssignment = await postData<typeof newAssignmentPayload, SectionSubjectAssignment>(
-                 `sections/assignments/create.php`, // Send sectionId in payload
-                 newAssignmentPayload
-            );
-            setSelectedSectionAssignments(prev => [...prev, { ...savedAssignment, subjectName, teacherName }]);
+            // Simulate POST request
+             await new Promise(resolve => setTimeout(resolve, 300));
+            console.log("Mock adding assignment:", newAssignment);
+            setSelectedSectionAssignments(prev => [...prev, newAssignment]);
             toast({ title: "Assignment Added", description: `${subjectName} assigned to ${teacherName} for ${selectedSection.sectionCode}.` });
         } catch (error: any) {
             console.error("Failed to save assignment:", error);
@@ -189,9 +205,11 @@ export default function AssignmentsAnnouncementsPage() {
 
         setIsLoadingAssignments(true);
         try {
-            await deleteData(`assignments/delete.php/${assignmentId}`); // Pass ID in URL
-            setSelectedSectionAssignments(prev => prev.filter(a => a.id !== assignmentId));
-            toast({ title: "Assignment Removed", description: `Subject assignment removed successfully.` });
+             // Simulate DELETE request
+             await new Promise(resolve => setTimeout(resolve, 300));
+             console.log("Mock deleting assignment:", assignmentId);
+             setSelectedSectionAssignments(prev => prev.filter(a => a.id !== assignmentId));
+             toast({ title: "Assignment Removed", description: `Subject assignment removed successfully.` });
         } catch (error: any) {
             console.error("Failed to delete assignment:", error);
             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove subject assignment." });
@@ -204,22 +222,27 @@ export default function AssignmentsAnnouncementsPage() {
     if (!selectedSection) return;
     setIsSubmitting(true);
     const adviserIdToAssign = values.adviserId === 0 ? null : values.adviserId;
+    const adviser = teachers.find(t => t.id === adviserIdToAssign);
+    const adviserName = adviser ? `${adviser.firstName} ${adviser.lastName}` : undefined;
 
     try {
-         // Assuming sectionId needs to be in the URL path based on PHP structure
-         const updatedSection = await postData<{ adviserId: number | null }, Section>(
-             `sections/${selectedSection.id}/adviser/update.php`,
-             { adviserId: adviserIdToAssign }
-         );
+        // Simulate POST request
+         await new Promise(resolve => setTimeout(resolve, 300));
+         console.log(`Mock assigning adviser ${adviserIdToAssign} to section ${selectedSection.id}`);
+
+         const updatedSectionData: Section = {
+             ...selectedSection,
+             adviserId: adviserIdToAssign ?? undefined,
+             adviserName: adviserName
+         };
 
         setSections(prev =>
             prev.map(sec =>
                 sec.id === selectedSection.id
-                ? { ...sec, adviserId: updatedSection.adviserId, adviserName: updatedSection.adviserName }
+                ? updatedSectionData
                 : sec
             )
         );
-        const adviserName = updatedSection.adviserName || 'N/A';
         toast({ title: "Adviser Assigned", description: `Adviser ${adviserIdToAssign ? 'assigned' : 'unassigned'} successfully ${adviserIdToAssign ? `(${adviserName}) to` : 'from'} ${selectedSection.sectionCode}.` });
         setIsAssignModalOpen(false);
     } catch (error: any) {
@@ -243,10 +266,19 @@ export default function AssignmentsAnnouncementsPage() {
     };
 
     try {
-        const newAnnouncement = await postData<typeof announcementPayload, Announcement>(
-            'announcements/create.php',
-            announcementPayload
-        );
+        // Simulate POST request
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const nextId = `ann${announcements.length + 1}`;
+        const newAnnouncement: Announcement = {
+            id: nextId,
+            title: announcementPayload.title,
+            content: announcementPayload.content,
+            date: new Date(),
+            target: announcementPayload.target,
+            author: "Admin", // Assume admin creates
+            author_type: 'Admin'
+        };
+         console.log("Mock creating announcement:", newAnnouncement);
         setAnnouncements(prev => [newAnnouncement, ...prev]);
         toast({ title: "Announcement Posted", description: "Announcement created successfully." });
         setIsAnnounceModalOpen(false);
@@ -263,7 +295,9 @@ export default function AssignmentsAnnouncementsPage() {
     const handleDeleteAnnouncement = async (announcementId: string) => {
         setIsSubmitting(true);
         try {
-            await deleteData(`announcements/delete.php/${announcementId}`); // Pass ID in URL
+            // Simulate DELETE request
+            await new Promise(resolve => setTimeout(resolve, 300));
+            console.log("Mock deleting announcement:", announcementId);
             setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
             toast({ title: "Deleted", description: "Announcement removed." });
         } catch (error: any) {
@@ -315,7 +349,7 @@ export default function AssignmentsAnnouncementsPage() {
                 size="sm"
                 onClick={() => handleOpenManageSubjectsModal(row.original)}
                 >
-                 <BookOpen className="mr-2 h-4 w-4" /> Manage Subjects
+                 <BookOpen className="mr-2 h-4 w-4" /> Manage Courses(subjects)
             </Button>
          </div>
       ),
@@ -537,7 +571,7 @@ export default function AssignmentsAnnouncementsPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Section Assignments</CardTitle>
-                <CardDescription>Assign advisers and manage subjects for class sections.</CardDescription>
+                <CardDescription>Assign advisers and manage courses for class sections.</CardDescription>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
@@ -640,7 +674,7 @@ export default function AssignmentsAnnouncementsPage() {
                 isOpen={isManageSubjectsModalOpen}
                 onOpenChange={setIsManageSubjectsModalOpen}
                 section={selectedSection}
-                subjects={subjects}
+                subjects={subjects} // Pass all subjects
                 teachers={teachers}
                 assignments={selectedSectionAssignments}
                 onAddAssignment={handleAddSubjectAssignment}
@@ -653,5 +687,3 @@ export default function AssignmentsAnnouncementsPage() {
     </div>
   );
 }
-
-    
