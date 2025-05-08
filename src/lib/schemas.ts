@@ -1,12 +1,13 @@
 
 import { z } from "zod";
-import type { StudentStatus, EmploymentType, AdminRole } from "@/types"; // Import the status/role types
+import type { StudentStatus, EmploymentType, AdminRole, DepartmentType } from "@/types"; // Import DepartmentType
 
 const studentStatusEnum: [StudentStatus, ...StudentStatus[]] = ['New', 'Transferee', 'Returnee'];
 const yearLevelEnum = ['1st Year', '2nd Year', '3rd Year', '4th Year'] as const;
 const genderEnum = ['Male', 'Female', 'Other'] as const;
 const employmentTypeEnum: [EmploymentType, ...EmploymentType[]] = ['Regular', 'Part Time'];
-const adminRoleEnum: [AdminRole, ...AdminRole[]] = ['Super Admin', 'Sub Admin']; // Define admin roles
+const adminRoleEnum: [AdminRole, ...AdminRole[]] = ['Super Admin', 'Sub Admin'];
+const departmentEnum: [DepartmentType, ...DepartmentType[]] = ['Teaching', 'Administrative']; // Use DepartmentType
 
 // Schema for Program Management
 export const subjectSchema = z.object({
@@ -16,15 +17,15 @@ export const subjectSchema = z.object({
 });
 
 export const yearLevelCoursesSchema = z.record(
-  z.enum(yearLevelEnum), // Keys are year levels
-  z.array(subjectSchema) // Values are arrays of courses(subjects)
+  z.enum(yearLevelEnum),
+  z.array(subjectSchema)
 );
 
 export const programSchema = z.object({
-  id: z.string().optional(), // Program code (e.g., "CS") - optional for creation, generated or input
+  id: z.string().optional(),
   name: z.string().min(1, "Program name is required"),
   description: z.string().optional().or(z.literal('')),
-  courses: yearLevelCoursesSchema.optional().default({}), // Courses grouped by year level, default empty
+  courses: yearLevelCoursesSchema.optional().default({}),
 });
 
 // Schema for adding/editing a student
@@ -63,7 +64,7 @@ export const studentSchema = z.object({
     }
 });
 
-// Schema for adding/editing a teacher
+// Schema for adding/editing a faculty member (updated comments)
 export const teacherSchema = z.object({
   id: z.number().optional(),
   // Personal Info
@@ -76,7 +77,7 @@ export const teacherSchema = z.object({
   address: z.string().optional().or(z.literal('')),
   // Employee Info
   employmentType: z.enum(employmentTypeEnum, { required_error: "Employment type is required"}),
-  department: z.string().min(1, "Department is required"),
+  department: z.enum(departmentEnum, { required_error: "Department is required"}), // Use departmentEnum
   // Contact / Account Info
   email: z.string().email("Invalid email address").optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
@@ -86,16 +87,15 @@ export const teacherSchema = z.object({
   emergencyContactPhone: z.string().optional().or(z.literal('')),
   emergencyContactAddress: z.string().optional().or(z.literal('')),
   // Generated fields
-  teacherId: z.string().optional(),
+  teacherId: z.string().optional(), // Keep backend key as teacherId
   username: z.string().optional(),
 });
 
 // Schema for adding a new admin
 export const adminUserSchema = z.object({
-  id: z.number().optional(), // For UserForm generic type, not used for creation path
+  id: z.number().optional(),
   email: z.string().email("Valid email is required."),
   role: z.enum(adminRoleEnum, { required_error: "Admin role is required" }),
-  // Optional for type compatibility, not collected in form directly anymore
   username: z.string().optional(),
 });
 
@@ -141,7 +141,7 @@ export const studentProfileSchema = z.object({
    emergencyContactAddress: z.string().optional().or(z.literal('')),
 });
 
-// Schema for Profile Editing (Teacher)
+// Schema for Profile Editing (Faculty) - updated comments
 export const teacherProfileSchema = z.object({
     id: z.number(),
     firstName: z.string().min(1, "First name is required"),
@@ -170,7 +170,7 @@ export const assignAdviserSchema = z.object({
 export const announcementSchema = z.object({
   title: z.string().min(1, "Announcement title is required"),
   content: z.string().min(10, "Announcement content must be at least 10 characters"),
-  targetProgramId: z.string().optional(), // Changed from targetCourse to targetProgramId
+  targetProgramId: z.string().optional(),
   targetYearLevel: z.string().optional(),
   targetSection: z.string().optional(),
 });
@@ -185,10 +185,10 @@ export const passwordChangeSchema = z.object({
     path: ["confirmPassword"],
 });
 
-// Schema for Assigning a Subject/Course and Teacher in Manage Courses Modal
+// Schema for Assigning a Subject/Course and Faculty member in Manage Courses Modal
 export const assignSubjectSchema = z.object({
   subjectId: z.string().min(1, "Please select a course(subject)."),
-  teacherId: z.coerce.number({ invalid_type_error: "Please select a teacher." }).min(1, "Please select a teacher."),
+  teacherId: z.coerce.number({ invalid_type_error: "Please select a faculty member." }).min(1, "Please select a faculty member."), // Keep key as teacherId
 });
 
 // Schema for Login
@@ -196,3 +196,5 @@ export const loginSchema = z.object({
   username: z.string().min(1, { message: "Username is required" }),
   password: z.string().min(1, { message: "Password is required" }),
 });
+
+    

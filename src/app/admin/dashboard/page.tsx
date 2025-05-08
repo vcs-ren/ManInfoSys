@@ -2,11 +2,11 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCog, CalendarDays, Loader2, ShieldAlert } from "lucide-react"; // Added ShieldAlert
+import { Users, UserCog, CalendarDays, Loader2, ShieldAlert } from "lucide-react"; // Kept UserCog for faculty icon
 import * as React from 'react';
 import { fetchData } from "@/lib/api";
 import type { DashboardStats } from "@/types";
-import Link from "next/link"; // Import Link
+import Link from "next/link";
 import { useRouter } from 'next/navigation';
 
 
@@ -21,7 +21,6 @@ export default function AdminDashboardPage() {
       setIsLoading(true);
       setError(null);
       try {
-        // Use the correct relative path
         const data = await fetchData<DashboardStats>('admin/dashboard-stats.php');
         setStats(data);
       } catch (err: any) {
@@ -51,7 +50,7 @@ export default function AdminDashboardPage() {
       {error && <p className="text-destructive text-center py-4">{error}</p>}
 
       {stats && !isLoading && !error && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"> {/* Adjusted for 4 cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card onClick={() => handleCardClick('/admin/students')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -61,16 +60,16 @@ export default function AdminDashboardPage() {
               <div className="text-2xl font-bold">{stats.totalStudents}</div>
             </CardContent>
           </Card>
-          <Card onClick={() => handleCardClick('/admin/teachers')} className="cursor-pointer hover:shadow-md transition-shadow">
+           <Card onClick={() => handleCardClick('/admin/teachers')} className="cursor-pointer hover:shadow-md transition-shadow"> {/* Path remains /teachers */}
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Teachers</CardTitle>
-              <UserCog className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Total Faculty</CardTitle> {/* Updated Title */}
+              <UserCog className="h-4 w-4 text-muted-foreground" /> {/* Keep icon */}
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalTeachers}</div>
+              <div className="text-2xl font-bold">{stats.totalTeachers}</div> {/* Backend key remains totalTeachers */}
             </CardContent>
           </Card>
-           <Card onClick={() => handleCardClick('/admin/admins')} className="cursor-pointer hover:shadow-md transition-shadow"> {/* Make Admin card clickable */}
+           <Card onClick={() => handleCardClick('/admin/admins')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
@@ -79,7 +78,7 @@ export default function AdminDashboardPage() {
               <div className="text-2xl font-bold">{stats.totalAdmins}</div>
             </CardContent>
           </Card>
-          <Card onClick={() => handleCardClick('/admin/assignments')} className="cursor-pointer hover:shadow-md transition-shadow"> {/* Assuming assignments is for upcoming events/tasks */}
+          <Card onClick={() => handleCardClick('/admin/assignments')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Upcoming Events/Tasks</CardTitle>
               <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -102,3 +101,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    

@@ -28,7 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
-import type { Section, Subject, Teacher, SectionSubjectAssignment } from "@/types";
+import type { Section, Subject, Faculty, SectionSubjectAssignment } from "@/types"; // Renamed Teacher to Faculty
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 
@@ -36,14 +36,14 @@ interface ManageSubjectsModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   section: Section;
-  subjects: Subject[]; // Now representing available courses/subjects
-  teachers: Teacher[];
+  subjects: Subject[];
+  teachers: Faculty[]; // Use Faculty type
   assignments: SectionSubjectAssignment[];
   onAddAssignment: (sectionId: string, subjectId: string, teacherId: number) => Promise<void> | void;
   onDeleteAssignment: (assignmentId: string) => Promise<void> | void;
   isLoadingAssignments: boolean;
-  isLoadingSubjects: boolean; // Renamed for clarity
-  isLoadingTeachers: boolean;
+  isLoadingSubjects: boolean;
+  isLoadingTeachers: boolean; // Renamed from isLoadingTeachers to isLoadingFaculty
 }
 
 export function ManageSubjectsModal({
@@ -51,66 +51,60 @@ export function ManageSubjectsModal({
   onOpenChange,
   section,
   subjects,
-  teachers,
+  teachers: faculty, // Rename variable for clarity
   assignments,
   onAddAssignment,
   onDeleteAssignment,
   isLoadingAssignments,
-  isLoadingSubjects, // Renamed
-  isLoadingTeachers,
+  isLoadingSubjects,
+  isLoadingTeachers: isLoadingFaculty, // Rename variable
 }: ManageSubjectsModalProps) {
   const [selectedSubjectId, setSelectedSubjectId] = React.useState<string>("");
-  const [selectedTeacherId, setSelectedTeacherId] = React.useState<string>("");
-  const [isSubmittingAdd, setIsSubmittingAdd] = React.useState(false); // Local loading state for add
-  const [isDeletingId, setIsDeletingId] = React.useState<string | null>(null); // Track which assignment is being deleted
+  const [selectedTeacherId, setSelectedTeacherId] = React.useState<string>(""); // Keep as teacherId for backend compatibility
+  const [isSubmittingAdd, setIsSubmittingAdd] = React.useState(false);
+  const [isDeletingId, setIsDeletingId] = React.useState<string | null>(null);
   const { toast } = useToast();
 
   const handleAddClick = async () => {
       if (!selectedSubjectId || !selectedTeacherId) {
-          toast({ variant: "warning", title: "Selection Required", description: "Please select both a course(subject) and a teacher." });
+          toast({ variant: "warning", title: "Selection Required", description: "Please select both a course(subject) and a faculty member." }); // Updated message
           return;
       }
 
       const teacherIdNum = parseInt(selectedTeacherId, 10);
       if (isNaN(teacherIdNum)) {
-           toast({ variant: "destructive", title: "Error", description: "Invalid teacher selected." });
+           toast({ variant: "destructive", title: "Error", description: "Invalid faculty selected." }); // Updated message
            return;
       }
 
-      // Check if subject is already assigned
       if (assignments.some(a => a.subjectId === selectedSubjectId)) {
           toast({ variant: "warning", title: "Already Assigned", description: "This course(subject) is already assigned to the section." });
           return;
       }
 
-      setIsSubmittingAdd(true); // Start loading for add
+      setIsSubmittingAdd(true);
       try {
           await onAddAssignment(section.id, selectedSubjectId, teacherIdNum);
-          // Reset dropdowns only on successful add
           setSelectedSubjectId("");
           setSelectedTeacherId("");
       } catch (error) {
-            // Error toast is handled by the calling component (AssignmentsAnnouncementsPage)
             console.error("Error during add assignment:", error);
       } finally {
-          setIsSubmittingAdd(false); // Stop loading for add
+          setIsSubmittingAdd(false);
       }
   };
 
     const handleDeleteClick = async (assignmentId: string) => {
-        setIsDeletingId(assignmentId); // Start loading for delete specific item
+        setIsDeletingId(assignmentId);
         try {
              await onDeleteAssignment(assignmentId);
-              // Success toast handled by calling component
         } catch (error) {
-             // Error toast handled by calling component
              console.error("Error during delete assignment:", error);
         } finally {
-             setIsDeletingId(null); // Stop loading for delete
+             setIsDeletingId(null);
         }
     };
 
-    // Filter available subjects (subjects not already assigned to this section)
     const availableSubjects = React.useMemo(() => {
         const assignedSubjectIds = new Set(assignments.map(a => a.subjectId));
         return subjects.filter(s => !assignedSubjectIds.has(s.id));
@@ -122,7 +116,7 @@ export function ManageSubjectsModal({
         <DialogHeader>
           <DialogTitle>Manage Courses(subjects) for {section.sectionCode}</DialogTitle>
           <DialogDescription>
-            Assign courses(subjects) and teachers for the {section.course} - {section.yearLevel} section.
+            Assign courses(subjects) and faculty members for the {section.programName} - {section.yearLevel} section. {/* Updated "teachers" to "faculty members" */}
           </DialogDescription>
         </DialogHeader>
 
@@ -148,24 +142,24 @@ export function ManageSubjectsModal({
             </Select>
           </div>
 
-          {/* Teacher Selection */}
+          {/* Faculty Selection */}
           <div className="space-y-1">
-            <Label htmlFor="teacher-select">Teacher</Label>
-            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId} disabled={isLoadingTeachers || isLoadingAssignments || isSubmittingAdd}>
-              <SelectTrigger id="teacher-select">
-                <SelectValue placeholder="Select Teacher..." />
+            <Label htmlFor="faculty-select">Faculty</Label> {/* Updated label */}
+            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId} disabled={isLoadingFaculty || isLoadingAssignments || isSubmittingAdd}> {/* Updated disabled prop */}
+              <SelectTrigger id="faculty-select">
+                <SelectValue placeholder="Select Faculty..." /> {/* Updated placeholder */}
               </SelectTrigger>
               <SelectContent>
-                 {isLoadingTeachers ? (
-                    <SelectItem value="loading" disabled>Loading teachers...</SelectItem>
-                 ) : teachers.length > 0 ? (
-                    teachers.map((teacher) => (
-                        <SelectItem key={teacher.id} value={String(teacher.id)}>
-                            {teacher.firstName} {teacher.lastName} ({teacher.department})
+                 {isLoadingFaculty ? ( // Updated loading check
+                    <SelectItem value="loading" disabled>Loading faculty...</SelectItem> // Updated message
+                 ) : faculty.length > 0 ? ( // Use faculty variable
+                    faculty.map((facultyMember) => ( // Iterate over faculty
+                        <SelectItem key={facultyMember.id} value={String(facultyMember.id)}>
+                            {facultyMember.firstName} {facultyMember.lastName} ({facultyMember.department}) {/* Display faculty details */}
                         </SelectItem>
                     ))
                 ) : (
-                     <SelectItem value="no-teachers" disabled>No teachers available</SelectItem>
+                     <SelectItem value="no-faculty" disabled>No faculty available</SelectItem> // Updated message
                 )}
               </SelectContent>
             </Select>
@@ -174,7 +168,7 @@ export function ManageSubjectsModal({
           {/* Add Button */}
           <Button
             onClick={handleAddClick}
-            disabled={!selectedSubjectId || !selectedTeacherId || isLoadingAssignments || isSubmittingAdd || isDeletingId !== null} // Disable if any operation is in progress
+            disabled={!selectedSubjectId || !selectedTeacherId || isLoadingAssignments || isSubmittingAdd || isDeletingId !== null}
             className="md:self-end"
           >
              {isSubmittingAdd ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
@@ -190,7 +184,7 @@ export function ManageSubjectsModal({
                 <TableHeader>
                 <TableRow>
                     <TableHead>Course(subject)</TableHead>
-                    <TableHead>Assigned Teacher</TableHead>
+                    <TableHead>Assigned Faculty</TableHead> {/* Updated header */}
                     <TableHead className="text-right">Action</TableHead>
                 </TableRow>
                 </TableHeader>
@@ -206,14 +200,13 @@ export function ManageSubjectsModal({
                     assignments.map((assign) => (
                     <TableRow key={assign.id}>
                         <TableCell className="font-medium">{assign.subjectName || assign.subjectId}</TableCell>
-                        <TableCell>{assign.teacherName || `Teacher ID: ${assign.teacherId}`}</TableCell>
+                        <TableCell>{assign.teacherName || `Faculty ID: ${assign.teacherId}`}</TableCell> {/* Updated text */}
                         <TableCell className="text-right">
                         <Button
                             variant="ghost"
                             size="sm"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => handleDeleteClick(assign.id)}
-                             // Disable if this specific item is being deleted or if an add is in progress
                             disabled={isLoadingAssignments || isSubmittingAdd || isDeletingId === assign.id}
                             aria-label={`Remove assignment ${assign.id}`}
                         >
@@ -248,3 +241,5 @@ export function ManageSubjectsModal({
     </Dialog>
   );
 }
+
+    

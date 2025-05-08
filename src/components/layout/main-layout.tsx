@@ -1,6 +1,7 @@
 
 "use client"; // Add use client directive
 
+import * as React from 'react';
 import type { ReactNode } from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav } from './sidebar-nav'; // Assuming sidebar-nav is in the same directory
@@ -29,8 +30,8 @@ const allNavItems: NavItemGroup[] = [
         items: [
             { href: '/admin/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
             { href: '/admin/students', label: 'Manage Students', icon: 'Users' },
-            { href: '/admin/teachers', label: 'Manage Teachers', icon: 'UserCog' },
-            // { href: '/admin/admins', label: 'Manage Admins', icon: 'ShieldAlert' }, // Removed Manage Admins
+            { href: '/admin/teachers', label: 'Manage Faculty', icon: 'UserCog' }, // Renamed Label
+            { href: '/admin/programs', label: 'Manage Programs', icon: 'Library' }, // Added Programs
             { href: '/admin/assignments', label: 'Section Management', icon: 'ClipboardList' },
             { href: '/admin/settings', label: 'Settings', icon: 'Settings' },
         ]
@@ -59,15 +60,23 @@ const allNavItems: NavItemGroup[] = [
 
 
 export function MainLayout({ children, userRole }: MainLayoutProps) {
+  // Find the navigation items for the current user role
+  const currentUserNavItems = allNavItems.find(group => group.role === userRole)?.items || [];
+    // Add a default check for ReactNode type for children
+    const validChildren: React.ReactNode = React.Children.toArray(children).filter(child => React.isValidElement(child));
+
+
   return (
     <SidebarProvider defaultOpen={true}>
-      {/* Pass all navigation items grouped by role */}
+      {/* Pass only the navigation items for the current user */}
       <SidebarNav navItemGroups={allNavItems} currentUserRole={userRole} />
       <SidebarInset>
         <div className="p-4 pt-16 md:pt-4"> {/* Add padding top for mobile header */}
-            {children}
+            {validChildren}
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
+
+    

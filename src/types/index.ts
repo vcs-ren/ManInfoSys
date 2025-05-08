@@ -1,9 +1,10 @@
 
 // Shared types for the application
 
-export type StudentStatus = 'New' | 'Transferee' | 'Returnee'; // Removed 'Continuing'
+export type StudentStatus = 'New' | 'Transferee' | 'Returnee';
 export type EmploymentType = 'Regular' | 'Part Time'; // Added employment type
-export type AdminRole = 'Super Admin' | 'Sub Admin'; // Added Admin Roles
+export type AdminRole = 'Super Admin' | 'Sub Admin';
+export type DepartmentType = 'Teaching' | 'Administrative'; // Defined Department types
 
 export interface Student {
   id: number; // Database ID
@@ -15,10 +16,10 @@ export interface Student {
   suffix?: string;
   gender?: 'Male' | 'Female' | 'Other';
   birthday?: string; // YYYY-MM-DD format
-  course: string; // Keep backend key, label as "Program" in UI
+  course: string; // References Program ID/Name, Label as "Program" in UI
   status: StudentStatus;
   year?: string; // Optional year level (e.g., '1st Year', '2nd Year')
-  section: string; // e.g., "10A", "20B" - Auto-generated
+  section: string; // e.g., "CS-1A", "IT-1B" - Auto-generated
   email?: string;
   phone?: string;
   // Detailed emergency contact info
@@ -28,7 +29,8 @@ export interface Student {
   emergencyContactAddress?: string;
 }
 
-export interface Teacher {
+// Renamed Teacher to Faculty and updated department type
+export interface Faculty {
   id: number; // Database ID
   teacherId: string; // e.g., "t1001", "t1002" - Generated ID (t + 1000 + DB ID)
   username: string; // e.g., "t1001", "t1002" - Generated username (same as teacherId)
@@ -38,12 +40,12 @@ export interface Teacher {
   suffix?: string;
   gender?: 'Male' | 'Female' | 'Other';
   employmentType?: EmploymentType;
-  address?: string; // Added teacher's address
-  department: string;
+  address?: string;
+  department: DepartmentType; // Updated to use defined types
   email?: string;
   phone?: string;
   birthday?: string; // YYYY-MM-DD format
-  // Added Emergency Contact Fields
+  // Emergency Contact Fields
   emergencyContactName?: string;
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
@@ -96,14 +98,14 @@ export interface Subject {
     yearLevel?: string; // Year level this course is typically taken
 }
 
-// Represents the assignment of a teacher to a course within a specific section
+// Represents the assignment of a faculty member to a course within a specific section
 export interface SectionSubjectAssignment {
     id: string; // Unique ID for the assignment itself (e.g., sectionId-subjectId)
     sectionId: string;
     subjectId: string; // Course ID
     subjectName?: string; // Denormalized course name
-    teacherId: number;
-    teacherName?: string; // Denormalized teacher name
+    teacherId: number; // Keep as teacherId for backend consistency
+    teacherName?: string; // Denormalized faculty name
 }
 
 
@@ -118,8 +120,8 @@ export interface Announcement {
         yearLevel?: string | 'all' | null; // Specific year level or 'all' or null
         section?: string | 'all' | null; // Specific section or 'all' or null
     };
-    author?: string; // Optional: Name of the admin/teacher who posted
-    author_type?: 'Admin' | 'Teacher'; // Added author type
+    author?: string; // Optional: Name of the admin/faculty who posted
+    author_type?: 'Admin' | 'Teacher'; // Keep 'Teacher' for backend consistency
 }
 
 
@@ -130,12 +132,12 @@ export interface ScheduleEntry {
     end: Date;
     type: 'class' | 'event' | 'exam';
     location?: string;
-    teacher?: string; // For student view
-    section?: string; // For teacher view
+    teacher?: string; // For student view (displays faculty name)
+    section?: string; // For faculty view
 }
 
 
-// Type for displaying student-subject assignments in the teacher's grade submission table
+// Type for displaying student-subject assignments in the faculty's grade submission table
 export interface StudentSubjectAssignmentWithGrades {
     assignmentId: string; // Unique ID combining student-subject for this context
     studentId: number;
@@ -168,17 +170,16 @@ export interface AdminUser {
   id: number;
   username: string;
   email?: string; // Email is required by form schema
-  role: AdminRole; // Added role
-  isSuperAdmin?: boolean; // Keep this for quick identification of the main admin
+  role: AdminRole; // Use AdminRole type
+  isSuperAdmin?: boolean;
 }
 
 // Interface for dashboard stats fetched from API
 export interface DashboardStats {
     totalStudents: number;
-    totalTeachers: number;
+    totalTeachers: number; // Keep as totalTeachers for backend consistency
     totalAdmins: number;
     upcomingEvents: number;
-    // Add more stats as needed
 }
 
 // Interface for upcoming items (simplified) - Keep this if used by mock data
@@ -188,3 +189,5 @@ export interface UpcomingItem {
     date?: string; // Date might be string from API
     type: string; // Keep type flexible
 }
+
+    
