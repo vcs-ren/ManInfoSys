@@ -1,3 +1,4 @@
+
 <?php
 // --- api/announcements/read.php --- (GET /api/announcements)
 
@@ -27,7 +28,7 @@ $query = "SELECT
             a.title,
             a.content,
             a.created_at AS date,
-            a.target_course,
+            a.target_course, -- Keep backend key
             a.target_year_level,
             a.target_section,
             a.author_type,
@@ -59,7 +60,7 @@ try {
             // Construct the target object structure expected by the frontend
             $target_obj = array(
                  // Use null if value is NULL or 'all'
-                 "course" => ($target_course === NULL || $target_course === 'all') ? null : $target_course,
+                 "course" => ($target_course === NULL || $target_course === 'all') ? null : $target_course, // Keep backend key
                  "yearLevel" => ($target_year_level === NULL || $target_year_level === 'all') ? null : $target_year_level,
                  "section" => ($target_section === NULL || $target_section === 'all') ? null : $target_section
             );

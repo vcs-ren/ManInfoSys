@@ -109,7 +109,7 @@ export default function StudentProfilePage() {
          ...values, // Overwrite with edited values
          // Ensure non-editable fields are preserved from studentData
          studentId: studentData.studentId,
-         course: studentData.course,
+         course: studentData.course, // Keep backend 'course' key
          status: studentData.status,
          year: studentData.year,
          section: studentData.section,
@@ -202,7 +202,7 @@ export default function StudentProfilePage() {
                                 </FormControl>
                             </FormItem>
                              <FormItem>
-                                <FormLabel>Course</FormLabel>
+                                <FormLabel>Program</FormLabel> {/* Changed label */}
                                 <FormControl>
                                     <Input value={studentData.course} disabled readOnly className="bg-muted"/>
                                 </FormControl>

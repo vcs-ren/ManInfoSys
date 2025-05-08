@@ -32,12 +32,12 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
 
-// Define course options (consider fetching these from API if dynamic)
-const courseOptions = [
+// Define program options (consider fetching these from API if dynamic)
+const programOptions = [
   { value: "Computer Science", label: "Computer Science" },
   { value: "Information Technology", label: "Information Technology" },
   { value: "Business Administration", label: "Business Administration" },
-  // Add more courses as needed
+  // Add more programs as needed
 ];
 
 // Updated status options (removed 'Continuing')
@@ -69,10 +69,10 @@ const studentFormFields: FormFieldConfig<Student>[] = [
   { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr. (optional)", section: 'personal' },
   { name: "birthday", label: "Birthday", type: "date", placeholder: "YYYY-MM-DD (optional)", section: 'personal' },
   { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
-  // Enrollment Info (Order: Status, Year, Course) - Student ID shown read-only in edit mode
+  // Enrollment Info (Order: Status, Year, Program) - Student ID shown read-only in edit mode
   { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'enrollment' },
   { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false },
-  { name: "course", label: "Course", type: "select", options: courseOptions, placeholder: "Select a course", required: true, section: 'enrollment' },
+  { name: "course", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' },
   // Contact / Account Details
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
   { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
@@ -288,15 +288,15 @@ export default function ManageStudentsPage() {
             enableHiding: true,
         },
          {
-            accessorKey: "course",
+            accessorKey: "course", // Keep backend key
              header: ({ column }) => (
                  <DataTableFilterableColumnHeader
                      column={column}
-                     title="Course"
-                     options={courseOptions}
+                     title="Program" // Change display label
+                     options={programOptions}
                  />
              ),
-            cell: ({ row }) => <div>{row.getValue("course")}</div>,
+            cell: ({ row }) => <div>{row.getValue("course")}</div>, // Access value using backend key
              filterFn: (row, id, value) => value.includes(row.getValue(id)),
         },
          {

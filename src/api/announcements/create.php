@@ -1,3 +1,4 @@
+
 <?php
 // --- api/announcements/create.php --- (POST /api/announcements)
 
@@ -74,7 +75,7 @@ try {
     $content = htmlspecialchars(strip_tags($data->content));
 
     // Process target object - use null if 'all' or missing/empty
-    $targetCourse = (!empty($data->target->course) && $data->target->course !== 'all') ? htmlspecialchars(strip_tags($data->target->course)) : null;
+    $targetCourse = (!empty($data->target->course) && $data->target->course !== 'all') ? htmlspecialchars(strip_tags($data->target->course)) : null; // Keep backend key 'course'
     $targetYearLevel = (!empty($data->target->yearLevel) && $data->target->yearLevel !== 'all') ? htmlspecialchars(strip_tags($data->target->yearLevel)) : null;
     $targetSection = (!empty($data->target->section) && $data->target->section !== 'all') ? htmlspecialchars(strip_tags($data->target->section)) : null;
 
@@ -85,7 +86,7 @@ try {
                     content = :content,
                     author_id = :authorId,
                     author_type = :authorType,
-                    target_course = :targetCourse,
+                    target_course = :targetCourse, -- Keep backend key
                     target_year_level = :targetYearLevel,
                     target_section = :targetSection";
 
@@ -97,7 +98,7 @@ try {
     $stmt->bindParam(':content', $content);
     $stmt->bindParam(':authorId', $authorId, $authorId === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
     $stmt->bindParam(':authorType', $authorType);
-    $stmt->bindParam(':targetCourse', $targetCourse, $targetCourse === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindParam(':targetCourse', $targetCourse, $targetCourse === null ? PDO::PARAM_NULL : PDO::PARAM_STR); // Keep backend key
     $stmt->bindParam(':targetYearLevel', $targetYearLevel, $targetYearLevel === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
     $stmt->bindParam(':targetSection', $targetSection, $targetSection === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
 
@@ -109,7 +110,7 @@ try {
         // Fetch the newly created announcement to return it
          $fetchQuery = "SELECT
                           a.id, a.title, a.content, a.created_at AS date,
-                          a.target_course, a.target_year_level, a.target_section,
+                          a.target_course, a.target_year_level, a.target_section, -- Keep backend keys
                           a.author_type,
                           CASE
                               WHEN a.author_type = 'Admin' THEN 'Admin'
@@ -127,7 +128,7 @@ try {
          if ($newAnnouncement) {
              // Construct target object for response
              $newAnnouncement['target'] = [
-                 "course" => ($newAnnouncement['target_course'] === NULL || $newAnnouncement['target_course'] === 'all') ? null : $newAnnouncement['target_course'],
+                 "course" => ($newAnnouncement['target_course'] === NULL || $newAnnouncement['target_course'] === 'all') ? null : $newAnnouncement['target_course'], // Keep backend key
                  "yearLevel" => ($newAnnouncement['target_year_level'] === NULL || $newAnnouncement['target_year_level'] === 'all') ? null : $newAnnouncement['target_year_level'],
                  "section" => ($newAnnouncement['target_section'] === NULL || $newAnnouncement['target_section'] === 'all') ? null : $newAnnouncement['target_section']
              ];

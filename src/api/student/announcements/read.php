@@ -1,3 +1,4 @@
+
 <?php
 // --- api/student/announcements/read.php --- (GET /api/student/announcements)
 
@@ -17,11 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 include_once '../../config/database.php';
 
 // ** Authentication Check (Placeholder - Implement properly) **
-// Get the logged-in student's ID, Course, Year Level, and Section
+// Get the logged-in student's ID, Program, Year Level, and Section
 $loggedInStudentId = null;
-$studentCourse = null;
+$studentCourse = null; // Keep backend key as 'course'
 $studentYearLevel = null;
-$studentSection = null; // Use Section ID (e.g., 'CS-1-A') for filtering
+$studentSection = null; // Use Section ID (e.g., 'CS-1A') for filtering
 
 // Example session check:
 // session_start();
@@ -46,14 +47,14 @@ $studentSection = null; // Use Section ID (e.g., 'CS-1-A') for filtering
 
 // ** Temporary Hardcoding for Testing (REMOVE IN PRODUCTION) **
 $loggedInStudentId = 1; // Example student ID
-$studentCourse = 'Computer Science'; // Example
+$studentCourse = 'Computer Science'; // Example Program
 $studentYearLevel = '1st Year'; // Example
-$studentSection = 'CS-1-A'; // Example Section ID (use the actual section ID from DB)
+$studentSection = 'CS-1A'; // Example Section ID (use the actual section ID from DB)
 // ** REMOVE Hardcoding Above **
 
 if (!$loggedInStudentId || !$studentCourse || !$studentYearLevel || !$studentSection) {
      http_response_code(401); // Or 400 Bad Request if info is missing
-     echo json_encode(array("message" => "Missing student authentication details (ID, Course, Year, Section)."));
+     echo json_encode(array("message" => "Missing student authentication details (ID, Program, Year, Section)."));
      exit();
 }
 
@@ -69,7 +70,7 @@ try {
                 a.title,
                 a.content,
                 a.created_at AS date,
-                a.target_course,
+                a.target_course, -- Keep backend key
                 a.target_year_level,
                 a.target_section,
                 a.author_type,
@@ -84,7 +85,7 @@ try {
                 teachers t ON a.author_id = t.id AND a.author_type = 'Teacher'
               WHERE
                 -- Targeting Logic: Matches if target is NULL/all OR matches the specific student detail
-                (a.target_course IS NULL OR a.target_course = 'all' OR a.target_course = :studentCourse)
+                (a.target_course IS NULL OR a.target_course = 'all' OR a.target_course = :studentCourse) -- Keep backend key
                 AND
                 (a.target_year_level IS NULL OR a.target_year_level = 'all' OR a.target_year_level = :studentYearLevel)
                 AND
@@ -95,7 +96,7 @@ try {
     $stmt = $db->prepare($query);
 
     // Bind student details for filtering
-    $stmt->bindParam(':studentCourse', $studentCourse);
+    $stmt->bindParam(':studentCourse', $studentCourse); // Keep backend key
     $stmt->bindParam(':studentYearLevel', $studentYearLevel);
     $stmt->bindParam(':studentSection', $studentSection); // Bind the section ID
 
@@ -111,7 +112,7 @@ try {
 
             // Construct the target object (though less relevant for student view)
              $target_obj = array(
-                 "course" => ($target_course === NULL || $target_course === 'all') ? null : $target_course,
+                 "course" => ($target_course === NULL || $target_course === 'all') ? null : $target_course, // Keep backend key
                  "yearLevel" => ($target_year_level === NULL || $target_year_level === 'all') ? null : $target_year_level,
                  "section" => ($target_section === NULL || $target_section === 'all') ? null : $target_section
             );

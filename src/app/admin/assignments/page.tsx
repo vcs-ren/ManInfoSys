@@ -91,7 +91,7 @@ export default function AssignmentsAnnouncementsPage() {
     defaultValues: {
       title: "",
       content: "",
-      targetCourse: "all",
+      targetCourse: "all", // Keep backend name, change label later
       targetYearLevel: "all",
       targetSection: "all",
     },
@@ -104,7 +104,7 @@ export default function AssignmentsAnnouncementsPage() {
       try {
         const [sectionsData, teachersData, subjectsData, announcementsData] = await Promise.all([
           fetchData<Section[]>('sections/read.php'), // Use relative paths
-          fetchData<{ records: Teacher[] }>('teachers/read.php').then(d => d.records || []), // Adjust for potential nesting and ensure array
+          fetchData<Teacher[]>('teachers/read.php'), // Adjust for potential nesting and ensure array
           fetchData<Subject[]>('subjects/read.php'),
           fetchData<Announcement[]>('announcements/read.php'),
         ]);
@@ -236,7 +236,7 @@ export default function AssignmentsAnnouncementsPage() {
       title: values.title,
       content: values.content,
       target: {
-        course: values.targetCourse === 'all' ? null : values.targetCourse,
+        course: values.targetCourse === 'all' ? null : values.targetCourse, // Keep 'course' for backend
         yearLevel: values.targetYearLevel === 'all' ? null : values.targetYearLevel,
         section: values.targetSection === 'all' ? null : values.targetSection,
       }
@@ -287,8 +287,8 @@ export default function AssignmentsAnnouncementsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Section" />,
     },
     {
-      accessorKey: "course",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Course" />,
+      accessorKey: "course", // Keep backend key
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Program" />, // Change display label
     },
     {
       accessorKey: "yearLevel",
@@ -351,7 +351,7 @@ export default function AssignmentsAnnouncementsPage() {
                  const target = row.original.target || {};
                  const { course, yearLevel, section } = target;
                  const targetParts = [];
-                 if (course && course !== 'all') targetParts.push(`Course: ${course}`);
+                 if (course && course !== 'all') targetParts.push(`Program: ${course}`); // Changed label
                  if (yearLevel && yearLevel !== 'all') targetParts.push(`Year: ${yearLevel}`);
                  if (section && section !== 'all') targetParts.push(`Section: ${section}`);
                  return targetParts.length > 0 ? targetParts.join(', ') : 'All';
@@ -400,7 +400,8 @@ export default function AssignmentsAnnouncementsPage() {
          },
     ], [isSubmitting]);
 
-  const courseOptions = React.useMemo(() => [{ value: 'all', label: 'All Courses' }, ...getDistinctValues(sections, 'course')], [sections]);
+  // Options for announcement form dropdowns
+  const programOptions = React.useMemo(() => [{ value: 'all', label: 'All Programs' }, ...getDistinctValues(sections, 'course')], [sections]);
   const yearLevelOptions = React.useMemo(() => [{ value: 'all', label: 'All Year Levels' }, ...getDistinctValues(sections, 'yearLevel')], [sections]);
   const sectionOptions = React.useMemo(() => [{ value: 'all', label: 'All Sections' }, ...getDistinctValues(sections, 'sectionCode')], [sections]);
 
@@ -452,18 +453,18 @@ export default function AssignmentsAnnouncementsPage() {
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <FormField
                             control={announcementForm.control}
-                            name="targetCourse"
+                            name="targetCourse" // Keep name as 'targetCourse'
                             render={({ field }) => (
                                 <FormItem>
-                                <FormLabel>Target Course</FormLabel>
+                                <FormLabel>Target Program</FormLabel> {/* Changed label */}
                                 <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
                                     <FormControl>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select Course" />
+                                        <SelectValue placeholder="Select Program" /> {/* Changed placeholder */}
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                    {courseOptions.map(option => (
+                                    {programOptions.map(option => ( // Use programOptions
                                         <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                                     ))}
                                     </SelectContent>
@@ -576,7 +577,7 @@ export default function AssignmentsAnnouncementsPage() {
           <DialogHeader>
             <DialogTitle>Assign Adviser to {selectedSection?.sectionCode}</DialogTitle>
             <DialogDescription>
-                Select an adviser for {selectedSection?.course} - {selectedSection?.yearLevel}.
+                Select an adviser for {selectedSection?.course} - {selectedSection?.yearLevel}. {/* Keep 'course' here as it's from data */}
                 Current: {selectedSection?.adviserName || 'None'}
             </DialogDescription>
           </DialogHeader>

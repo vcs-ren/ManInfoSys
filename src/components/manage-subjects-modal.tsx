@@ -122,7 +122,7 @@ export function ManageSubjectsModal({
         <DialogHeader>
           <DialogTitle>Manage Subjects for {section.sectionCode}</DialogTitle>
           <DialogDescription>
-            Assign subjects and teachers for the {section.course} - {section.yearLevel} section.
+            Assign subjects and teachers for the {section.course} - {section.yearLevel} section. {/* Use course for backend, but label "Program" */}
           </DialogDescription>
         </DialogHeader>
 

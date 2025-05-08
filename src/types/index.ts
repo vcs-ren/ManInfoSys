@@ -1,3 +1,4 @@
+
 // Shared types for the application
 
 export type StudentStatus = 'New' | 'Transferee' | 'Returnee'; // Removed 'Continuing'
@@ -13,7 +14,7 @@ export interface Student {
   suffix?: string; // Added
   gender?: 'Male' | 'Female' | 'Other'; // Added
   birthday?: string; // Added (YYYY-MM-DD format)
-  course: string;
+  course: string; // Keep backend key, label as "Program" in UI
   status: StudentStatus;
   year?: string; // Optional year level (e.g., '1st Year', '2nd Year')
   section: string; // e.g., "10A", "20B" - Auto-generated
@@ -69,7 +70,7 @@ export interface StudentGradeEntry {
 export interface Section {
     id: string; // Unique identifier for the section (e.g., "CS-1A")
     sectionCode: string; // e.g., "1A", "2B" - Auto-generated based on year and count
-    course: string; // e.g., "Computer Science"
+    course: string; // Keep backend key, label as "Program" in UI (e.g., "Computer Science")
     yearLevel: string; // e.g., "1st Year"
     adviserId?: number; // ID of the assigned adviser (previously teacherId)
     adviserName?: string; // Optional: Denormalized adviser name for display (previously teacherName)
@@ -81,7 +82,7 @@ export interface Subject {
     id: string; // Unique identifier (e.g., "CS101")
     name: string; // e.g., "Mathematics 101"
     description?: string;
-    // Potentially add course/year level relevance
+    // Potentially add program/year level relevance
 }
 
 // Represents the assignment of a teacher to a subject within a specific section
@@ -102,7 +103,7 @@ export interface Announcement {
     content: string;
     date: Date; // Changed to Date type
     target: {
-        course?: string | 'all' | null; // Specific course or 'all' or null
+        course?: string | 'all' | null; // Keep backend key, label as "Program" in UI
         yearLevel?: string | 'all' | null; // Specific year level or 'all' or null
         section?: string | 'all' | null; // Specific section or 'all' or null
     };

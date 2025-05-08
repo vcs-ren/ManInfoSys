@@ -21,7 +21,7 @@ export const studentSchema = z.object({
   // Enrollment Info
   status: z.enum(studentStatusEnum, { required_error: "Status is required"}), // Updated enum
   year: z.enum(yearLevelEnum).optional(), // Year is optional initially
-  course: z.string().min(1, "Course is required"),
+  course: z.string().min(1, "Program is required"), // Changed label
   // Section is auto-generated, not in form
   // Contact / Account Info
   email: z.string().email("Invalid email address").optional().or(z.literal('')), // Optional email

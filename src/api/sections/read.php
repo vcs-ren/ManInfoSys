@@ -1,3 +1,4 @@
+
 <?php
 // --- api/sections/read.php --- (GET /api/sections)
 
@@ -26,7 +27,7 @@ $db = $database->getConnection(); // Handles connection errors internally
 $query = "SELECT
             s.id,
             s.section_code AS sectionCode,
-            s.course,
+            s.course, -- Keep backend key as 'course'
             s.year_level AS yearLevel,
             s.adviser_id AS adviserId,
             CONCAT(t.first_name, ' ', t.last_name) AS adviserName
@@ -35,7 +36,7 @@ $query = "SELECT
           LEFT JOIN
             teachers t ON s.adviser_id = t.id
           ORDER BY
-            s.course ASC, s.year_level ASC, s.section_code ASC";
+            s.course ASC, s.year_level ASC, s.section_code ASC"; // Keep backend key for ordering
 
 try {
     $stmt = $db->prepare($query);
@@ -53,7 +54,7 @@ try {
             $section_item = array(
                 "id" => $id,
                 "sectionCode" => $sectionCode,
-                "course" => $course,
+                "course" => $course, // Keep backend key as 'course'
                 "yearLevel" => $yearLevel,
                 // Ensure adviserId is integer or null
                 "adviserId" => $adviserId ? (int)$adviserId : null,

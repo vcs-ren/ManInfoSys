@@ -1,3 +1,4 @@
+
 <?php
 // --- api/students/update.php --- (PUT /api/students/{id})
 
@@ -37,10 +38,10 @@ if (
     empty($id) || !is_numeric($id) ||
     empty($data->firstName) ||
     empty($data->lastName) ||
-    empty($data->course) ||
+    empty($data->course) || // Keep backend key as 'course'
     empty($data->status) ||
     // If status requires year, ensure it's provided
-    (in_array($data->status, ['Continuing', 'Transferee', 'Returnee']) && empty($data->year))
+    (in_array($data->status, ['Transferee', 'Returnee']) && empty($data->year)) // Keep 'Continuing' logic if needed by backend
 ) {
     http_response_code(400);
     $errorMessage = "Unable to update student. ";
@@ -48,10 +49,10 @@ if (
         $errorMessage .= "Missing or invalid student ID in URL. ";
     }
     if (empty($data->firstName) || empty($data->lastName) || empty($data->course) || empty($data->status)) {
-        $errorMessage .= "Required data is missing (firstName, lastName, course, status). ";
+        $errorMessage .= "Required data is missing (firstName, lastName, program, status). "; // Changed label
     }
-    if (in_array($data->status, ['Continuing', 'Transferee', 'Returnee']) && empty($data->year)) {
-         $errorMessage .= "Year level is required for Continuing, Transferee, or Returnee status.";
+    if (in_array($data->status, ['Transferee', 'Returnee']) && empty($data->year)) { // Adjusted check
+         $errorMessage .= "Year level is required for Transferee or Returnee status.";
     }
     echo json_encode(array("message" => trim($errorMessage)));
     exit();
@@ -62,7 +63,11 @@ try {
     $student->id = intval($id);
     $student->firstName = $data->firstName;
     $student->lastName = $data->lastName;
-    $student->course = $data->course;
+    $student->middleName = $data->middleName ?? null; // Assign optional fields
+    $student->suffix = $data->suffix ?? null;
+    $student->gender = $data->gender ?? null;
+    $student->birthday = $data->birthday ?? null;
+    $student->course = $data->course; // Keep backend key as 'course'
     $student->status = $data->status;
     // Set year, handle 'New' status explicitly
     $student->year = $data->status === 'New' ? '1st Year' : ($data->year ?? null);

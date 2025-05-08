@@ -1,3 +1,4 @@
+
 <?php
 // --- api/models/student.php ---
 class Student {
@@ -15,7 +16,7 @@ class Student {
     public $suffix; // Added
     public $gender; // Added
     public $birthday; // Added (expect YYYY-MM-DD)
-    public $course;
+    public $course; // Keep backend key as 'course'
     public $status;
     public $year;
     public $section;
@@ -44,7 +45,7 @@ class Student {
                     suffix,
                     gender,
                     birthday,
-                    course,
+                    course, -- Keep backend key
                     status,
                     year,
                     section,
@@ -67,13 +68,9 @@ class Student {
     // Create student
     public function create() {
         // Generate student ID (100 + next DB ID) and username ('s' + studentId)
-        // Note: We need the *next* ID, which is tricky without knowing the AUTO_INCREMENT value.
-        // This generation might be slightly off if AUTO_INCREMENT jumps.
-        // A more robust way is to insert first, get lastInsertId(), then update the studentId/username.
-        // For simplicity here, we predict the ID, but be aware of potential issues.
         $nextDbId = $this->getNextAutoIncrement();
-        $this->studentId = 100 + $nextDbId;
-        $this->username = 's' . $this->studentId;
+        $this->studentId = $this->generateStudentId($nextDbId); // Use helper
+        $this->username = $this->generateStudentUsername($this->studentId); // Use helper
         $this->section = $this->generateSection($this->year);
         $this->passwordHash = $this->generateDefaultPassword($this->lastName);
 
@@ -88,7 +85,7 @@ class Student {
                         suffix = :suffix,
                         gender = :gender,
                         birthday = :birthday,
-                        course = :course,
+                        course = :course, -- Keep backend key
                         status = :status,
                         year = :year,
                         section = :section,
@@ -110,7 +107,7 @@ class Student {
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
         $this->gender = !empty($this->gender) ? htmlspecialchars(strip_tags($this->gender)) : null;
         $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
-        $this->course = htmlspecialchars(strip_tags($this->course));
+        $this->course = htmlspecialchars(strip_tags($this->course)); // Keep backend key
         $this->status = htmlspecialchars(strip_tags($this->status));
         $this->year = htmlspecialchars(strip_tags($this->year));
         $this->section = htmlspecialchars(strip_tags($this->section));
@@ -130,7 +127,7 @@ class Student {
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':gender', $this->gender, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
-        $stmt->bindParam(':course', $this->course);
+        $stmt->bindParam(':course', $this->course); // Keep backend key
         $stmt->bindParam(':status', $this->status);
         $stmt->bindParam(':year', $this->year);
         $stmt->bindParam(':section', $this->section);
@@ -231,7 +228,7 @@ class Student {
                         suffix = :suffix,
                         gender = :gender,
                         birthday = :birthday,
-                        course = :course,
+                        course = :course, -- Keep backend key
                         status = :status,
                         year = :year,
                         -- Section is not updated here, usually derived or managed separately
@@ -254,7 +251,7 @@ class Student {
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
         $this->gender = !empty($this->gender) ? htmlspecialchars(strip_tags($this->gender)) : null;
         $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
-        $this->course = htmlspecialchars(strip_tags($this->course));
+        $this->course = htmlspecialchars(strip_tags($this->course)); // Keep backend key
         $this->status = htmlspecialchars(strip_tags($this->status));
         $this->year = htmlspecialchars(strip_tags($this->year));
         $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
@@ -272,7 +269,7 @@ class Student {
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':gender', $this->gender, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
-        $stmt->bindParam(':course', $this->course);
+        $stmt->bindParam(':course', $this->course); // Keep backend key
         $stmt->bindParam(':status', $this->status);
         $stmt->bindParam(':year', $this->year);
         $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -319,7 +316,7 @@ class Student {
         $query = "SELECT
                     id, student_id as studentId, username,
                     first_name as firstName, last_name as lastName, middle_name as middleName, suffix, gender, birthday,
-                    course, status, year, section, email, phone,
+                    course, status, year, section, email, phone, -- Keep course backend key
                     emergency_contact_name as emergencyContactName,
                     emergency_contact_relationship as emergencyContactRelationship,
                     emergency_contact_phone as emergencyContactPhone,
@@ -343,7 +340,7 @@ class Student {
             $this->suffix = $row['suffix'];
             $this->gender = $row['gender'];
             $this->birthday = $row['birthday'];
-            $this->course = $row['course'];
+            $this->course = $row['course']; // Keep backend key
             $this->status = $row['status'];
             $this->year = $row['year'];
             $this->section = $row['section'];
@@ -364,7 +361,7 @@ class Student {
                  "suffix" => $this->suffix,
                  "gender" => $this->gender,
                  "birthday" => $this->birthday,
-                 "course" => $this->course,
+                 "course" => $this->course, // Keep backend key
                  "status" => $this->status,
                  "year" => $this->year,
                  "section" => $this->section,
@@ -382,25 +379,45 @@ class Student {
 
      // Helper function to get the next expected AUTO_INCREMENT value
     private function getNextAutoIncrement() {
-        $query = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = :dbName AND TABLE_NAME = :tableName";
-        $stmt = $this->conn->prepare($query);
-        // Bind the database name (get it from the config or hardcode if needed)
-        $dbName = 'campus_connect_db'; // Replace if your DB name is different
-        $stmt->bindParam(':dbName', $dbName);
-        $stmt->bindParam(':tableName', $this->table);
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $nextId = ($row && $row['AUTO_INCREMENT']) ? $row['AUTO_INCREMENT'] : 1; // Start from 1 if table is empty
+        try {
+            $query = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = :dbName AND TABLE_NAME = :tableName";
+            $stmt = $this->conn->prepare($query);
+            // Bind the database name (get it from the config or hardcode if needed)
+            $dbName = 'campus_connect_db'; // Replace if your DB name is different
+            $stmt->bindParam(':dbName', $dbName);
+            $stmt->bindParam(':tableName', $this->table);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $nextId = ($row && $row['AUTO_INCREMENT']) ? $row['AUTO_INCREMENT'] : 1; // Start from 1 if table is empty
 
-        // Fallback using MAX(id) if AUTO_INCREMENT fails or is 0
-        if (!$nextId || $nextId <= 0) {
-            $maxIdQuery = "SELECT MAX(id) as last_id FROM " . $this->table;
-            $maxStmt = $this->conn->prepare($maxIdQuery);
-            $maxStmt->execute();
-            $maxRow = $maxStmt->fetch(PDO::FETCH_ASSOC);
-            $nextId = ($maxRow && $maxRow['last_id']) ? $maxRow['last_id'] + 1 : 1;
+            // Fallback using MAX(id) if AUTO_INCREMENT fails or is 0
+            if (!$nextId || $nextId <= 0) {
+                $maxIdQuery = "SELECT MAX(id) as last_id FROM " . $this->table;
+                $maxStmt = $this->conn->prepare($maxIdQuery);
+                $maxStmt->execute();
+                $maxRow = $maxStmt->fetch(PDO::FETCH_ASSOC);
+                $nextId = ($maxRow && $maxRow['last_id']) ? $maxRow['last_id'] + 1 : 1;
+            }
+             return (int)$nextId;
+        } catch (PDOException $e) {
+             error_log("Error getting next auto increment: " . $e->getMessage());
+             // Fallback to simple MAX(id) + 1 in case of error
+             $maxIdQuery = "SELECT MAX(id) as last_id FROM " . $this->table;
+             $maxStmt = $this->conn->prepare($maxIdQuery);
+             $maxStmt->execute();
+             $maxRow = $maxStmt->fetch(PDO::FETCH_ASSOC);
+             return ($maxRow && $maxRow['last_id']) ? (int)$maxRow['last_id'] + 1 : 1;
         }
-        return (int)$nextId;
+    }
+
+    // Helper function to generate student ID string (e.g., "101")
+    private function generateStudentId(int $dbId): string {
+         return (string)(100 + $dbId);
+    }
+
+    // Helper function to generate student username string (e.g., "s101")
+    private function generateStudentUsername(string $studentId): string {
+         return 's' . $studentId;
     }
 
 
@@ -412,16 +429,21 @@ class Student {
          $prefix = $yearPrefixMap[$year] ?? "10"; // Default to 10 if year is invalid/missing
 
          // Simple logic for mock: Cycle A, B, C... based on existing sections for the year
-         $query = "SELECT COUNT(*) as count FROM " . $this->table . " WHERE year = :year";
-         $stmt = $this->conn->prepare($query);
-         $stmt->bindParam(':year', $year);
-         $stmt->execute();
-         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-         $count = $row ? (int)$row['count'] : 0;
-
-         $sectionLetter = chr(65 + ($count % 4)); // Cycle through A, B, C, D for example
-
-         return $prefix . $sectionLetter;
+          try {
+             $query = "SELECT COUNT(*) as count FROM " . $this->table . " WHERE year = :year";
+             $stmt = $this->conn->prepare($query);
+             $stmt->bindParam(':year', $year);
+             $stmt->execute();
+             $row = $stmt->fetch(PDO::FETCH_ASSOC);
+             $count = $row ? (int)$row['count'] : 0;
+             $sectionLetter = chr(65 + ($count % 4)); // Cycle through A, B, C, D for example
+             return $prefix . $sectionLetter;
+         } catch (PDOException $e) {
+             error_log("Error generating section: " . $e->getMessage());
+             // Fallback to a random letter if query fails
+             $sectionLetter = chr(65 + (rand(0, 3)));
+             return $prefix . $sectionLetter;
+         }
     }
 
 
