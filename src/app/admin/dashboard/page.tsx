@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCog, CalendarDays, Loader2, ShieldAlert } from "lucide-react"; // Kept UserCog for faculty icon
+import { Users, UserCog, CalendarDays, Loader2, ShieldAlert } from "lucide-react";
 import * as React from 'react';
 import { fetchData } from "@/lib/api";
 import type { DashboardStats } from "@/types";
@@ -53,26 +53,26 @@ export default function AdminDashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card onClick={() => handleCardClick('/admin/students')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+              <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle> {/* Changed Title */}
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalStudents}</div>
             </CardContent>
           </Card>
-           <Card onClick={() => handleCardClick('/admin/teachers')} className="cursor-pointer hover:shadow-md transition-shadow"> {/* Path remains /teachers */}
+           <Card onClick={() => handleCardClick('/admin/teachers')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Faculty</CardTitle> {/* Updated Title */}
-              <UserCog className="h-4 w-4 text-muted-foreground" /> {/* Keep icon */}
+              <CardTitle className="text-sm font-medium">Teaching Staff</CardTitle> {/* Changed Title */}
+              <UserCog className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalTeachers}</div> {/* Backend key remains totalTeachers */}
+              <div className="text-2xl font-bold">{stats.totalTeachers}</div>
             </CardContent>
           </Card>
            {/* Removed onClick and hover styles from this card */}
            <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
+              <CardTitle className="text-sm font-medium">Administrative Staff</CardTitle> {/* Changed Title */}
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -102,3 +102,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
