@@ -107,8 +107,15 @@ export default function ManageTeachersPage() {
     const fetchTeachers = async () => {
       setIsLoading(true);
        try {
-        const data = await fetchData<Teacher[]>('teachers/read.php');
-        setTeachers(data || []);
+        // Use mock data for now
+        // const data = await fetchData<Teacher[]>('teachers/read.php');
+        // setTeachers(data || []);
+         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate fetch delay
+         const mockData = [ // Replace with your actual mock data import if needed
+            { id: 1, teacherId: "t1001", username: "t1001", firstName: "David", lastName: "Lee", department: "Computer Science", email: "david.lee@example.com", phone: "555-1234", employmentType: 'Regular' as EmploymentType },
+            { id: 2, teacherId: "t1002", username: "t1002", firstName: "Eve", lastName: "Davis", department: "Information Technology", email: "eve.davis@example.com", employmentType: 'Part Time' as EmploymentType },
+         ];
+         setTeachers(mockData);
       } catch (error: any) {
         console.error("Failed to fetch teachers:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load teacher data." });
@@ -120,33 +127,70 @@ export default function ManageTeachersPage() {
   }, [toast]);
 
   const handleSaveTeacher = async (values: Teacher) => {
+     // Check for duplicate name only when *adding* a new teacher
+     if (!isEditMode) {
+         const nameExists = teachers.some(
+             (t) => t.firstName.toLowerCase() === values.firstName.toLowerCase() &&
+                    t.lastName.toLowerCase() === values.lastName.toLowerCase()
+         );
+         if (nameExists) {
+              toast({ variant: "destructive", title: "Duplicate Name", description: `A teacher named ${values.firstName} ${values.lastName} already exists.` });
+              throw new Error("Duplicate name"); // Prevent submission
+         }
+     }
+
      const payload = { ...values, id: isEditMode ? selectedTeacher?.id : undefined };
      console.log(`Attempting to ${isEditMode ? 'edit' : 'add'} teacher:`, payload);
      try {
          let savedTeacher: Teacher;
          if (isEditMode && payload.id) {
-             savedTeacher = await putData<typeof payload, Teacher>(`teachers/update.php/${payload.id}`, payload);
-             setTeachers(prev => prev.map(t => t.id === savedTeacher.id ? savedTeacher : t));
+             // Simulate PUT request
+             await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
+             const index = teachers.findIndex(t => t.id === payload.id);
+             if (index > -1) {
+                // Generate username if not present (though it should be from initial fetch)
+                const username = teachers[index].username || `t${teachers[index].teacherId}`;
+                 savedTeacher = { ...teachers[index], ...payload, username };
+                 setTeachers(prev => prev.map(t => t.id === savedTeacher.id ? savedTeacher : t));
+             } else {
+                 throw new Error("Teacher not found for update.");
+             }
              toast({ title: "Teacher Updated", description: `${savedTeacher.firstName} ${savedTeacher.lastName} has been updated.` });
          } else {
-             savedTeacher = await postData<Omit<typeof payload, 'id'>, Teacher>('teachers/create.php', payload);
+             // Simulate POST request
+             await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
+             const nextId = Math.max(0, ...teachers.map(t => t.id)) + 1;
+             const teacherId = `t${1000 + nextId}`;
+             const username = teacherId; // Username is same as teacherId for teachers
+             savedTeacher = { ...payload, id: nextId, teacherId: teacherId, username: username };
              setTeachers(prev => [...prev, savedTeacher]);
              toast({ title: "Teacher Added", description: `${savedTeacher.firstName} ${savedTeacher.lastName} (${savedTeacher.teacherId}) has been added.` });
          }
          closeModal();
      } catch (error: any) {
-         console.error(`Failed to ${isEditMode ? 'update' : 'add'} teacher:`, error);
-         toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Teacher`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} teacher.` });
-         throw error;
+        // Avoid double-toasting if it was a duplicate name error
+        if (error.message !== "Duplicate name") {
+             console.error(`Failed to ${isEditMode ? 'update' : 'add'} teacher:`, error);
+             toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Teacher`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} teacher.` });
+        }
+         throw error; // Re-throw to stop further execution in the form component
      }
   };
 
   const handleDeleteTeacher = async (teacherId: number) => {
       setIsSubmitting(true);
       try {
-          await deleteData(`teachers/delete.php/${teacherId}`);
-          setTeachers(prev => prev.filter(t => t.id !== teacherId));
-          toast({ title: "Teacher Deleted", description: `Teacher record has been removed.` });
+            // Simulate DELETE request
+             await new Promise(resolve => setTimeout(resolve, 300));
+             const initialLength = teachers.length;
+             setTeachers(prev => {
+                 const newTeachers = prev.filter(t => t.id !== teacherId);
+                 if (newTeachers.length === initialLength) {
+                      throw new Error("Teacher not found for delete.");
+                 }
+                 return newTeachers;
+             });
+            toast({ title: "Teacher Deleted", description: `Teacher record has been removed.` });
       } catch (error: any) {
           console.error("Failed to delete teacher:", error);
           toast({ variant: "destructive", title: "Error Deleting Teacher", description: error.message || "Could not remove teacher." });
@@ -158,7 +202,10 @@ export default function ManageTeachersPage() {
     const handleResetPassword = async (userId: number, lastName: string) => {
         setIsSubmitting(true);
         try {
-             await postData('admin/reset_password.php', { userId, userType: 'teacher', lastName });
+            // Simulate POST request
+             await new Promise(resolve => setTimeout(resolve, 300));
+             console.log(`Simulating password reset for teacher ID ${userId}`);
+             // const response = await postData('admin/reset_password.php', { userId, userType: 'teacher', lastName });
              const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
              toast({
                   title: "Password Reset Successful",
