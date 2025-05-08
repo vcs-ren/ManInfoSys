@@ -5,6 +5,9 @@ export type StudentStatus = 'New' | 'Transferee' | 'Returnee';
 export type EmploymentType = 'Regular' | 'Part Time'; // Added employment type
 export type AdminRole = 'Super Admin' | 'Sub Admin';
 export type DepartmentType = 'Teaching' | 'Administrative'; // Defined Department types
+export type CourseType = 'Major' | 'Minor'; // Added Course Type
+export type YearLevel = '1st Year' | '2nd Year' | '3rd Year' | '4th Year'; // Define YearLevel type
+
 
 export interface Student {
   id: number; // Database ID
@@ -16,9 +19,9 @@ export interface Student {
   suffix?: string;
   gender?: 'Male' | 'Female' | 'Other';
   birthday?: string; // YYYY-MM-DD format
-  course: string; // References Program ID/Name, Label as "Program" in UI
+  program?: string; // References Program Name (UI Label: Program)
   status: StudentStatus;
-  year?: string; // Optional year level (e.g., '1st Year', '2nd Year')
+  year?: YearLevel; // Use YearLevel type
   section: string; // e.g., "CS-1A", "IT-1B" - Auto-generated
   email?: string;
   phone?: string;
@@ -32,8 +35,8 @@ export interface Student {
 // Renamed Teacher to Faculty and updated department type
 export interface Faculty {
   id: number; // Database ID
-  teacherId: string; // e.g., "t1001", "t1002" - Generated ID (t + 1000 + DB ID)
-  username: string; // e.g., "t1001", "t1002" - Generated username (same as teacherId)
+  teacherId: string; // Now numeric string e.g., "1001", "1002"
+  username: string; // Now prefixed e.g., "t1001", "a1002"
   firstName: string;
   lastName: string;
   middleName?: string;
@@ -66,13 +69,25 @@ export interface StudentGradeEntry {
     remarks?: string;
 }
 
+// Represents a course
+export interface Course {
+    id: string; // Unique identifier (e.g., "CS101")
+    name: string; // e.g., "Introduction to Programming"
+    description?: string;
+    type: CourseType; // Major or Minor
+    programId?: string; // Reference to the Program it belongs to (REQUIRED for Major)
+    yearLevel?: YearLevel; // Year level this course is typically assigned in
+}
+
+
 // Represents a program offered by the institution
 export interface Program {
     id: string; // Unique identifier (e.g., "CS")
     name: string; // Full name (e.g., "Computer Science")
     description?: string;
-    courses: { // Courses grouped by year level
-        [yearLevel: string]: Subject[]; // e.g., "1st Year": [Subject, Subject, ...]
+    // Courses grouped by year level, references Course IDs or full Course objects
+    courses: {
+        [key in YearLevel]: Course[]; // e.g., "1st Year": [Course, Course, ...]
     };
 }
 
@@ -83,19 +98,10 @@ export interface Section {
     sectionCode: string; // e.g., "1A", "2B" - Auto-generated based on year and count
     programId: string; // References Program.id (e.g., "CS")
     programName?: string; // Denormalized program name
-    yearLevel: string; // e.g., "1st Year"
+    yearLevel: YearLevel; // Use YearLevel type
     adviserId?: number;
     adviserName?: string;
     studentCount?: number;
-}
-
-// Represents a course (Subject remains the internal name for consistency)
-export interface Subject {
-    id: string; // Unique identifier (e.g., "CS101")
-    name: string; // e.g., "Introduction to Programming"
-    description?: string;
-    programId?: string; // Reference to the Program it belongs to
-    yearLevel?: string; // Year level this course is typically taken
 }
 
 // Represents the assignment of a faculty member to a course within a specific section
@@ -145,7 +151,7 @@ export interface StudentSubjectAssignmentWithGrades {
     subjectId: string; // Course ID
     subjectName: string; // Course Name
     section: string; // Section Code (e.g., CS-1A)
-    year: string; // Add year level for filtering
+    year: YearLevel; // Use YearLevel type
     prelimGrade?: number | null; // Numeric grade only (or null/undefined)
     prelimRemarks?: string | null;
     midtermGrade?: number | null; // Numeric grade only (or null/undefined)
@@ -189,5 +195,3 @@ export interface UpcomingItem {
     date?: string; // Date might be string from API
     type: string; // Keep type flexible
 }
-
-    

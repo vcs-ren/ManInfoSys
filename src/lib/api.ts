@@ -1,13 +1,16 @@
 
 'use client';
 
-import type { Student, Faculty, Section, Subject, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole } from '@/types'; // Renamed Teacher to Faculty, Added DepartmentType
+import type { Student, Faculty, Section, Subject, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, Course, CourseType, YearLevel } from '@/types'; // Renamed Teacher to Faculty, Added DepartmentType, Program, Course, CourseType
 import { generateStudentUsername, generateTeacherId, generateSectionCode, generateAdminUsername, generateTeacherUsername, generateStudentId } from '@/lib/utils'; // Renamed generateTeacherId -> generateFacultyId
 
 // --- MOCK DATA STORE ---
 let nextStudentDbId = 3;
 let nextFacultyDbId = 3; // Renamed from nextTeacherDbId
 let nextAdminDbId = 2;
+let nextProgramDbId = 3; // For mock programs
+let nextCourseDbId = 10; // For mock courses
+
 
 let mockStudents: Student[] = [
   { id: 1, studentId: "101", username: "s101", firstName: "Alice", lastName: "Smith", course: "Computer Science", status: "Returnee", year: "2nd Year", section: "CS-2A", email: "alice@example.com", phone: "123-456-7890", emergencyContactName: "John Smith", emergencyContactRelationship: "Father", emergencyContactPhone: "111-222-3333", emergencyContactAddress: "123 Main St" },
@@ -15,25 +18,31 @@ let mockStudents: Student[] = [
 ];
 
 // Renamed mockTeachers to mockFaculty and updated department values
+// Updated Faculty ID (numeric) and Username (department-prefixed) formats
 let mockFaculty: Faculty[] = [
-  { id: 1, teacherId: "t1001", username: "t1001", firstName: "David", lastName: "Lee", department: "Teaching", email: "david.lee@example.com", phone: "555-1234", employmentType: 'Regular' },
-  { id: 2, teacherId: "t1002", username: "t1002", firstName: "Eve", lastName: "Davis", department: "Administrative", email: "eve.davis@example.com", employmentType: 'Part Time' },
+  { id: 1, teacherId: "1001", username: "t1001", firstName: "David", lastName: "Lee", department: "Teaching", email: "david.lee@example.com", phone: "555-1234", employmentType: 'Regular' },
+  { id: 2, teacherId: "1002", username: "a1002", firstName: "Eve", lastName: "Davis", department: "Administrative", email: "eve.davis@example.com", employmentType: 'Part Time' },
+];
+
+// Initial mock courses, assuming Subject type is used for Courses for now
+let mockCourses: Course[] = [
+    { id: "CS101", name: "Introduction to Programming", description: "Fundamentals of programming.", type: "Major", programId: "CS", yearLevel: "1st Year" },
+    { id: "IT101", name: "IT Fundamentals", description: "Basics of IT.", type: "Major", programId: "IT", yearLevel: "1st Year" },
+    { id: "CS201", name: "Data Structures", description: "Study of data organization.", type: "Major", programId: "CS", yearLevel: "2nd Year" },
+    { id: "GEN001", name: "Purposive Communication", description: "Effective communication skills", type: "Minor" }, // Example Minor course
 ];
 
 let mockPrograms: Program[] = [
-    { id: "CS", name: "Computer Science", description: "Focuses on algorithms, data structures, and software development.", courses: {
-        "1st Year": [{ id: "CS101", name: "Introduction to Programming", description: "Fundamentals of programming.", programId: "CS", yearLevel: "1st Year" }],
-        "2nd Year": [{ id: "CS201", name: "Data Structures", description: "Study of data organization.", programId: "CS", yearLevel: "2nd Year" }],
-        "3rd Year": [],
-        "4th Year": [],
-    }},
-    { id: "IT", name: "Information Technology", description: "Focuses on network administration, system management, and web technologies.", courses: {
-        "1st Year": [{ id: "IT101", name: "IT Fundamentals", description: "Basics of IT.", programId: "IT", yearLevel: "1st Year" }],
-        "2nd Year": [],
-        "3rd Year": [],
-        "4th Year": [],
-    }},
+    {
+        id: "CS", name: "Computer Science", description: "Focuses on algorithms, data structures, and software development.",
+        courses: { "1st Year": [mockCourses[0]], "2nd Year": [mockCourses[2]], "3rd Year": [], "4th Year": [] },
+    },
+    {
+        id: "IT", name: "Information Technology", description: "Focuses on network administration, system management, and web technologies.",
+        courses: { "1st Year": [mockCourses[1]], "2nd Year": [], "3rd Year": [], "4th Year": [] },
+    },
 ];
+
 
 let mockSections: Section[] = [
     { id: "CS-1A", sectionCode: "CS-1A", programId: "CS", programName: "Computer Science", yearLevel: "1st Year", adviserId: 1, adviserName: "David Lee", studentCount: 0 },
@@ -41,16 +50,7 @@ let mockSections: Section[] = [
     { id: "IT-1B", sectionCode: "IT-1B", programId: "IT", programName: "Information Technology", yearLevel: "1st Year", studentCount: 1 },
 ];
 
-let mockSubjects: Subject[] = [
-  { id: "CS101", name: "Introduction to Programming", description: "Basics of programming", programId: "CS", yearLevel: "1st Year" },
-  { id: "IT202", name: "Networking Fundamentals", description: "Understanding computer networks", programId: "IT", yearLevel: "2nd Year" },
-  { id: "GEN001", name: "Purposive Communication", description: "Effective communication skills" },
-  { id: "CS201", name: "Data Structures", description: "Study of data organization.", programId: "CS", yearLevel: "2nd Year" },
-  { id: "IT101", name: "IT Fundamentals", description: "Basics of IT.", programId: "IT", yearLevel: "1st Year" },
-
-];
-
-// Updated teacherName references
+// Updated teacherName references and Course/Subject naming
 let mockSectionAssignments: SectionSubjectAssignment[] = [
     { id: "CS-2A-CS201", sectionId: "CS-2A", subjectId: "CS201", subjectName: "Data Structures", teacherId: 1, teacherName: "David Lee" },
     { id: "IT-1B-IT101", sectionId: "IT-1B", subjectId: "IT101", subjectName: "IT Fundamentals", teacherId: 2, teacherName: "Eve Davis" },
@@ -87,19 +87,19 @@ let mockTestUsers = [
 
 // --- API CONFIGURATION ---
 const USE_MOCK_API = true; // Set to false to try hitting the PHP backend
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'; // Ensure no /api suffix
 
 const getApiUrl = (path: string): string => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
     const baseUrl = API_BASE_URL.replace(/\/$/, '');
-    const formattedPath = path.startsWith('/') ? path.substring(1) : path;
-    return `${baseUrl}/${formattedPath}`;
+    const formattedPath = path.startsWith('/') ? path : `/${path}`; // Ensure path starts with /
+    return `${baseUrl}${formattedPath}`;
 };
 
 // --- ERROR HANDLING ---
 const handleFetchError = (error: any, path: string, method: string, isNetworkError: boolean = false): never => {
-    const targetUrl = getApiUrl(path);
-    let errorMessage = `Failed to ${method.toLowerCase()} data from ${targetUrl}.`;
-    let detailedLog = `API Request Details:\n    - Method: ${method}\n    - URL: ${targetUrl}`;
+    const targetUrl = getApiUrl(path); // This should now correctly form the URL
+    let errorMessage = `Failed to ${method.toLowerCase()} data.`;
+    let detailedLog = `API Request Details:\n    - Method: ${method}\n    - Path Provided: ${path}\n    - Resolved URL: ${targetUrl}`;
 
     if (typeof window !== 'undefined') {
         detailedLog += `\n    - Frontend Origin: ${window.location.origin}`;
@@ -110,11 +110,11 @@ const handleFetchError = (error: any, path: string, method: string, isNetworkErr
 
         Possible Causes & Checks:
         1. PHP Server Status: Is the PHP server running? Start it using: 'php -S localhost:8000 -t src/api' in your project's root terminal.
-        2. Backend URL: Is the API_BASE_URL (${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}) correct and accessible from your browser?
-        3. Endpoint Path: Is the API endpoint path "${finalPath(path)}" correct relative to the 'src/api' directory? (e.g., /login.php, /students/read.php)
+        2. Backend URL: Is the API_BASE_URL (${API_BASE_URL}) correct and accessible from your browser?
+        3. Endpoint Path: Does the PHP file exist at 'src/api${path}' (e.g., src/api/login.php, src/api/students/read.php)?
         4. CORS Policy: Is the PHP backend configured to allow requests from your frontend origin (${typeof window !== 'undefined' ? window.location.origin : 'N/A'})? Check 'Access-Control-Allow-Origin' headers in your PHP files.
         5. Firewall/Network: Could a firewall or network issue be blocking the connection?
-        6. Browser Console: Check the browser's Network tab for the failed request details and the Console tab for specific CORS error messages.
+        6. Browser Console: Check the browser's Network tab for the failed request details (like 404 status) and the Console tab for specific CORS error messages.
         `;
         detailedLog += `\n    - Error Type: NetworkError (Failed to fetch)`;
     } else {
@@ -122,15 +122,16 @@ const handleFetchError = (error: any, path: string, method: string, isNetworkErr
         detailedLog += `\n    - Error Type: ${error.name || 'UnknownError'}`;
         detailedLog += `\n    - Error Message: ${error.message}`;
     }
-    detailedLog += `\n    \n        Troubleshooting Tips:\n        - Ensure the PHP server is running and listening on the correct port (8000 in this case).\n        - Check the PHP server's console output for any startup errors or errors during the request.\n        - Verify the 'Access-Control-Allow-Origin' header in the failing PHP endpoint matches your frontend origin or is '*'.\n        - Temporarily simplify the PHP endpoint to just return headers and a basic JSON to isolate the issue.\n        `;
+     detailedLog += `\n    \n        Troubleshooting Tips:\n        - Ensure the PHP server is running and listening on the correct port (8000).\n        - Check the PHP server's console output for any startup errors or errors during the request.\n        - Verify the 'Access-Control-Allow-Origin' header in the failing PHP endpoint matches your frontend origin or is '*'.\n        - Temporarily simplify the PHP endpoint to just return headers and a basic JSON to isolate the issue.\n        `;
 
 
     console.error("Detailed Fetch Error Log:", detailedLog);
+    // Re-throw a new error with the processed, more user-friendly message
     throw new Error(errorMessage);
 };
 
-// Helper to get final path without leading slash if needed by mock logic
-const finalPath = (path: string) => {
+// Helper to get final path *without* leading slash if needed by mock logic structure
+const finalMockPath = (path: string) => {
      const formattedPath = path.startsWith('/') ? path.substring(1) : path;
      return formattedPath;
 }
@@ -139,7 +140,7 @@ const finalPath = (path: string) => {
 // --- MOCK API IMPLEMENTATION ---
 
 const mockFetchData = async <T>(path: string): Promise<T> => {
-    const phpPath = finalPath(path); // Path relative to 'src/api'
+    const phpPath = finalMockPath(path); // Path relative to 'src/api'
     console.log(`MOCK fetchData from: ${phpPath}`);
     await new Promise(resolve => setTimeout(resolve, 150));
 
@@ -148,13 +149,13 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
         if (phpPath === 'teachers/read.php') return [...mockFaculty] as T; // Return mockFaculty
         if (phpPath === 'admins/read.php') return [...mockAdmins] as T;
         if (phpPath === 'programs/read.php') return [...mockPrograms] as T;
+        if (phpPath === 'courses/read.php') return [...mockCourses] as T; // Endpoint for all courses
         if (phpPath === 'sections/read.php') {
              return [...mockSections.map(s => ({
                  ...s,
                  programName: mockPrograms.find(p => p.id === s.programId)?.name || s.programId,
              }))] as T;
         }
-        if (phpPath === 'subjects/read.php') return [...mockSubjects] as T;
         if (phpPath === 'announcements/read.php' || phpPath === 'student/announcements/read.php' || phpPath === 'teacher/announcements/read.php') {
             return [...mockAnnouncements].sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
@@ -168,7 +169,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
             const sectionId = phpPath.match(/^sections\/([^/]+)\/assignments$/)?.[1];
              return mockSectionAssignments.filter(a => a.sectionId === sectionId).map(a => ({
                  ...a,
-                 subjectName: mockSubjects.find(s => s.id === a.subjectId)?.name || a.subjectId,
+                 subjectName: mockCourses.find(s => s.id === a.subjectId)?.name || a.subjectId,
                  teacherName: mockFaculty.find(t => t.id === a.teacherId)?.firstName + ' ' + mockFaculty.find(t => t.id === a.teacherId)?.lastName || `Faculty ID ${a.teacherId}`, // Use mockFaculty
              })) as T;
         }
@@ -251,7 +252,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
         }
          if (phpPath === 'teacher/subjects/read.php') { // Endpoint name remains teacher
              const subjectIds = new Set(mockSectionAssignments.filter(a => a.teacherId === 1).map(a => a.subjectId)); // Assuming faculty ID 1
-             return mockSubjects.filter(s => subjectIds.has(s.id)) as T;
+             return mockCourses.filter(s => subjectIds.has(s.id)) as T;
          }
           if (phpPath === 'student/upcoming/read.php') {
              const upcoming: UpcomingItem[] = [];
@@ -287,7 +288,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
 };
 
 const mockPostData = async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
-    const phpPath = finalPath(path);
+    const phpPath = finalMockPath(path);
     console.log(`MOCK postData to: ${phpPath}`, data);
     await new Promise(resolve => setTimeout(resolve, 300));
     try {
@@ -319,13 +320,16 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
          if (phpPath === 'teachers/create.php') { // Endpoint name remains teachers
             const newFacultyData = data as unknown as Omit<Faculty, 'id' | 'teacherId' | 'username'>;
             const nextId = nextFacultyDbId++; // Use faculty counter
-            const teacherIdStr = generateTeacherId(nextId); // Use faculty ID generator
-            const username = generateTeacherUsername(teacherIdStr); // Use faculty username generator
+            const teacherIdStr = generateTeacherId(nextId); // Use numeric faculty ID generator
+            // Ensure department is present and valid before generating username
+            const department = newFacultyData.department || 'Teaching'; // Default or handle error
+            const username = generateTeacherUsername(teacherIdStr, department); // Use faculty username generator
+
             const faculty: Faculty = { // Use Faculty type
                 ...newFacultyData,
                 id: nextId,
-                teacherId: teacherIdStr,
-                username: username,
+                teacherId: teacherIdStr, // Store numeric ID
+                username: username, // Store department-prefixed username
             };
             mockFaculty.push(faculty); // Add to mockFaculty
             return faculty as ResponseData;
@@ -344,42 +348,64 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
             return adminUser as ResponseData;
         }
         if (phpPath === 'programs/create.php') {
-             const newProgramData = data as unknown as Omit<Program, 'courses'> & { id: string };
+             const newProgramData = data as unknown as Program; // Expect full Program structure now
              const newProgram: Program = {
-                 ...newProgramData,
                  id: newProgramData.id || newProgramData.name.toUpperCase().substring(0, 3) + Date.now().toString().slice(-3),
-                 courses: { "1st Year": [], "2nd Year": [], "3rd Year": [], "4th Year": [] },
+                 name: newProgramData.name,
+                 description: newProgramData.description,
+                 courses: newProgramData.courses || { "1st Year": [], "2nd Year": [], "3rd Year": [], "4th Year": [] },
              };
              if (mockPrograms.some(p => p.id === newProgram.id)) {
                  throw new Error("Program with this ID already exists.");
              }
+              // Also add any new courses defined within the payload to the global mockCourses list
+             Object.values(newProgram.courses).flat().forEach(course => {
+                 if (!mockCourses.some(c => c.id === course.id)) {
+                     mockCourses.push({ ...course, programId: newProgram.id }); // Ensure programId is set
+                 }
+             });
              mockPrograms.push(newProgram);
              return newProgram as ResponseData;
          }
-         if (phpPath.match(/^programs\/([^/]+)\/courses\/add$/)) {
-              const programId = phpPath.match(/^programs\/([^/]+)\/courses\/add$/)?.[1];
-              const courseData = data as Subject;
-              const programIndex = mockPrograms.findIndex(p => p.id === programId);
-              if (programIndex > -1) {
-                 const year = courseData.yearLevel || "1st Year";
-                  if (!mockPrograms[programIndex].courses[year]) {
-                      mockPrograms[programIndex].courses[year] = [];
-                  }
-                 const newCourseId = courseData.id || `${programId}-${year.charAt(0)}-${mockPrograms[programIndex].courses[year].length + 1}`;
-                  const newCourse: Subject = {
-                     ...courseData,
-                     id: newCourseId,
-                     programId: programId,
-                     yearLevel: year,
-                  };
-                  if (mockPrograms[programIndex].courses[year].some(c => c.id === newCourse.id)) {
-                        throw new Error(`Course(subject) with ID ${newCourse.id} already exists in ${programId} - ${year}.`);
-                  }
-                  mockPrograms[programIndex].courses[year].push(newCourse);
-                  return newCourse as ResponseData;
-              }
-              throw new Error("Program not found.");
+         if (phpPath === 'courses/create.php') { // New endpoint for creating courses globally
+             const newCourseData = data as Course;
+             const newCourse: Course = {
+                 ...newCourseData,
+                 id: newCourseData.id || `C${nextCourseDbId++}`, // Generate ID if not provided
+                 // programId might be set later or be null for Minor
+             };
+             if (mockCourses.some(c => c.id === newCourse.id)) {
+                 throw new Error(`Course with ID ${newCourse.id} already exists.`);
+             }
+             mockCourses.push(newCourse);
+             return newCourse as ResponseData;
          }
+          if (phpPath.match(/^programs\/([^/]+)\/courses\/assign$/)) { // New endpoint to assign EXISTING course
+              const programId = phpPath.match(/^programs\/([^/]+)\/courses\/assign$/)?.[1];
+              const { courseId, yearLevel } = data as { courseId: string, yearLevel: YearLevel };
+              const programIndex = mockPrograms.findIndex(p => p.id === programId);
+              const course = mockCourses.find(c => c.id === courseId);
+
+              if (programIndex === -1) throw new Error("Program not found.");
+              if (!course) throw new Error("Course not found.");
+               if (!mockPrograms[programIndex].courses[yearLevel]) {
+                  mockPrograms[programIndex].courses[yearLevel] = [];
+               }
+                // Check if course already assigned to this year level in this program
+                if (mockPrograms[programIndex].courses[yearLevel].some(c => c.id === courseId)) {
+                    throw new Error(`Course ${course.name} is already assigned to ${programId} - ${yearLevel}.`);
+                }
+                // Check type constraint: Major courses can only be assigned to their designated program
+                if (course.type === 'Major' && course.programId && course.programId !== programId) {
+                     throw new Error(`Major course ${course.name} belongs to program ${course.programId} and cannot be assigned to ${programId}.`);
+                }
+
+                // Assign the course (add a reference, not a full copy if already exists)
+                mockPrograms[programIndex].courses[yearLevel].push(course);
+                return { success: true, program: mockPrograms[programIndex] } as ResponseData;
+
+         }
+
          if (phpPath === 'admin/reset_password.php') {
               const { userId, userType } = data as { userId: number; userType: string; lastName: string };
               const userArray = userType === 'student' ? mockStudents : userType === 'teacher' ? mockFaculty : mockAdmins; // Use mockFaculty
@@ -422,11 +448,11 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
          }
          if (phpPath === 'sections/assignments/create.php') {
              const { sectionId, subjectId, teacherId } = data as { sectionId: string; subjectId: string; teacherId: number };
-             const subject = mockSubjects.find(s => s.id === subjectId);
+             const subject = mockCourses.find(s => s.id === subjectId); // Check mockCourses now
              const faculty = mockFaculty.find(t => t.id === teacherId); // Use mockFaculty
              const assignmentId = `${sectionId}-${subjectId}`;
               if (mockSectionAssignments.some(a => a.id === assignmentId)) {
-                   throw new Error("This subject is already assigned to this section.");
+                   throw new Error("This course is already assigned to this section."); // Updated message
               }
              const newAssignment: SectionSubjectAssignment = {
                  id: assignmentId,
@@ -466,7 +492,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                         status = 'Complete';
                     }
                     const student = mockStudents.find(s => s.id === gradeData.studentId);
-                    const subject = mockSubjects.find(s => s.id === gradeData.subjectId);
+                    const subject = mockCourses.find(s => s.id === gradeData.subjectId); // Check mockCourses
                     const newEntry: StudentSubjectAssignmentWithGrades = {
                         ...gradeData,
                         studentName: student ? `${student.firstName} ${student.lastName}` : 'Unknown',
@@ -492,7 +518,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
 };
 
 const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
-    const phpPath = finalPath(path);
+    const phpPath = finalMockPath(path);
     console.log(`MOCK putData to: ${phpPath}`, data);
     await new Promise(resolve => setTimeout(resolve, 300));
     const idStr = phpPath.split('/').pop() || '';
@@ -538,34 +564,38 @@ const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): 
              const programId = idStr;
              const programIndex = mockPrograms.findIndex(p => p.id === programId);
              if (programIndex > -1) {
-                 mockPrograms[programIndex] = { ...mockPrograms[programIndex], ...(data as unknown as Partial<Program>) };
-                 if (!(data as any).courses) {
-                    mockPrograms[programIndex].courses = mockPrograms[programIndex].courses || { "1st Year": [], "2nd Year": [], "3rd Year": [], "4th Year": [] };
-                 }
+                 const updatedData = data as unknown as Partial<Program>;
+                 mockPrograms[programIndex] = {
+                     ...mockPrograms[programIndex],
+                     name: updatedData.name ?? mockPrograms[programIndex].name,
+                     description: updatedData.description ?? mockPrograms[programIndex].description,
+                     // DO NOT update courses here, handle via assign/remove endpoints
+                     courses: mockPrograms[programIndex].courses, // Keep existing courses
+                 };
                  return { ...mockPrograms[programIndex] } as ResponseData;
              }
              throw new Error("Program not found for mock update.");
          }
-         if (phpPath.match(/^programs\/([^/]+)\/courses\/update\/([^/]+)\/([^/]+)$/)) {
-             const [, programId, yearLevelEncoded, courseId] = phpPath.match(/^programs\/([^/]+)\/courses\/update\/([^/]+)\/([^/]+)$/) || [];
-             const yearLevel = decodeURIComponent(yearLevelEncoded);
-             const courseData = data as Subject;
-             const programIndex = mockPrograms.findIndex(p => p.id === programId);
-              if (programIndex > -1 && mockPrograms[programIndex].courses[yearLevel]) {
-                  const courseIndex = mockPrograms[programIndex].courses[yearLevel].findIndex(c => c.id === courseId);
-                  if (courseIndex > -1) {
-                        mockPrograms[programIndex].courses[yearLevel][courseIndex] = {
-                            ...mockPrograms[programIndex].courses[yearLevel][courseIndex],
-                            ...courseData,
-                            programId: programId,
-                            yearLevel: yearLevel,
-                        };
-                        return mockPrograms[programIndex].courses[yearLevel][courseIndex] as ResponseData;
-                   }
-                   throw new Error("Course(subject) not found in program/year for mock update.");
-               }
-              throw new Error("Program or year not found for mock course update.");
-         }
+          if (phpPath.startsWith('courses/update.php/')) { // New endpoint to update a course globally
+              const courseId = idStr;
+              const courseIndex = mockCourses.findIndex(c => c.id === courseId);
+              if (courseIndex > -1) {
+                   const updatedCourseData = data as Partial<Course>;
+                   mockCourses[courseIndex] = { ...mockCourses[courseIndex], ...updatedCourseData };
+                   // Update the course in any program it's assigned to
+                    mockPrograms.forEach(program => {
+                         Object.keys(program.courses).forEach(year => {
+                             const yr = year as YearLevel;
+                             const assignedIndex = program.courses[yr].findIndex(c => c.id === courseId);
+                             if (assignedIndex > -1) {
+                                 program.courses[yr][assignedIndex] = { ...mockCourses[courseIndex] };
+                             }
+                         });
+                    });
+                   return { ...mockCourses[courseIndex] } as ResponseData;
+              }
+              throw new Error("Course not found for mock update.");
+          }
 
 
         console.warn(`Mock API unhandled PUT path: ${phpPath}`);
@@ -577,7 +607,7 @@ const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): 
 };
 
 const mockDeleteData = async (path: string): Promise<void> => {
-    const phpPath = finalPath(path);
+    const phpPath = finalMockPath(path);
     console.log(`MOCK deleteData at: ${phpPath}`);
     await new Promise(resolve => setTimeout(resolve, 300));
     const idPart = phpPath.split('/').pop() || '';
@@ -623,21 +653,45 @@ const mockDeleteData = async (path: string): Promise<void> => {
              const programId = idPart;
              const initialLength = mockPrograms.length;
              mockPrograms = mockPrograms.filter(p => p.id !== programId);
+             // Also remove associated assignments (optional cleanup)
+             mockSectionAssignments = mockSectionAssignments.filter(a => {
+                const section = mockSections.find(s => s.id === a.sectionId);
+                return section?.programId !== programId;
+             });
              if (mockPrograms.length === initialLength) throw new Error("Program not found for mock delete.");
              return;
          }
-         if (phpPath.match(/^programs\/([^/]+)\/courses\/delete\/([^/]+)\/([^/]+)$/)) {
-             const [, programId, yearLevelEncoded, courseId] = phpPath.match(/^programs\/([^/]+)\/courses\/delete\/([^/]+)\/([^/]+)$/) || [];
-             const yearLevel = decodeURIComponent(yearLevelEncoded);
+          if (phpPath.startsWith('courses/delete.php/')) { // New endpoint to delete course globally
+             const courseId = idPart;
+             const initialLength = mockCourses.length;
+             mockCourses = mockCourses.filter(c => c.id !== courseId);
+              // Also remove from programs and assignments
+             mockPrograms.forEach(program => {
+                 Object.keys(program.courses).forEach(year => {
+                      const yr = year as YearLevel;
+                      program.courses[yr] = program.courses[yr].filter(c => c.id !== courseId);
+                 });
+             });
+             mockSectionAssignments = mockSectionAssignments.filter(a => a.subjectId !== courseId);
+             if (mockCourses.length === initialLength) throw new Error("Course not found for mock delete.");
+             return;
+          }
+          if (phpPath.match(/^programs\/([^/]+)\/courses\/remove\/([^/]+)\/([^/]+)$/)) { // New endpoint to remove course assignment
+             const [, programId, yearLevelEncoded, courseId] = phpPath.match(/^programs\/([^/]+)\/courses\/remove\/([^/]+)\/([^/]+)$/) || [];
+             const yearLevel = decodeURIComponent(yearLevelEncoded) as YearLevel;
              const programIndex = mockPrograms.findIndex(p => p.id === programId);
              if (programIndex > -1 && mockPrograms[programIndex].courses[yearLevel]) {
-                const initialLength = mockPrograms[programIndex].courses[yearLevel].length;
-                mockPrograms[programIndex].courses[yearLevel] = mockPrograms[programIndex].courses[yearLevel].filter(c => c.id !== courseId);
-                if (mockPrograms[programIndex].courses[yearLevel].length === initialLength) throw new Error("Course not found in program/year for mock delete.");
-                return;
+                 const initialLength = mockPrograms[programIndex].courses[yearLevel].length;
+                 mockPrograms[programIndex].courses[yearLevel] = mockPrograms[programIndex].courses[yearLevel].filter(c => c.id !== courseId);
+                 if (mockPrograms[programIndex].courses[yearLevel].length === initialLength) {
+                    throw new Error("Course assignment not found in program/year for mock removal.");
+                 }
+                 // Also remove associated section assignments (optional cleanup)
+                 mockSectionAssignments = mockSectionAssignments.filter(a => !(a.subjectId === courseId && mockSections.find(s => s.id === a.sectionId)?.programId === programId && mockSections.find(s => s.id === a.sectionId)?.yearLevel === yearLevel));
+                 return;
              }
-             throw new Error("Program or year level not found for deleting course.");
-         }
+             throw new Error("Program or year level not found for removing course assignment.");
+          }
 
 
         console.warn(`Mock API unhandled DELETE path: ${phpPath}`);
@@ -663,11 +717,10 @@ export const fetchData = USE_MOCK_API ? mockFetchData : async <T>(path: string):
         let errorData: any;
         let errorMessage = `HTTP error! status: ${response.status}`;
         try {
-            const errorBody = await response.json(); // Try parsing JSON first
-            errorMessage = errorBody?.message || JSON.stringify(errorBody) || errorMessage;
-            errorData = errorBody;
+            errorData = await response.json(); // Try parsing JSON first
+            errorMessage = errorData?.message || JSON.stringify(errorData) || errorMessage;
         } catch (parseError) {
-             try {
+            try {
                 const errorText = await response.text(); // Read body once as text
                 console.error("API Error Response Text:", errorText);
                 errorMessage = errorText || `HTTP error! status: ${response.status}`;
@@ -691,57 +744,66 @@ export const fetchData = USE_MOCK_API ? mockFetchData : async <T>(path: string):
 export const postData = USE_MOCK_API ? mockPostData : async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
     const url = getApiUrl(path);
     let response;
-    console.log(`Posting data to: ${url}`, data);
+    console.log(`Posting data to: ${url}`, data); // Log the URL and data
     try {
         response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                // Add any other headers like Authorization if needed
             },
             body: JSON.stringify(data),
         });
     } catch (networkError: any) {
-         return handleFetchError(networkError, path, 'POST', true);
+        // Network errors (server down, DNS issues, CORS blocked by browser PREFLIGHT failure)
+         handleFetchError(networkError, path, 'POST', true);
     }
 
+    // Handle HTTP errors (like 404, 500, 400, 401, 403, etc.)
     if (!response.ok) {
-         let errorData: any;
-         let errorMessage = `HTTP error! status: ${response.status}`;
-         try {
-             const errorBody = await response.json();
-             errorMessage = errorBody?.message || JSON.stringify(errorBody) || errorMessage;
-              errorData = errorBody;
-         } catch (parseError) {
+        let errorData: any = { message: `HTTP error! status: ${response.status}` }; // Default error
+        let errorMessage = errorData.message;
+        try {
+            const errorBody = await response.text(); // Read body once as text
+            console.error("API Error Response Text:", errorBody); // Log the raw text
             try {
-                const errorText = await response.text();
-                console.error("API Error Response Text:", errorText);
-                errorMessage = errorText || `HTTP error! status: ${response.status}`;
-                 errorData = { message: errorMessage };
-            } catch (readError) {
-                 console.error("Failed to read error response body:", readError);
-                 errorData = { message: `HTTP error! status: ${response.status}. Failed to read error body.` };
+                 // Attempt to parse as JSON, but use the text if it fails
+                 errorData = JSON.parse(errorBody);
+                 errorMessage = errorData?.message || errorBody || errorMessage;
+            } catch (jsonParseError) {
+                 errorMessage = errorBody || errorMessage; // Use text if not JSON
+                 errorData = { message: errorMessage }; // Update errorData with text message
             }
-         }
+        } catch (readError) {
+            console.error("Failed to read error response body:", readError);
+             errorData = { message: `HTTP error! status: ${response.status}. Failed to read error body.` };
+             errorMessage = errorData.message;
+        }
         handleFetchError({ ...errorData, name: 'HTTPError', message: errorMessage }, path, 'POST');
     }
 
-     if (response.status === 201 || response.status === 200) {
-        try {
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                 return await response.json() as ResponseData;
-            } else {
-                 console.log(`POST to ${url} successful with status ${response.status}, but no JSON body.`);
-                 return { success: true, message: `Operation successful (Status ${response.status})` } as ResponseData;
-            }
-        } catch (jsonError: any) {
-            console.error("Failed to parse JSON response on successful POST:", jsonError);
-             return { success: true, message: "Operation successful, but response body could not be parsed." } as ResponseData;
-        }
+    // Handle successful responses (e.g., 200 OK, 201 Created)
+    if (response.status === 201 || response.status === 200) {
+       try {
+           const contentType = response.headers.get("content-type");
+           if (contentType && contentType.indexOf("application/json") !== -1) {
+               // Only parse JSON if the content type is correct
+                return await response.json() as ResponseData;
+           } else {
+               // Handle non-JSON success responses (e.g., just a success message)
+               console.log(`POST to ${url} successful with status ${response.status}, but no JSON body.`);
+               return { success: true, message: `Operation successful (Status ${response.status})` } as ResponseData; // Or handle appropriately
+           }
+       } catch (jsonError: any) {
+           console.error("Failed to parse JSON response on successful POST:", jsonError);
+           // Decide how to handle: maybe return a success indicator anyway?
+           return { success: true, message: "Operation successful, but response body could not be parsed." } as ResponseData;
+       }
     }
 
-     console.warn(`Unexpected successful status code ${response.status} for POST ${url}`);
-     return { success: true, message: `Operation completed with status ${response.status}.` } as ResponseData;
+    // Handle other unexpected successful status codes if necessary
+    console.warn(`Unexpected successful status code ${response.status} for POST ${url}`);
+    return { success: true, message: `Operation completed with status ${response.status}.` } as ResponseData; // Adjust as needed
 };
 
 export const putData = USE_MOCK_API ? mockPutData : async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
@@ -758,22 +820,22 @@ export const putData = USE_MOCK_API ? mockPutData : async <Payload, ResponseData
     }
 
     if (!response.ok) {
-         let errorData: any;
-         let errorMessage = `HTTP error! status: ${response.status}`;
+        let errorData: any = { message: `HTTP error! status: ${response.status}` };
+        let errorMessage = errorData.message;
          try {
-             const errorBody = await response.json();
-             errorMessage = errorBody?.message || JSON.stringify(errorBody) || errorMessage;
-              errorData = errorBody;
-         } catch (parseError) {
-            try {
-                const errorText = await response.text();
-                console.error("API Error Response Text:", errorText);
-                errorMessage = errorText || `HTTP error! status: ${response.status}`;
+             const errorBody = await response.text();
+             console.error("API Error Response Text:", errorBody);
+             try {
+                 errorData = JSON.parse(errorBody);
+                 errorMessage = errorData?.message || errorBody || errorMessage;
+             } catch (jsonParseError) {
+                 errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
-            } catch (readError) {
-                 console.error("Failed to read error response body:", readError);
-                 errorData = { message: `HTTP error! status: ${response.status}. Failed to read error body.` };
-            }
+             }
+         } catch (readError) {
+             console.error("Failed to read error response body:", readError);
+             errorData = { message: `HTTP error! status: ${response.status}. Failed to read error body.` };
+             errorMessage = errorData.message;
          }
          handleFetchError({ ...errorData, name: 'HTTPError', message: errorMessage }, path, 'PUT');
     }
@@ -801,41 +863,47 @@ export const deleteData = USE_MOCK_API ? mockDeleteData : async (path: string): 
          handleFetchError(networkError, path, 'DELETE', true);
     }
 
+    // Allow 204 No Content as success for DELETE
     if (!response.ok && response.status !== 204) {
-        let errorData: any;
-         let errorMessage = `HTTP error! status: ${response.status}`;
+        let errorData: any = { message: `HTTP error! status: ${response.status}` };
+        let errorMessage = errorData.message;
          try {
-             const errorBody = await response.json();
-             errorMessage = errorBody?.message || JSON.stringify(errorBody) || errorMessage;
-              errorData = errorBody;
-         } catch (parseError) {
-            try {
-                const errorText = await response.text();
-                console.error("API Error Response Text:", errorText);
-                errorMessage = errorText || `HTTP error! status: ${response.status}`;
+             const errorBody = await response.text();
+             console.error("API Error Response Text:", errorBody);
+             try {
+                 errorData = JSON.parse(errorBody);
+                 errorMessage = errorData?.message || errorBody || errorMessage;
+             } catch (jsonParseError) {
+                 errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
-            } catch (readError) {
-                 console.error("Failed to read error response body:", readError);
-                 errorData = { message: `HTTP error! status: ${response.status}. Failed to read error body.` };
-            }
+             }
+         } catch (readError) {
+             console.error("Failed to read error response body:", readError);
+             errorData = { message: `HTTP error! status: ${response.status}. Failed to read error body.` };
+             errorMessage = errorData.message;
          }
         handleFetchError({ ...errorData, name: 'HTTPError', message: errorMessage }, path, 'DELETE');
     }
 
+    // If status is 204 or another successful code, attempt to process body if present
     if (response.status === 204) {
-        return;
+        console.log(`DELETE ${url} successful with status 204 No Content.`);
+        return; // No body expected for 204
     }
 
+     // For other success codes (like 200 OK with a body)
      try {
          const contentType = response.headers.get("content-type");
          if (contentType && contentType.indexOf("application/json") !== -1) {
              const data = await response.json();
-             console.log("DELETE response data:", data);
+             console.log(`DELETE ${url} successful with status ${response.status}. Response data:`, data);
          } else {
-             console.log(`DELETE ${url} successful with status ${response.status}.`);
+             const text = await response.text();
+             console.log(`DELETE ${url} successful with status ${response.status}. Response text:`, text || "(No text body)");
          }
-     } catch (jsonError: any) {
-         console.error("Failed to parse JSON response on successful DELETE:", jsonError);
+     } catch (error: any) {
+         console.error("Failed to process body on successful DELETE:", error);
+         // Still resolve successfully as the DELETE operation itself was likely okay
      }
 };
 
@@ -848,4 +916,3 @@ function formatDate(date: Date): string {
     return `${year}${month}${day}`;
 }
 
-    

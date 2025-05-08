@@ -3,13 +3,13 @@
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react"; // Added Pencil
+import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react"; // Added Pencil
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form"; // Import FormFieldConfig
 import { teacherSchema } from "@/lib/schemas";
-import type { Faculty, EmploymentType } from "@/types"; // Renamed Teacher to Faculty
+import type { Faculty, EmploymentType, DepartmentType } from "@/types"; // Renamed Teacher to Faculty, added DepartmentType
 import {
     AlertDialog,
     AlertDialogAction,
@@ -25,16 +25,16 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
+    // DropdownMenuLabel, // Removed as not used
     DropdownMenuSeparator,
-    DropdownMenuTrigger,
+    // DropdownMenuTrigger, // Removed as not used
 } from "@/components/ui/dropdown-menu"; // Import DropdownMenu components
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
 
-// Updated department options
-const departmentOptions = [
+// Updated department options using DepartmentType
+const departmentOptions: { value: DepartmentType; label: string }[] = [
     { value: "Teaching", label: "Teaching" },
     { value: "Administrative", label: "Administrative" },
     // Add more roles if needed
@@ -106,7 +106,7 @@ export default function ManageFacultyPage() { // Renamed component
       setIsLoading(true);
        try {
         // Use fetchData with the correct endpoint (still /teachers/read.php)
-        const data = await fetchData<Faculty[]>('teachers/read.php');
+        const data = await fetchData<Faculty[]>('/teachers/read.php');
         setFaculty(data || []); // Update state with fetched data
       } catch (error: any) {
         console.error("Failed to fetch faculty:", error); // Updated log message
@@ -137,14 +137,14 @@ export default function ManageFacultyPage() { // Renamed component
          let savedFaculty: Faculty; // Renamed variable
          if (isEditMode && payload.id) {
              // Use putData with the correct endpoint (still /teachers/update.php/)
-              savedFaculty = await putData<typeof payload, Faculty>(`teachers/update.php/${payload.id}`, payload);
+              savedFaculty = await putData<typeof payload, Faculty>(`/teachers/update.php/${payload.id}`, payload);
              setFaculty(prev => prev.map(t => t.id === savedFaculty.id ? savedFaculty : t)); // Update faculty state
              toast({ title: "Faculty Updated", description: `${savedFaculty.firstName} ${savedFaculty.lastName} has been updated.` }); // Updated message
          } else {
              // Use postData with the correct endpoint (still /teachers/create.php)
-              savedFaculty = await postData<Omit<typeof payload, 'id'>, Faculty>('teachers/create.php', payload);
+              savedFaculty = await postData<Omit<typeof payload, 'id' | 'teacherId' | 'username'>, Faculty>('/teachers/create.php', payload);
              setFaculty(prev => [...prev, savedFaculty]); // Update faculty state
-             toast({ title: "Faculty Added", description: `${savedFaculty.firstName} ${savedFaculty.lastName} (${savedFaculty.teacherId}) has been added.` }); // Updated message
+             toast({ title: "Faculty Added", description: `${savedFaculty.firstName} ${savedFaculty.lastName} (${savedFaculty.username}) has been added.` }); // Display username
          }
          closeModal();
      } catch (error: any) {
@@ -161,7 +161,7 @@ export default function ManageFacultyPage() { // Renamed component
       setIsSubmitting(true);
       try {
             // Use deleteData with the correct endpoint (still /teachers/delete.php/)
-             await deleteData(`teachers/delete.php/${facultyId}`);
+             await deleteData(`/teachers/delete.php/${facultyId}`);
             setFaculty(prev => prev.filter(t => t.id !== facultyId)); // Update faculty state
             toast({ title: "Faculty Deleted", description: `Faculty record has been removed.` }); // Updated message
       } catch (error: any) {
@@ -176,7 +176,7 @@ export default function ManageFacultyPage() { // Renamed component
         setIsSubmitting(true);
         try {
             // Use postData with the correct endpoint (still /admin/reset_password.php)
-             await postData('admin/reset_password.php', { userId, userType: 'teacher', lastName }); // userType remains 'teacher' for backend
+             await postData('/admin/reset_password.php', { userId, userType: 'teacher', lastName }); // userType remains 'teacher' for backend
              const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
              toast({
                   title: "Password Reset Successful",
@@ -219,12 +219,12 @@ export default function ManageFacultyPage() { // Renamed component
     const columns: ColumnDef<Faculty>[] = React.useMemo(() => [ // Use Faculty type
          {
             accessorKey: "teacherId",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Faculty ID" />, // Updated title
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Faculty ID" />, // Updated title (numeric ID)
             cell: ({ row }) => <div>{row.getValue("teacherId")}</div>,
         },
          {
             accessorKey: "username",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />, // Department-prefixed username
              cell: ({ row }) => <div>{row.original.username}</div>,
              enableHiding: true, // Hide by default
         },
@@ -423,5 +423,3 @@ export default function ManageFacultyPage() { // Renamed component
     </div>
   );
 }
-
-    

@@ -1,6 +1,7 @@
 
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { DepartmentType } from "@/types"; // Import DepartmentType
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -16,16 +17,15 @@ export function generateStudentUsername(studentId: string): string {
     return `s${studentId}`; // Example: if studentId='101', username='s101'
 }
 
-// Renamed function to generate faculty ID (e.g., t1001)
-// Helper function to generate teacher ID based on department (e.g., t1001 or a1001)
-export function generateTeacherId(dbId: number): string { // Keep function name for compatibility with backend expectations if necessary
-    return `${1000 + dbId}`;
+// Helper function to generate faculty ID (numeric, e.g., 1001)
+export function generateTeacherId(dbId: number): string {
+    return `${1000 + dbId}`; // Numeric ID like 1001, 1002
 }
 
-// Helper function to generate faculty username (e.g., t1001 or a1001)
-export function generateTeacherUsername(teacherId: string): string { // Keep function name for compatibility
-     return `${teacherId}`; // Username is the same as teacherId
-
+// Helper function to generate faculty username based on department (e.g., t1001 or a1002)
+export function generateTeacherUsername(teacherId: string, department: DepartmentType): string {
+     const prefix = department === 'Teaching' ? 't' : 'a';
+     return `${prefix}${teacherId}`; // Example: t1001 or a1002
 }
 
 // Helper function to generate admin username (e.g., a1001)
@@ -46,3 +46,4 @@ export function generateSectionCode(year: string): string {
     const letterIndex = Math.floor(Math.random() * letters.length);
     return `${prefix}${letters[letterIndex]}`;
 }
+
