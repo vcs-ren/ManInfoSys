@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, BookOpen, ChevronDown, ChevronRight, Library, PackagePlus, XCircle, Edit3, AlertCircle } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, BookOpen, ChevronDown, ChevronRight, Library, PackagePlus, XCircle, Edit3, AlertCircle, MoreHorizontal } from "lucide-react"; // Added MoreHorizontal
 import { z } from "zod";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -38,7 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { programSchema, courseSchema } from "@/lib/schemas"; // Import schemas
-import type { Program, Course, CourseType, YearLevel } from "@/types"; // Updated types
+import type { Program, Course, CourseType, YearLevel } from "@/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -48,6 +48,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger, // Added AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import {
     DropdownMenu,
@@ -57,7 +58,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { fetchData, postData, putData, deleteData } from "@/lib/api";
+import { fetchData, postData, putData, deleteData, mockPrograms, mockCourses } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -97,12 +98,18 @@ export default function ProgramsCoursesPage() {
   const loadData = React.useCallback(async () => {
     setIsLoading(true);
     try {
+      // Using mock data
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setPrograms(mockPrograms || []);
+      setAllCourses(mockCourses || []);
+      /*
       const [programsData, coursesData] = await Promise.all([
         fetchData<Program[]>('programs/read.php'),
         fetchData<Course[]>('courses/read.php')
       ]);
       setPrograms(programsData || []);
       setAllCourses(coursesData || []);
+      */
     } catch (error: any) {
       console.error("Failed to fetch data:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load data." });
