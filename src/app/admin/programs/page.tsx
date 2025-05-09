@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -6,7 +7,7 @@ import { PlusCircle, Edit, Trash2, Loader2, BookOpen, ChevronDown, ChevronRight,
 import { z } from "zod";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
+import { DataTable, DataTableColumnHeader } from "@/components/data-table"; // Corrected import path
 import {
   Dialog,
   DialogContent,
@@ -32,12 +33,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@/components/ui/textarea"; // Import Textarea
 import { useToast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { programSchema, courseSchema } from "@/lib/schemas";
-import type { Program, Course, CourseType, YearLevel } from "@/types";
+import { programSchema, courseSchema } from "@/lib/schemas"; // Import schemas
+import type { Program, Course, CourseType, YearLevel } from "@/types"; // Updated types
 import {
     AlertDialog,
     AlertDialogAction,
@@ -56,12 +57,13 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockPrograms as mockApiPrograms, mockCourses as mockApiCourses } from "@/lib/api";
+} from "@/components/ui/dropdown-menu"; // Added DropdownMenu imports
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockPrograms as mockApiPrograms, mockCourses as mockApiCourses } from "@/lib/api"; // Import API helpers AND mock data
 import { cn } from "@/lib/utils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; // Import Accordion
+import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
+import { Badge } from "@/components/ui/badge"; // Import Badge
+import { Label } from "@/components/ui/label"; // Import Label
 
 
 type ProgramFormValues = z.infer<typeof programSchema>;
@@ -70,7 +72,7 @@ type CourseFormValues = z.infer<typeof courseSchema>;
 const yearLevels: YearLevel[] = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 const courseTypes: CourseType[] = ["Major", "Minor"];
 
-export default function ProgramsCoursesPage() {
+export default function ProgramsCoursesPage() { // Renamed component
   const [programs, setPrograms] = React.useState<Program[]>([]);
   const [allCourses, setAllCourses] = React.useState<Course[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -379,19 +381,17 @@ export default function ProgramsCoursesPage() {
                 <AccordionTrigger className="text-xl font-semibold hover:bg-accent/50 p-3 rounded-md">
                   <div className="flex items-center justify-between w-full">
                     <span>{program.name} ({program.id})</span>
-                     <div className="flex items-center gap-2">
-                        <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); handleOpenProgramModal(program); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') {e.stopPropagation(); handleOpenProgramModal(program);} }}
-                            className={cn(
-                                buttonVariants({ variant: 'outline', size: 'sm' }),
-                                "text-xs"
-                            )}
-                          >
-                            <Edit3 className="mr-1 h-3 w-3" /> Edit Program
-                        </div>
+                     <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); handleOpenProgramModal(program); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') {e.stopPropagation(); handleOpenProgramModal(program);} }}
+                        className={cn(
+                            buttonVariants({ variant: 'outline', size: 'sm' }),
+                            "text-xs"
+                        )}
+                      >
+                        <Edit3 className="mr-1 h-3 w-3" /> Edit Program
                     </div>
                   </div>
                 </AccordionTrigger>
