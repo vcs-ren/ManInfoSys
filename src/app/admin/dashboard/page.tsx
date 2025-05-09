@@ -75,8 +75,8 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-           {/* Administrative Staff Card - Now UNCLICKABLE, for display only */}
-           <Card className="hover:shadow-md transition-shadow"> {/* Removed onClick and cursor-pointer */}
+           {/* Administrative Staff Card - UNCLICKABLE, for display only */}
+           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Administrative Staff</CardTitle>
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
@@ -84,7 +84,7 @@ export default function AdminDashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalAdmins}</div>
                <p className="text-xs text-muted-foreground pt-1">
-                View and manage in <Link href="/admin/admins" className="underline hover:text-primary">Manage Admins</Link>.
+                Faculty in 'Administrative' department automatically have Sub Admin access. Manage all admin accounts via the 'Manage Admins' page.
               </p>
             </CardContent>
           </Card>
