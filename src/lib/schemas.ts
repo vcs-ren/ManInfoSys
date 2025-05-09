@@ -16,15 +16,22 @@ export const courseSchema = z.object({
   name: z.string().min(1, "Course(subject) name is required"),
   description: z.string().optional().or(z.literal('')),
   type: z.enum(courseTypeEnum, { required_error: "Course type (Major/Minor) is required"}),
-  programId: z.string().optional(), // Optional: Program ID if type is Major
+  programId: z.array(z.string()).optional().default([]), // Array of Program IDs if type is Major
   yearLevel: z.enum(yearLevelEnum).optional(), // Optional: Suggested year level
 }).superRefine((data, ctx) => {
-  if (data.type === 'Major' && !data.programId) {
+  if (data.type === 'Major' && (!data.programId || data.programId.length === 0)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "Program ID is required for Major courses.",
+      message: "At least one Program ID is required for Major courses.",
       path: ["programId"],
     });
+  }
+  if (data.type === 'Minor' && data.programId && data.programId.length > 0) {
+    // Minors should not have programId set, as they are general.
+    // Or, if they can be suggested for programs, this logic might change.
+    // For now, let's assume minors don't have specific program associations at the course definition level.
+    // This can be handled by setting programId to an empty array or undefined for Minors.
+    // If data.programId is an empty array for minors, it's fine.
   }
 });
 
@@ -59,7 +66,7 @@ export const studentSchema = z.object({
   // Enrollment Info
   status: z.enum(studentStatusEnum, { required_error: "Status is required"}),
   year: z.enum(yearLevelEnum).optional(),
-  course: z.string().min(1, "Program is required"), // References Program ID/Name
+  course: z.string().min(1, "Program is required"), // References Program ID/Name - Keep key as 'course' for backend
   // Contact / Account Info
   email: z.string().email("Invalid email address").optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
@@ -112,10 +119,11 @@ export const teacherSchema = z.object({
 // Schema for adding a new admin
 export const adminUserSchema = z.object({
   id: z.number().optional(), // Will be faculty ID if derived
-  email: z.string().email("Valid email is required."), // Should come from Faculty details
-  role: z.enum(adminRoleEnum, { required_error: "Admin role is required" }), // Role is 'Sub Admin'
-  username: z.string().optional(), // Auto-generated from Faculty
-  // No password field here, managed via Faculty record
+  username: z.string().min(1, "Username is required."), // For manually added admins or display for faculty-admins
+  email: z.string().email("Valid email is required.").optional().or(z.literal('')), // Email is optional
+  role: z.enum(adminRoleEnum, { required_error: "Admin role is required" }),
+  firstName: z.string().optional().or(z.literal('')), // Optional first name
+  lastName: z.string().optional().or(z.literal('')),  // Optional last name
 });
 
 

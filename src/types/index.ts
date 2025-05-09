@@ -77,7 +77,7 @@ export interface Course {
     name: string; // e.g., "Introduction to Programming"
     description?: string;
     type: CourseType; // Major or Minor
-    programId?: string; // Reference to the Program it belongs to (REQUIRED for Major if type is Major)
+    programId?: string[]; // Array of Program IDs if type is Major, to allow a course to be a major in multiple programs
     yearLevel?: YearLevel; // Year level this course is typically assigned in
 }
 
@@ -190,6 +190,7 @@ export interface DashboardStats {
     totalTeachers: number; // Faculty with 'Teaching' department
     totalAdmins: number;   // Faculty with 'Administrative' department (excluding Super Admin)
     upcomingEvents: number;
+    totalFaculty: number; // New: Total faculty members
 }
 
 // Interface for upcoming items (simplified) - Keep this if used by mock data

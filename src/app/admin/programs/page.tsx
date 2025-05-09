@@ -3,11 +3,11 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, BookOpen, ChevronDown, ChevronRight, Library, PackagePlus, XCircle, Edit3, AlertCircle, MoreHorizontal } from "lucide-react"; // Added MoreHorizontal
+import { PlusCircle, Edit, Trash2, Loader2, BookOpen, Library, PackagePlus, XCircle, Edit3, AlertCircle, MoreHorizontal } from "lucide-react";
 import { z } from "zod";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table"; // Corrected import path
+import { DataTable, DataTableColumnHeader } from "@/components/data-table";
 import {
   Dialog,
   DialogContent,
@@ -33,12 +33,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea"; // Import Textarea
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { programSchema, courseSchema } from "@/lib/schemas"; // Import schemas
-import type { Program, Course, CourseType, YearLevel } from "@/types"; // Updated types
+import { programSchema, courseSchema } from "@/lib/schemas";
+import type { Program, Course, CourseType, YearLevel } from "@/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -57,13 +57,14 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"; // Added DropdownMenu imports
-import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockPrograms as mockApiPrograms, mockCourses as mockApiCourses } from "@/lib/api"; // Import API helpers AND mock data
+} from "@/components/ui/dropdown-menu";
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockApiCourses } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; // Import Accordion
-import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
-import { Badge } from "@/components/ui/badge"; // Import Badge
-import { Label } from "@/components/ui/label"; // Import Label
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 type ProgramFormValues = z.infer<typeof programSchema>;
@@ -72,7 +73,7 @@ type CourseFormValues = z.infer<typeof courseSchema>;
 const yearLevels: YearLevel[] = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 const courseTypes: CourseType[] = ["Major", "Minor"];
 
-export default function ProgramsCoursesPage() { // Renamed component
+export default function ProgramsCoursesPage() {
   const [programs, setPrograms] = React.useState<Program[]>([]);
   const [allCourses, setAllCourses] = React.useState<Course[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -90,7 +91,7 @@ export default function ProgramsCoursesPage() { // Renamed component
 
 
   const programForm = useForm<ProgramFormValues>({ resolver: zodResolver(programSchema) });
-  const courseForm = useForm<CourseFormValues>({ resolver: zodResolver(courseSchema) });
+  const courseForm = useForm<CourseFormValues>({ resolver: zodResolver(courseSchema), defaultValues: { programId: [] } });
   const addCourseToProgramForm = useForm<{ courseId: string; yearLevel: YearLevel }>({ resolver: zodResolver(z.object({ courseId: z.string().min(1, "Please select a course."), yearLevel: z.enum(yearLevels) })) });
 
 
@@ -152,7 +153,9 @@ export default function ProgramsCoursesPage() { // Renamed component
       if (savedProgram.courses) {
           Object.values(savedProgram.courses).flat().forEach(course => {
               if (!allCourses.some(c => c.id === course.id)) {
-                  setAllCourses(prev => [...prev, course]);
+                  // Ensure programId is an array for Major courses
+                  const courseToAdd = { ...course, programId: course.type === 'Major' ? (course.programId || [savedProgram.id]) : [] };
+                  setAllCourses(prev => [...prev, courseToAdd]);
               }
           });
       }
@@ -170,7 +173,16 @@ export default function ProgramsCoursesPage() { // Renamed component
       await deleteData(`programs/delete.php/${programId}`);
       setPrograms(prev => prev.filter(p => p.id !== programId));
       // Also remove major courses associated ONLY with this program from allCourses list
-      setAllCourses(prev => prev.filter(c => !(c.type === 'Major' && c.programId === programId)));
+      setAllCourses(prev => prev.map(c => {
+          if (c.type === 'Major' && c.programId?.includes(programId)) {
+              const updatedProgramIds = c.programId.filter(pid => pid !== programId);
+              if (updatedProgramIds.length === 0) { // If this was the only program, remove the course entirely or change type
+                  return null; // Mark for removal, or handle differently (e.g., convert to Minor if no programs left)
+              }
+              return { ...c, programId: updatedProgramIds };
+          }
+          return c;
+      }).filter(Boolean) as Course[]);
       toast({ title: "Program Deleted", description: "Program and its major course assignments removed." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete program." });
@@ -184,12 +196,11 @@ export default function ProgramsCoursesPage() { // Renamed component
     if (course) {
       setSelectedCourse(course);
       setIsEditCourseMode(true);
-      courseForm.reset(course);
+      courseForm.reset({...course, programId: course.programId || [] });
     } else {
       setSelectedCourse(null);
       setIsEditCourseMode(false);
-      // Pre-fill programId if context is provided (especially for 'Major' type default)
-      courseForm.reset({ id: "", name: "", description: "", type: context?.programId ? "Major" : "Minor", programId: context?.programId || "", yearLevel: context?.yearLevel});
+      courseForm.reset({ id: "", name: "", description: "", type: context?.programId ? "Major" : "Minor", programId: context?.programId ? [context.programId] : [], yearLevel: context?.yearLevel});
     }
     setIsCourseModalOpen(true);
   };
@@ -198,8 +209,10 @@ export default function ProgramsCoursesPage() { // Renamed component
     setIsSubmitting(true);
     try {
       let savedCourse: Course;
+      const payload = { ...values, programId: values.type === 'Major' ? (values.programId || []) : [] };
+
       if (isEditCourseMode && selectedCourse) {
-        savedCourse = await putData<CourseFormValues, Course>(`courses/update.php/${selectedCourse.id}`, values);
+        savedCourse = await putData<typeof payload, Course>(`courses/update.php/${selectedCourse.id}`, payload);
         setAllCourses(prev => prev.map(c => c.id === savedCourse.id ? savedCourse : c));
         setPrograms(prevProgs => prevProgs.map(prog => ({
             ...prog,
@@ -212,10 +225,13 @@ export default function ProgramsCoursesPage() { // Renamed component
         })));
         toast({ title: "Course Updated", description: `${savedCourse.name} updated successfully.` });
       } else {
-        savedCourse = await postData<CourseFormValues, Course>('courses/create.php', values);
+        savedCourse = await postData<typeof payload, Course>('courses/create.php', payload);
         setAllCourses(prev => [...prev, savedCourse]);
         toast({ title: "Course Added", description: `${savedCourse.name} added to system courses.` });
-        if (courseModalContext?.programId && courseModalContext?.yearLevel) {
+        // If created in context of a program and year, assign it
+        if (courseModalContext?.programId && courseModalContext?.yearLevel && savedCourse.programId?.includes(courseModalContext.programId)) {
+            await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
+        } else if (courseModalContext?.programId && courseModalContext?.yearLevel && savedCourse.type === 'Minor') {
             await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
         }
       }
@@ -257,7 +273,7 @@ export default function ProgramsCoursesPage() { // Renamed component
       setPrograms(prev => prev.map(p => p.id === updatedProgram.id ? updatedProgram : p));
       const course = allCourses.find(c => c.id === courseId);
       toast({ title: "Course Assigned", description: `${course?.name || 'Course'} assigned to ${updatedProgram.name} - ${yearLevel}.` });
-      addCourseToProgramForm.reset({ courseId: "", yearLevel: yearLevel}); // Reset form
+      addCourseToProgramForm.reset({ courseId: "", yearLevel: yearLevel});
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign course." });
     } finally {
@@ -298,7 +314,6 @@ export default function ProgramsCoursesPage() { // Renamed component
         const program = row.original;
         return (
           <div className="flex gap-2">
-            {/* Removed edit button from here, edit is handled via Accordion section */}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={isSubmitting}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>
@@ -319,7 +334,16 @@ export default function ProgramsCoursesPage() { // Renamed component
     { accessorKey: "id", header: ({ column }) => <DataTableColumnHeader column={column} title="Course ID" /> },
     { accessorKey: "name", header: ({ column }) => <DataTableColumnHeader column={column} title="Course Name" /> },
     { accessorKey: "type", header: "Type", cell: ({ row }) => <Badge variant={row.original.type === "Major" ? "default" : "secondary"}>{row.original.type}</Badge> },
-    { accessorKey: "programId", header: "Program (Majors)", cell: ({ row }) => programs.find(p => p.id === row.original.programId)?.name || (row.original.type === 'Major' ? row.original.programId || <AlertCircle className="h-4 w-4 text-destructive" title="Major course needs a program ID" /> : <span className="text-muted-foreground">-</span> ) },
+    { accessorKey: "programId", header: "Program(s) (Majors)", cell: ({ row }) => {
+        if (row.original.type === 'Major') {
+            if (row.original.programId && row.original.programId.length > 0) {
+                return row.original.programId.map(pid => programs.find(p => p.id === pid)?.name || pid).join(', ');
+            }
+            return <AlertCircle className="h-4 w-4 text-destructive" title="Major course needs program ID(s)" />;
+        }
+        return <span className="text-muted-foreground">-</span>;
+      }
+    },
     { accessorKey: "description", header: "Description", cell: ({ row }) => <p className="truncate max-w-xs">{row.original.description || "-"}</p> },
     {
       id: "actions",
@@ -401,12 +425,12 @@ export default function ProgramsCoursesPage() { // Renamed component
                     {yearLevels.map(year => {
                       const assignedCourses = program.courses?.[year] || [];
                       const availableCoursesForAssignment = allCourses.filter(course => {
-                        if (assignedCourses.some(ac => ac.id === course.id)) return false;
-                        if (course.type === 'Major' && course.programId && course.programId !== program.id) return false;
-                        if (course.type === 'Major' && !course.programId) return true; // Allow assigning new Major course
-                        if (course.type === 'Major' && course.programId === program.id) return true;
-                        if (course.type === 'Minor') return true;
-                        return false;
+                        if (assignedCourses.some(ac => ac.id === course.id)) return false; // Already assigned to this year level
+                        if (course.type === 'Major') {
+                            // Major courses can only be assigned if this program is one of their designated programs
+                            return course.programId?.includes(program.id);
+                        }
+                        return true; // Minor courses are generally available
                       });
 
                       return (
@@ -429,8 +453,8 @@ export default function ProgramsCoursesPage() { // Renamed component
                                         <Controller
                                             control={addCourseToProgramForm.control}
                                             name="yearLevel"
-                                            defaultValue={year} // Set default yearLevel from context
-                                            render={() => null} // Hidden field, value managed by context
+                                            defaultValue={year}
+                                            render={() => null}
                                         />
                                         <FormField
                                             control={addCourseToProgramForm.control}
@@ -438,7 +462,7 @@ export default function ProgramsCoursesPage() { // Renamed component
                                             render={({ field }) => (
                                                 <FormItem>
                                                 <FormLabel>Select Existing Course</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                                <Select onValueChange={field.onChange} value={field.value || ""} disabled={isSubmitting}>
                                                     <FormControl><SelectTrigger><SelectValue placeholder="Choose a course..." /></SelectTrigger></FormControl>
                                                     <SelectContent>
                                                         {availableCoursesForAssignment.length > 0 ?
@@ -455,7 +479,7 @@ export default function ProgramsCoursesPage() { // Renamed component
                                     </form>
                                     </Form>
                                     <div className="my-2 text-center text-sm text-muted-foreground">OR</div>
-                                    <Button variant="outline" className="w-full" onClick={() => handleOpenCourseModal(undefined, { programId: program.id, yearLevel: year })}>
+                                    <Button variant="outline" className="w-full" onClick={() => handleOpenCourseModal(undefined, { programId: program.id, yearLevel: year })} disabled={isSubmitting}>
                                         <PackagePlus className="mr-2 h-4 w-4" /> Create New Course for this Program/Year
                                     </Button>
                                 </DialogContent>
@@ -501,15 +525,13 @@ export default function ProgramsCoursesPage() { // Renamed component
           </DialogHeader>
           <Form {...programForm}>
             <form onSubmit={programForm.handleSubmit(handleSaveProgram)} className="space-y-4 py-4">
-              <FormField control={programForm.control} name="id" render={({ field }) => (<FormItem><FormLabel>Program ID (e.g., CS, IT)</FormLabel><FormControl><Input placeholder="Unique Program ID" {...field} disabled={isEditProgramMode} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={programForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Program Name</FormLabel><FormControl><Input placeholder="e.g., Bachelor of Science in Computer Science" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={programForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea placeholder="Brief description of the program" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              {/* Course fields for new program - consider a separate modal or simplified input here */}
+              <FormField control={programForm.control} name="id" render={({ field }) => (<FormItem><FormLabel>Program ID (e.g., CS, IT)</FormLabel><FormControl><Input placeholder="Unique Program ID" {...field} disabled={isEditProgramMode || isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={programForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Program Name</FormLabel><FormControl><Input placeholder="e.g., Bachelor of Science in Computer Science" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={programForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea placeholder="Brief description of the program" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
               {!isEditProgramMode && (
                 <div className="space-y-2 border-t pt-4">
                     <Label className="text-sm font-medium">Initial Courses (Optional)</Label>
                     <p className="text-xs text-muted-foreground">You can add more courses per year level after creating the program.</p>
-                    {/* Add a simple way to add a few initial courses or defer to detailed management */}
                 </div>
               )}
               <DialogFooter>
@@ -529,16 +551,16 @@ export default function ProgramsCoursesPage() { // Renamed component
           </DialogHeader>
           <Form {...courseForm}>
             <form onSubmit={courseForm.handleSubmit(handleSaveCourse)} className="space-y-4 py-4">
-              <FormField control={courseForm.control} name="id" render={({ field }) => (<FormItem><FormLabel>Course ID (e.g., CS101, GEN001)</FormLabel><FormControl><Input placeholder="Unique Course ID" {...field} disabled={isEditCourseMode} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={courseForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Course Name</FormLabel><FormControl><Input placeholder="e.g., Introduction to Programming" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={courseForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea placeholder="Brief description of the course" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={courseForm.control} name="id" render={({ field }) => (<FormItem><FormLabel>Course ID (e.g., CS101, GEN001)</FormLabel><FormControl><Input placeholder="Unique Course ID" {...field} disabled={isEditCourseMode || isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={courseForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Course Name</FormLabel><FormControl><Input placeholder="e.g., Introduction to Programming" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={courseForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea placeholder="Brief description of the course" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
               <FormField
                 control={courseForm.control}
                 name="type"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Course Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isEditCourseMode && !!selectedCourse?.programId /* Lock type if it's an existing major */}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={(isEditCourseMode && !!selectedCourse?.programId && selectedCourse.programId.length > 0) || isSubmitting}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select course type" /></SelectTrigger></FormControl>
                       <SelectContent>{courseTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
                     </Select>
@@ -546,19 +568,42 @@ export default function ProgramsCoursesPage() { // Renamed component
                   </FormItem>
                 )}
               />
-               <FormField
+               <Controller
                   control={courseForm.control}
                   name="programId"
-                  render={({ field }) => (
+                  render={({ field, fieldState }) => (
                     <FormItem style={{ display: courseForm.watch("type") === 'Major' ? 'block' : 'none' }}>
-                        <FormLabel>Assign to Program (Required for Major)</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""} disabled={(isEditCourseMode && !!selectedCourse?.programId) || !!courseModalContext?.programId}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select program for this Major course" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                {programs.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.id})</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
+                        <FormLabel>Assign to Program(s) (Required for Major)</FormLabel>
+                        <div className="space-y-2 max-h-32 overflow-y-auto border p-2 rounded-md">
+                            {programs.map(p => (
+                                <FormField
+                                    key={p.id}
+                                    control={courseForm.control}
+                                    name="programId"
+                                    render={() => ( // Removed field from render as we manage it manually
+                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={(field.value || []).includes(p.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        const currentProgramIds = field.value || [];
+                                                        if (checked) {
+                                                            field.onChange([...currentProgramIds, p.id]);
+                                                        } else {
+                                                            field.onChange(currentProgramIds.filter((id) => id !== p.id));
+                                                        }
+                                                    }}
+                                                    disabled={isSubmitting}
+                                                />
+                                            </FormControl>
+                                            <FormLabel className="font-normal text-sm">{p.name} ({p.id})</FormLabel>
+                                        </FormItem>
+                                    )}
+                                />
+                            ))}
+                        </div>
+                        {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
+                         <p className="text-xs text-muted-foreground">A Major course must be assigned to at least one program.</p>
                     </FormItem>
                   )}
                 />
