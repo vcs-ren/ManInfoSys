@@ -36,8 +36,8 @@ export interface Student {
 // Renamed Teacher to Faculty and updated department type
 export interface Faculty {
   id: number; // Database ID
-  teacherId: string; // Now numeric string e.g., "1001", "1002"
-  username: string; // Now prefixed e.g., "t1001", "a1002"
+  teacherId: string; //  e.g., "1001", "1002" (DB ID + 1000)
+  username: string; // Prefixed e.g., "t1001", "a1002"
   firstName: string;
   lastName: string;
   middleName?: string;
@@ -187,7 +187,8 @@ export interface AdminUser {
 // Interface for dashboard stats fetched from API
 export interface DashboardStats {
     totalStudents: number;
-    totalFaculty: number; // Changed from totalTeachers and totalAdmins
+    totalTeachers: number; // Faculty with 'Teaching' department
+    totalAdmins: number;   // Faculty with 'Administrative' department (excluding Super Admin)
     upcomingEvents: number;
 }
 

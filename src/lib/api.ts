@@ -9,20 +9,9 @@ import { formatDistanceToNow } from 'date-fns';
 // --- MOCK DATA STORE ---
 let nextStudentDbId = 3;
 let nextFacultyDbId = 3;
-let nextProgramDbId = 3;
-let nextCourseDbId = 10;
+let nextProgramDbId = 3; // For new program IDs if not specified
+let nextCourseDbId = 10; // For new course IDs if not specified
 let nextActivityLogId = 1;
-
-let mockStudents: Student[] = [
-  { id: 1, studentId: "101", username: "s101", firstName: "Alice", lastName: "Smith", course: "Computer Science", status: "Returnee", year: "2nd Year", section: "CS-2A", email: "alice@example.com", phone: "123-456-7890", emergencyContactName: "John Smith", emergencyContactRelationship: "Father", emergencyContactPhone: "111-222-3333", emergencyContactAddress: "123 Main St", lastAccessed: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 2, studentId: "102", username: "s102", firstName: "Bob", lastName: "Johnson", course: "Information Technology", status: "New", year: "1st Year", section: "IT-1B", email: "bob@example.com", phone: "987-654-3210", lastAccessed: null },
-];
-
-let mockFaculty: Faculty[] = [
-  { id: 1, teacherId: "1001", username: "t1001", firstName: "David", lastName: "Lee", department: "Teaching", email: "david.lee@example.com", phone: "555-1234", employmentType: 'Regular', lastAccessed: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 2, teacherId: "1002", username: "a1002", firstName: "Eve", lastName: "Davis", department: "Administrative", email: "eve.davis@example.com", phone: "555-5678", employmentType: 'Part Time', lastAccessed: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 3, teacherId: "1003", username: "t1003", firstName: "Carol", lastName: "White", department: "Teaching", email: "carol.white@example.com", phone: "555-9012", employmentType: 'Regular', lastAccessed: null },
-];
 
 let mockCourses: Course[] = [
     { id: "CS101", name: "Introduction to Programming", description: "Fundamentals of programming.", type: "Major", programId: "CS", yearLevel: "1st Year" },
@@ -41,6 +30,17 @@ let mockPrograms: Program[] = [
         id: "IT", name: "Information Technology", description: "Focuses on network administration, system management, and web technologies.",
         courses: { "1st Year": [mockCourses[1], mockCourses[3]], "2nd Year": [], "3rd Year": [], "4th Year": [] },
     },
+];
+
+let mockStudents: Student[] = [
+  { id: 1, studentId: "101", username: "s101", firstName: "Alice", lastName: "Smith", course: "Computer Science", status: "Returnee", year: "2nd Year", section: "CS-2A", email: "alice@example.com", phone: "123-456-7890", emergencyContactName: "John Smith", emergencyContactRelationship: "Father", emergencyContactPhone: "111-222-3333", emergencyContactAddress: "123 Main St", lastAccessed: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+  { id: 2, studentId: "102", username: "s102", firstName: "Bob", lastName: "Johnson", course: "Information Technology", status: "New", year: "1st Year", section: "IT-1B", email: "bob@example.com", phone: "987-654-3210", lastAccessed: null },
+];
+
+let mockFaculty: Faculty[] = [
+  { id: 1, teacherId: "1001", username: "t1001", firstName: "David", lastName: "Lee", department: "Teaching", email: "david.lee@example.com", phone: "555-1234", employmentType: 'Regular', lastAccessed: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+  { id: 2, teacherId: "1002", username: "a1002", firstName: "Eve", lastName: "Davis", department: "Administrative", email: "eve.davis@example.com", phone: "555-5678", employmentType: 'Part Time', lastAccessed: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+  { id: 3, teacherId: "1003", username: "t1003", firstName: "Carol", lastName: "White", department: "Teaching", email: "carol.white@example.com", phone: "555-9012", employmentType: 'Regular', lastAccessed: null },
 ];
 
 let mockSections: Section[] = [
@@ -66,6 +66,7 @@ let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[
 let mockAdmins: AdminUser[] = [
     { id: 0, username: "admin", firstName: "Super", lastName: "Admin", email: "superadmin@example.com", role: "Super Admin", isSuperAdmin: true },
     { id: 2, username: "a1002", firstName: "Eve", lastName: "Davis", email: "eve.davis@example.com", role: "Sub Admin", isSuperAdmin: false }, // Faculty member Eve Davis is now also a Sub Admin
+    { id: 1001, username: "a1001", firstName: "Test", lastName: "SubAdmin", email: "test.sub@example.com", role: "Sub Admin", isSuperAdmin: false },
 ];
 
 let mockActivityLog: ActivityLogEntry[] = [
@@ -104,9 +105,18 @@ let mockDashboardStats: DashboardStats;
 
 // Function to recalculate dashboard stats from current mock data
 const recalculateDashboardStats = () => {
+    const teachingStaffCount = mockFaculty.filter(f => f.department === 'Teaching').length;
+    const adminStaffCount = mockFaculty.filter(f => f.department === 'Administrative').length;
+     // Sub Admins are faculty with 'Administrative' department OR explicitly added non-faculty Sub Admins
+     // Ensure not to double count faculty who are also in mockAdmins list
+    const facultyAdminIds = new Set(mockFaculty.filter(f => f.department === 'Administrative').map(f => f.id));
+    const nonFacultySubAdmins = mockAdmins.filter(a => a.id !== 0 && !facultyAdminIds.has(a.id)).length;
+
+
     mockDashboardStats = {
         totalStudents: mockStudents.length,
-        totalFaculty: mockFaculty.length, // Total faculty members
+        totalTeachers: teachingStaffCount,
+        totalAdmins: adminStaffCount + nonFacultySubAdmins, // Sum of faculty admins and distinct non-faculty sub-admins
         upcomingEvents: 1, // Keep upcoming events static for now
     };
 };
@@ -120,6 +130,7 @@ let mockTestUsers = [
     { username: "s102", password: "password", role: "Student" as const, userId: 2 },
     { username: "t1001", password: "password", role: "Teacher" as const, userId: 1 },
     { username: "a1002", password: "password", role: "Teacher" as const, userId: 2 }, // Eve Davis is also a Sub Admin
+    { username: "a1001", password: "password", role: "Admin" as const, userId: 1001 }, // Test SubAdmin
 ];
 
 
@@ -192,7 +203,13 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
                     role: 'Sub Admin',
                     isSuperAdmin: false,
                 }));
-            const allAdmins = superAdmin ? [superAdmin, ...facultyAdmins] : facultyAdmins;
+
+             // Include explicitly added non-faculty Sub Admins, excluding those already covered by faculty
+            const facultyAdminIds = new Set(facultyAdmins.map(fa => fa.id));
+            const explicitSubAdmins = mockAdmins.filter(a => !a.isSuperAdmin && !facultyAdminIds.has(a.id));
+
+
+            const allAdmins = superAdmin ? [superAdmin, ...facultyAdmins, ...explicitSubAdmins] : [...facultyAdmins, ...explicitSubAdmins];
             return allAdmins as T;
         }
         if (phpPath === 'programs/read.php') return [...mockPrograms] as T;
@@ -386,14 +403,14 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
          if (phpPath === 'teachers/create.php') {
             const newFacultyData = data as unknown as Omit<Faculty, 'id' | 'teacherId' | 'username' | 'lastAccessed'>;
             const nextId = nextFacultyDbId++;
-            const teacherIdStr = generateTeacherId(nextId);
+            const teacherIdStr = generateTeacherId(nextId); // Uses numeric ID
             const department = newFacultyData.department || 'Teaching';
-            const username = generateTeacherUsername(teacherIdStr, department);
+            const username = generateTeacherUsername(teacherIdStr, department); // Corrected username generation
 
             const faculty: Faculty = {
                 ...newFacultyData,
                 id: nextId,
-                teacherId: teacherIdStr,
+                teacherId: teacherIdStr, // Store numeric string ID
                 username: username,
                 lastAccessed: null, // New faculty haven't accessed yet
             };
@@ -418,7 +435,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
             return faculty as ResponseData;
         }
          if (phpPath === 'programs/create.php') {
-             const newProgramData = data as unknown as Program;
+             const newProgramData = data as unknown as Program; // No need for Omit
              const newProgram: Program = {
                  id: newProgramData.id || newProgramData.name.toUpperCase().substring(0, 3) + Date.now().toString().slice(-3),
                  name: newProgramData.name,
@@ -470,7 +487,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 }
                 mockPrograms[programIndex].courses[yearLevel].push(course);
                 logActivity("Assigned Course to Program", `${course.name} to ${mockPrograms[programIndex].name} (${yearLevel})`, "Admin");
-                return { success: true, program: mockPrograms[programIndex] } as ResponseData;
+                return { ...mockPrograms[programIndex] } as ResponseData; // Return the updated program
 
          }
 
@@ -653,8 +670,12 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                     }
                     logActivity("Undid: Removed Admin Role", `Restored admin role for ${adminData.username}`, "Admin");
                     undoSuccess = true;
+                } else if (mockAdmins.find(a => a.id === adminData.id && !a.isSuperAdmin)){ // Check if it was an explicitly added sub-admin
+                     mockAdmins.push(adminData);
+                     logActivity("Undid: Removed Admin Role", `Restored admin role for ${adminData.username}`, "Admin");
+                     undoSuccess = true;
                 } else {
-                     console.warn("Cannot undo admin role removal: Corresponding faculty record not found or originalData incomplete.");
+                     console.warn("Cannot undo admin role removal: Corresponding faculty record not found or originalData incomplete for faculty-admin, or it was a super-admin which is not undoable this way.");
                 }
 
             } else {
@@ -956,6 +977,7 @@ export const fetchData = async <T>(path: string): Promise<T> => {
                 errorData = JSON.parse(responseBodyText); // Try parsing the text
                 errorMessage = errorData?.message || responseBodyText || errorMessage;
             } catch (parseError) {
+                 // If not JSON, use the text as error
                  console.error("API Error Response Text (fetchData):", responseBodyText);
                  errorMessage = responseBodyText || `HTTP error! status: ${response.status}`;
                  errorData = { message: errorMessage };
@@ -1161,4 +1183,4 @@ function formatDate(date: Date): string {
 }
 
 // Export mock data for potential use in other parts of the app if needed during development
-export { USE_MOCK_API, mockPrograms, mockCourses, mockActivityLog, logActivity };
+export { USE_MOCK_API, mockPrograms, mockCourses, mockActivityLog, logActivity, mockFaculty, mockStudents, mockSections, mockAnnouncements, mockSectionAssignments };

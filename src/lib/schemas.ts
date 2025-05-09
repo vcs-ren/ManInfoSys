@@ -1,31 +1,49 @@
 
 import { z } from "zod";
-import type { StudentStatus, EmploymentType, AdminRole, DepartmentType } from "@/types"; // Import DepartmentType
+import type { StudentStatus, EmploymentType, AdminRole, DepartmentType, CourseType, YearLevel } from "@/types"; // Import DepartmentType, CourseType, YearLevel
 
 const studentStatusEnum: [StudentStatus, ...StudentStatus[]] = ['New', 'Transferee', 'Returnee'];
-const yearLevelEnum = ['1st Year', '2nd Year', '3rd Year', '4th Year'] as const;
+const yearLevelEnum: [YearLevel, ...YearLevel[]] = ['1st Year', '2nd Year', '3rd Year', '4th Year'] as const; // Use YearLevel type
 const genderEnum = ['Male', 'Female', 'Other'] as const;
 const employmentTypeEnum: [EmploymentType, ...EmploymentType[]] = ['Regular', 'Part Time'];
 const adminRoleEnum: [AdminRole, ...AdminRole[]] = ['Super Admin', 'Sub Admin'];
 const departmentEnum: [DepartmentType, ...DepartmentType[]] = ['Teaching', 'Administrative']; // Use DepartmentType
+const courseTypeEnum: [CourseType, ...CourseType[]] = ['Major', 'Minor']; // Define course types
 
-// Schema for Program Management
-export const subjectSchema = z.object({
-  id: z.string().optional(),
+// Schema for Course Management (used for global courses and within programs)
+export const courseSchema = z.object({
+  id: z.string().min(1, "Course ID is required (e.g., CS101, GEN001)"),
   name: z.string().min(1, "Course(subject) name is required"),
   description: z.string().optional().or(z.literal('')),
+  type: z.enum(courseTypeEnum, { required_error: "Course type (Major/Minor) is required"}),
+  programId: z.string().optional(), // Optional: Program ID if type is Major
+  yearLevel: z.enum(yearLevelEnum).optional(), // Optional: Suggested year level
+}).superRefine((data, ctx) => {
+  if (data.type === 'Major' && !data.programId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Program ID is required for Major courses.",
+      path: ["programId"],
+    });
+  }
 });
+
 
 export const yearLevelCoursesSchema = z.record(
   z.enum(yearLevelEnum),
-  z.array(subjectSchema)
+  z.array(courseSchema) // Courses within a program year will use the courseSchema
 );
 
 export const programSchema = z.object({
-  id: z.string().optional(),
+  id: z.string().min(1, "Program ID is required (e.g., CS, IT)"),
   name: z.string().min(1, "Program name is required"),
   description: z.string().optional().or(z.literal('')),
-  courses: yearLevelCoursesSchema.optional().default({}),
+  courses: yearLevelCoursesSchema.optional().default({
+    "1st Year": [],
+    "2nd Year": [],
+    "3rd Year": [],
+    "4th Year": [],
+  }),
 });
 
 // Schema for adding/editing a student
@@ -93,10 +111,11 @@ export const teacherSchema = z.object({
 
 // Schema for adding a new admin
 export const adminUserSchema = z.object({
-  id: z.number().optional(),
-  email: z.string().email("Valid email is required."),
-  role: z.enum(adminRoleEnum, { required_error: "Admin role is required" }),
-  username: z.string().optional(),
+  id: z.number().optional(), // Will be faculty ID if derived
+  email: z.string().email("Valid email is required."), // Should come from Faculty details
+  role: z.enum(adminRoleEnum, { required_error: "Admin role is required" }), // Role is 'Sub Admin'
+  username: z.string().optional(), // Auto-generated from Faculty
+  // No password field here, managed via Faculty record
 });
 
 
