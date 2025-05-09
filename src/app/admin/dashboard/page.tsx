@@ -23,7 +23,7 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = React.useCallback(async () => {
       setIsLoading(true);
       setIsActivityLoading(true);
       setError(null);
@@ -33,7 +33,7 @@ export default function AdminDashboardPage() {
           fetchData<ActivityLogEntry[]>('admin/activity-log/read.php')
         ]);
         setStats(statsData);
-        setActivityLog(activityData.map(log => ({ ...log, timestamp: new Date(log.timestamp) })));
+        setActivityLog(activityData ? activityData.map(log => ({ ...log, timestamp: new Date(log.timestamp) })) : []);
       } catch (err: any) {
         console.error("Failed to fetch dashboard data:", err);
         setError(err.message || "Failed to load dashboard data. Please try again later.");
@@ -42,13 +42,13 @@ export default function AdminDashboardPage() {
         setIsLoading(false);
         setIsActivityLoading(false);
       }
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [toast]);
 
 
   React.useEffect(() => {
     fetchDashboardData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchDashboardData]);
 
   const handleCardClick = (path: string | null) => {
     if (path) {
@@ -85,7 +85,7 @@ export default function AdminDashboardPage() {
 
       {stats && !isLoading && !error && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card onClick={() => handleCardClick('/admin/students')} className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card onClick={() => handleCardClick('/admin/students/population')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -105,7 +105,7 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-           <Card className="hover:shadow-md transition-shadow bg-muted/50">
+           <Card className="hover:shadow-md transition-shadow bg-muted/50 cursor-not-allowed">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Administrative Staff</CardTitle>
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
@@ -133,7 +133,7 @@ export default function AdminDashboardPage() {
                     <ListChecks className="h-6 w-6 text-primary" />
                     <CardTitle>Recent Activity</CardTitle>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchDashboardData} disabled={isActivityLoading}>
+                <Button variant="outline" size="sm" onClick={fetchDashboardData} disabled={isActivityLoading || isLoading}>
                     {isActivityLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
                     Refresh
                 </Button>
@@ -143,11 +143,11 @@ export default function AdminDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isActivityLoading && !activityLog.length ? (
+            {isActivityLoading && (!activityLog || activityLog.length === 0) ? (
                 <div className="flex items-center justify-center py-10">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" /> Loading activities...
                 </div>
-            ) : activityLog.length > 0 ? (
+            ) : activityLog && activityLog.length > 0 ? (
                 <ScrollArea className="h-[300px]">
                     <ul className="space-y-3">
                         {activityLog.map((log) => (
@@ -157,7 +157,7 @@ export default function AdminDashboardPage() {
                                     <span className="font-bold text-primary">{log.action}:</span> {log.description}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    By {log.user} - {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}
+                                    By {log.user} - {log.timestamp ? formatDistanceToNow(new Date(log.timestamp), { addSuffix: true }) : 'Unknown time'}
                                 </p>
                             </div>
                             {log.canUndo && (
