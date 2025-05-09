@@ -64,22 +64,30 @@ let mockAdmins: AdminUser[] = [
     { id: 1, username: "a1001", email: "subadmin1@example.com", role: "Sub Admin", isSuperAdmin: false }
 ];
 
+let mockDashboardStats: DashboardStats = {
+    totalStudents: mockStudents.length,
+    totalTeachers: mockFaculty.filter(f => f.department === 'Teaching').length,
+    // Initialize with faculty admins and sub-admins from mockAdmins, excluding super admin
+    totalAdmins: mockFaculty.filter(f => f.department === 'Administrative').length + mockAdmins.filter(a => !a.isSuperAdmin).length,
+    upcomingEvents: 1,
+};
+
 // Function to recalculate dashboard stats from current mock data
 const recalculateDashboardStats = () => {
     const teachingStaffCount = mockFaculty.filter(f => f.department === 'Teaching').length;
-    const adminStaffCount = mockFaculty.filter(f => f.department === 'Administrative').length;
-    // Exclude the Super Admin (id: 0) from the administrative count from mockAdmins
-    const subAdminCount = mockAdmins.filter(a => a.id !== 0).length;
+    // Count administrative staff from faculty list
+    const facultyAdminCount = mockFaculty.filter(f => f.department === 'Administrative').length;
+    // Count sub-admins from the mockAdmins list (excluding the super admin)
+    const subAdminCount = mockAdmins.filter(a => !a.isSuperAdmin).length;
 
-    mockDashboardStats = {
+    mockDashboardStats = { // Assign to the already declared variable
         totalStudents: mockStudents.length,
         totalTeachers: teachingStaffCount,
-        totalAdmins: adminStaffCount + subAdminCount, // Combine faculty admins and user admins (excluding super admin)
+        totalAdmins: facultyAdminCount + subAdminCount, // Sum of faculty admins and user sub-admins
         upcomingEvents: 1, // Keep upcoming events static for now
     };
 };
-
-// Initial calculation
+// Initial calculation after declaration
 recalculateDashboardStats();
 
 
@@ -93,15 +101,14 @@ let mockTestUsers = [
 
 // --- API CONFIGURATION ---
 const USE_MOCK_API = true; // Set to false to try hitting the PHP backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'; // Ensure no /api suffix
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 const getApiUrl = (path: string): string => {
-    // If the path already starts with 'http', assume it's a full URL
     if (path.startsWith('http://') || path.startsWith('https://')) {
         return path;
     }
-    const baseUrl = API_BASE_URL.replace(/\/$/, ''); // Remove trailing slash from base URL
-    const formattedPath = path.startsWith('/') ? path : `/${path}`; // Ensure path starts with /
+    const baseUrl = API_BASE_URL.replace(/\/$/, '');
+    const formattedPath = path.startsWith('/') ? path : `/${path}`;
     return `${baseUrl}${formattedPath}`;
 };
 
@@ -116,16 +123,7 @@ const handleFetchError = (error: any, path: string, method: string, isNetworkErr
     }
 
     if (isNetworkError || error.message === 'Failed to fetch') {
-        errorMessage = `Network Error: Could not connect to the API backend at ${targetUrl}.
-
-        Possible Causes & Checks:
-        1. PHP Server Status: Is the PHP server running? Start it using: 'php -S localhost:8000 -t src/api' in your project's root terminal.
-        2. Backend URL: Is the API_BASE_URL (${API_BASE_URL}) correct and accessible from your browser?
-        3. Endpoint Path: Is the API endpoint path "${path}" correct relative to the 'src/api' directory? (e.g., /login.php, /students/read.php)
-        4. CORS Policy: Is the PHP backend configured to allow requests from your frontend origin (${typeof window !== 'undefined' ? window.location.origin : 'N/A'})? Check 'Access-Control-Allow-Origin' headers in your PHP files.
-        5. Firewall/Network: Could a firewall or network issue be blocking the connection?
-        6. Browser Console: Check the browser's Network tab for the failed request details and the Console tab for specific CORS error messages.
-        `;
+        errorMessage = `Network Error: Could not connect to the API backend at ${targetUrl}.\n\n        Possible Causes & Checks:\n        1. PHP Server Status: Is the PHP server running? Start it using: 'php -S localhost:8000 -t src/api' in your project's root terminal.\n        2. Backend URL: Is the API_BASE_URL (${API_BASE_URL}) correct and accessible from your browser?\n        3. Endpoint Path: Is the API endpoint path "${path}" correct relative to the 'src/api' directory? (e.g., /login.php, /students/read.php)\n        4. CORS Policy: Is the PHP backend configured to allow requests from your frontend origin (${typeof window !== 'undefined' ? window.location.origin : 'N/A'})? Check 'Access-Control-Allow-Origin' headers in your PHP files.\n        5. Firewall/Network: Could a firewall or network issue be blocking the connection?\n        6. Browser Console: Check the browser's Network tab for the failed request details and the Console tab for specific CORS error messages.\n        `;
         detailedLog += `\n    - Error Type: NetworkError (Failed to fetch)`;
     } else {
         errorMessage = error.message || `An unexpected error occurred during the ${method} request.`;
@@ -136,11 +134,9 @@ const handleFetchError = (error: any, path: string, method: string, isNetworkErr
 
 
     console.error("Detailed Fetch Error Log:", detailedLog);
-    // Re-throw a new error with the processed, more user-friendly message
     throw new Error(errorMessage);
 };
 
-// Helper to get final path *without* leading slash if needed by mock logic structure
 const finalMockPath = (path: string) => {
      const formattedPath = path.startsWith('/') ? path.substring(1) : path;
      return formattedPath;
@@ -150,7 +146,7 @@ const finalMockPath = (path: string) => {
 // --- MOCK API IMPLEMENTATION ---
 
 const mockFetchData = async <T>(path: string): Promise<T> => {
-    const phpPath = finalMockPath(path); // Path relative to 'src/api'
+    const phpPath = finalMockPath(path);
     console.log(`MOCK fetchData from: ${phpPath}`);
     await new Promise(resolve => setTimeout(resolve, 150));
 
@@ -170,7 +166,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
             return [...mockAnnouncements].sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
         if (phpPath === 'admin/dashboard-stats.php') {
-            recalculateDashboardStats(); // Recalculate before returning
+            recalculateDashboardStats();
             return { ...mockDashboardStats } as T;
         }
          if (phpPath.match(/^sections\/([^/]+)\/assignments$/)) {
@@ -183,7 +179,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
         }
          if (phpPath === 'student/grades/read.php') {
              const studentGrades = mockStudentSubjectAssignmentsWithGrades
-                .filter(g => g.studentId === 1) // Assuming student ID 1 for mock
+                .filter(g => g.studentId === 1)
                 .map(g => ({
                     id: g.subjectId,
                     subjectName: g.subjectName,
@@ -198,21 +194,21 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
          if (phpPath === 'teacher/assignments/grades/read.php') {
              return mockStudentSubjectAssignmentsWithGrades.filter(g => {
                  const assignment = mockSectionAssignments.find(a => a.subjectId === g.subjectId && g.section === a.sectionId);
-                 return assignment?.teacherId === 1; // Assuming faculty ID 1 for mock
+                 return assignment?.teacherId === 1;
              }) as T;
          }
          if (phpPath === 'student/profile/read.php') {
-             const student = mockStudents.find(s => s.id === 1); // Assuming student ID 1
+             const student = mockStudents.find(s => s.id === 1);
              if (student) return { ...student } as T;
              throw new Error("Mock student profile not found.");
         }
         if (phpPath === 'teacher/profile/read.php') {
-             const faculty = mockFaculty.find(t => t.id === 1); // Assuming faculty ID 1
+             const faculty = mockFaculty.find(t => t.id === 1);
              if (faculty) return { ...faculty } as T;
              throw new Error("Mock faculty profile not found.");
         }
          if (phpPath === 'student/schedule/read.php') {
-            const studentSection = mockStudents.find(s => s.id === 1)?.section; // Assuming student ID 1
+            const studentSection = mockStudents.find(s => s.id === 1)?.section;
             const schedule: ScheduleEntry[] = [];
             mockSectionAssignments
                 .filter(a => a.sectionId === studentSection)
@@ -238,7 +234,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
          if (phpPath === 'teacher/schedule/read.php') {
             const schedule: ScheduleEntry[] = [];
             mockSectionAssignments
-                .filter(a => a.teacherId === 1) // Assuming faculty ID 1
+                .filter(a => a.teacherId === 1)
                 .forEach((assign, index) => {
                      const dayOffset = index % 5;
                      const startTime = new Date();
@@ -259,13 +255,13 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
              return schedule as T;
         }
          if (phpPath === 'teacher/subjects/read.php') {
-             const subjectIds = new Set(mockSectionAssignments.filter(a => a.teacherId === 1).map(a => a.subjectId)); // Assuming faculty ID 1
+             const subjectIds = new Set(mockSectionAssignments.filter(a => a.teacherId === 1).map(a => a.subjectId));
              return mockCourses.filter(s => subjectIds.has(s.id)) as T;
          }
           if (phpPath === 'student/upcoming/read.php') {
              const upcoming: UpcomingItem[] = [];
               const studentSchedule = mockSectionAssignments
-                .filter(a => a.sectionId === mockStudents.find(s => s.id === 1)?.section) // Assuming student ID 1
+                .filter(a => a.sectionId === mockStudents.find(s => s.id === 1)?.section)
                 .map((assign, index) => {
                      const dayOffset = index % 5;
                      const startTime = new Date();
@@ -301,11 +297,11 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
     await new Promise(resolve => setTimeout(resolve, 300));
     try {
          if (phpPath === 'login.php') {
-             const { username, password } = data as any; // Assuming username and password are provided
+             const { username, password } = data as any;
              const user = mockTestUsers.find(u => u.username === username && u.password === password);
              if (user) {
                 const redirectPath = user.role === 'Admin' ? '/admin/dashboard' : user.role === 'Student' ? '/student/dashboard' : '/teacher/dashboard';
-                return { success: true, role: user.role, redirectPath: redirectPath, userId: user.userId } as ResponseData;
+                return { success: true, role: user.role as any, redirectPath: redirectPath, userId: user.userId } as ResponseData;
              }
              throw new Error("Invalid mock credentials.");
         }
@@ -323,7 +319,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 section: section
             };
             mockStudents.push(student);
-            recalculateDashboardStats(); // Update stats after adding student
+            recalculateDashboardStats();
             return student as ResponseData;
         }
          if (phpPath === 'teachers/create.php') {
@@ -340,7 +336,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 username: username,
             };
             mockFaculty.push(faculty);
-            recalculateDashboardStats(); // Update stats after adding faculty
+            recalculateDashboardStats();
             return faculty as ResponseData;
         }
          if (phpPath === 'admins/create.php') {
@@ -354,7 +350,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 isSuperAdmin: newAdminData.role === 'Super Admin',
             };
             mockAdmins.push(adminUser);
-            recalculateDashboardStats(); // Update stats after adding admin
+            recalculateDashboardStats();
             return adminUser as ResponseData;
         }
         if (phpPath === 'programs/create.php') {
@@ -438,8 +434,8 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
             mockAnnouncements.unshift(newAnnouncement);
             return newAnnouncement as ResponseData;
         }
-         if (phpPath.match(/^sections\/([^/]+)\/adviser$/)) {
-             const sectionId = phpPath.match(/^sections\/([^/]+)\/adviser$/)?.[1];
+         if (phpPath.match(/^sections\/([^/]+)\/adviser\/update\.php$/)) {
+             const sectionId = phpPath.match(/^sections\/([^/]+)\/adviser\/update\.php$/)?.[1];
              const { adviserId } = data as { adviserId: number | null };
              const sectionIndex = mockSections.findIndex(s => s.id === sectionId);
              if (sectionIndex > -1) {
@@ -453,7 +449,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
          if (phpPath === 'sections/assignments/create.php') {
              const { sectionId, subjectId, teacherId } = data as { sectionId: string; subjectId: string; teacherId: number };
              const subject = mockCourses.find(s => s.id === subjectId);
-             const faculty = mockFaculty.find(t => t.id === teacherId);
+             const facultyMember = mockFaculty.find(t => t.id === teacherId);
              const assignmentId = `${sectionId}-${subjectId}`;
               if (mockSectionAssignments.some(a => a.id === assignmentId)) {
                    throw new Error("This course is already assigned to this section.");
@@ -464,7 +460,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                  subjectId,
                  subjectName: subject?.name,
                  teacherId,
-                 teacherName: faculty ? `${faculty.firstName} ${faculty.lastName}` : undefined
+                 teacherName: facultyMember ? `${facultyMember.firstName} ${facultyMember.lastName}` : undefined
              };
              mockSectionAssignments.push(newAssignment);
              return newAssignment as ResponseData;
@@ -533,7 +529,7 @@ const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): 
             const studentIndex = mockStudents.findIndex(s => s.id === id);
             if (studentIndex > -1) {
                 mockStudents[studentIndex] = { ...mockStudents[studentIndex], ...(data as unknown as Partial<Student>) };
-                recalculateDashboardStats(); // Update stats
+                recalculateDashboardStats();
                 return { ...mockStudents[studentIndex] } as ResponseData;
             }
             throw new Error("Student not found for mock update.");
@@ -543,7 +539,7 @@ const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): 
             const facultyIndex = mockFaculty.findIndex(t => t.id === id);
              if (facultyIndex > -1) {
                 mockFaculty[facultyIndex] = { ...mockFaculty[facultyIndex], ...(data as unknown as Partial<Faculty>) };
-                recalculateDashboardStats(); // Update stats
+                recalculateDashboardStats();
                 return { ...mockFaculty[facultyIndex] } as ResponseData;
             }
             throw new Error("Faculty not found for mock update.");
@@ -615,7 +611,6 @@ const mockDeleteData = async (path: string): Promise<void> => {
     console.log(`MOCK deleteData at: ${phpPath}`);
     await new Promise(resolve => setTimeout(resolve, 300));
     const idPart = phpPath.split('/').pop() || '';
-    const parts = phpPath.split('/');
 
     try {
          if (phpPath.startsWith('students/delete.php/')) {
@@ -623,7 +618,7 @@ const mockDeleteData = async (path: string): Promise<void> => {
             const initialLength = mockStudents.length;
             mockStudents = mockStudents.filter(s => s.id !== id);
             if (mockStudents.length === initialLength) throw new Error("Student not found for mock delete.");
-            recalculateDashboardStats(); // Update stats
+            recalculateDashboardStats();
             return;
         }
          if (phpPath.startsWith('teachers/delete.php/')) {
@@ -631,7 +626,7 @@ const mockDeleteData = async (path: string): Promise<void> => {
             const initialLength = mockFaculty.length;
             mockFaculty = mockFaculty.filter(t => t.id !== id);
              if (mockFaculty.length === initialLength) throw new Error("Faculty not found for mock delete.");
-            recalculateDashboardStats(); // Update stats
+            recalculateDashboardStats();
             return;
         }
          if (phpPath.startsWith('admins/delete.php/')) {
@@ -640,7 +635,7 @@ const mockDeleteData = async (path: string): Promise<void> => {
             if (!adminToDelete) throw new Error("Admin not found for mock delete.");
             if (adminToDelete.isSuperAdmin) throw new Error("Cannot delete super admin.");
             mockAdmins = mockAdmins.filter(a => a.id !== id);
-            recalculateDashboardStats(); // Update stats
+            recalculateDashboardStats();
             return;
         }
          if (phpPath.startsWith('announcements/delete.php/')) {
@@ -650,7 +645,7 @@ const mockDeleteData = async (path: string): Promise<void> => {
               if (mockAnnouncements.length === initialLength) throw new Error("Announcement not found for mock delete.");
              return;
          }
-         if (phpPath.startsWith('assignments/delete.php/')) {
+         if (phpPath.startsWith('assignments/delete.php/')) { // This is for SectionSubjectAssignment
              const id = idPart;
              const initialLength = mockSectionAssignments.length;
              mockSectionAssignments = mockSectionAssignments.filter(a => a.id !== id);
@@ -721,17 +716,16 @@ export const fetchData = USE_MOCK_API ? mockFetchData : async <T>(path: string):
     if (!response.ok) {
         let errorData: any;
         let errorMessage = `HTTP error! status: ${response.status}`;
+        let responseBodyText = ""; // Store the response text
         try {
-            const errorBody = await response.text(); // Read body once as text
+            responseBodyText = await response.text(); // Read body once as text
             try {
-                // Attempt to parse as JSON
-                errorData = JSON.parse(errorBody);
-                errorMessage = errorData?.message || errorBody || errorMessage;
+                errorData = JSON.parse(responseBodyText); // Try parsing the text
+                errorMessage = errorData?.message || responseBodyText || errorMessage;
             } catch (parseError) {
-                // If not JSON, use the text content
-                console.error("API Error Response Text:", errorBody); // Log the raw text
-                errorMessage = errorBody || `HTTP error! status: ${response.status}`;
-                errorData = { message: errorMessage }; // Create a basic error object
+                console.error("API Error Response Text:", responseBodyText);
+                errorMessage = responseBodyText || `HTTP error! status: ${response.status}`;
+                errorData = { message: errorMessage };
             }
         } catch (readError) {
             console.error("Failed to read error response body:", readError);
@@ -758,7 +752,6 @@ export const postData = USE_MOCK_API ? mockPostData : async <Payload, ResponseDa
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // Add any other headers like Authorization if needed
             },
             body: JSON.stringify(data),
         });
@@ -769,14 +762,15 @@ export const postData = USE_MOCK_API ? mockPostData : async <Payload, ResponseDa
     if (!response.ok) {
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
+        let responseBodyText = "";
         try {
-            const errorBody = await response.text();
+            responseBodyText = await response.text();
             try {
-                 errorData = JSON.parse(errorBody);
-                 errorMessage = errorData?.message || errorBody || errorMessage;
+                 errorData = JSON.parse(responseBodyText);
+                 errorMessage = errorData?.message || responseBodyText || errorMessage;
             } catch (jsonParseError) {
-                 console.error("API Error Response Text:", errorBody);
-                 errorMessage = errorBody || errorMessage;
+                 console.error("API Error Response Text:", responseBodyText);
+                 errorMessage = responseBodyText || errorMessage;
                  errorData = { message: errorMessage };
             }
         } catch (readError) {
@@ -794,16 +788,16 @@ export const postData = USE_MOCK_API ? mockPostData : async <Payload, ResponseDa
                 return await response.json() as ResponseData;
            } else {
                console.log(`POST to ${url} successful with status ${response.status}, but no JSON body.`);
-               return { success: true, message: `Operation successful (Status ${response.status})` } as ResponseData;
+               return { success: true, message: `Operation successful (Status ${response.status})` } as unknown as ResponseData;
            }
        } catch (jsonError: any) {
            console.error("Failed to parse JSON response on successful POST:", jsonError);
-           return { success: true, message: "Operation successful, but response body could not be parsed." } as ResponseData;
+           return { success: true, message: "Operation successful, but response body could not be parsed." } as unknown as ResponseData;
        }
     }
 
     console.warn(`Unexpected successful status code ${response.status} for POST ${url}`);
-    return { success: true, message: `Operation completed with status ${response.status}.` } as ResponseData;
+    return { success: true, message: `Operation completed with status ${response.status}.` } as unknown as ResponseData;
 };
 
 export const putData = USE_MOCK_API ? mockPutData : async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
@@ -822,14 +816,15 @@ export const putData = USE_MOCK_API ? mockPutData : async <Payload, ResponseData
     if (!response.ok) {
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
+        let responseBodyText = "";
          try {
-             const errorBody = await response.text();
+             responseBodyText = await response.text();
              try {
-                 errorData = JSON.parse(errorBody);
-                 errorMessage = errorData?.message || errorBody || errorMessage;
+                 errorData = JSON.parse(responseBodyText);
+                 errorMessage = errorData?.message || responseBodyText || errorMessage;
              } catch (jsonParseError) {
-                 console.error("API Error Response Text:", errorBody);
-                 errorMessage = errorBody || errorMessage;
+                 console.error("API Error Response Text:", responseBodyText);
+                 errorMessage = responseBodyText || errorMessage;
                  errorData = { message: errorMessage };
              }
          } catch (readError) {
@@ -846,11 +841,11 @@ export const putData = USE_MOCK_API ? mockPutData : async <Payload, ResponseData
              return await response.json() as ResponseData;
          } else {
              console.log(`PUT to ${url} successful with status ${response.status}, but no JSON body.`);
-             return { success: true, message: `Update successful (Status ${response.status})` } as ResponseData;
+             return { success: true, message: `Update successful (Status ${response.status})` } as unknown as ResponseData;
          }
      } catch (jsonError: any) {
          console.error("Failed to parse JSON response on successful PUT:", jsonError);
-         return { success: true, message: "Update successful, but response body could not be parsed." } as ResponseData;
+         return { success: true, message: "Update successful, but response body could not be parsed." } as unknown as ResponseData;
      }
 };
 
@@ -863,17 +858,18 @@ export const deleteData = USE_MOCK_API ? mockDeleteData : async (path: string): 
          handleFetchError(networkError, path, 'DELETE', true);
     }
 
-    if (!response.ok && response.status !== 204) {
+    if (!response.ok && response.status !== 204) { // HTTP 204 No Content is a success for DELETE
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
+        let responseBodyText = "";
          try {
-             const errorBody = await response.text();
+             responseBodyText = await response.text();
              try {
-                 errorData = JSON.parse(errorBody);
-                 errorMessage = errorData?.message || errorBody || errorMessage;
+                 errorData = JSON.parse(responseBodyText);
+                 errorMessage = errorData?.message || responseBodyText || errorMessage;
              } catch (jsonParseError) {
-                 console.error("API Error Response Text:", errorBody);
-                 errorMessage = errorBody || errorMessage;
+                 console.error("API Error Response Text:", responseBodyText);
+                 errorMessage = responseBodyText || errorMessage;
                  errorData = { message: errorMessage };
              }
          } catch (readError) {
@@ -886,9 +882,10 @@ export const deleteData = USE_MOCK_API ? mockDeleteData : async (path: string): 
 
     if (response.status === 204) {
         console.log(`DELETE ${url} successful with status 204 No Content.`);
-        return;
+        return; // Successfully deleted, no body expected
     }
 
+     // If there's a body on a 200 OK (or other success codes for DELETE), try to parse it.
      try {
          const contentType = response.headers.get("content-type");
          if (contentType && contentType.indexOf("application/json") !== -1) {
@@ -900,6 +897,8 @@ export const deleteData = USE_MOCK_API ? mockDeleteData : async (path: string): 
          }
      } catch (error: any) {
          console.error("Failed to process body on successful DELETE:", error);
+         // Don't throw an error here if the status code indicated success,
+         // but log that the body (if any) couldn't be parsed.
      }
 };
 
