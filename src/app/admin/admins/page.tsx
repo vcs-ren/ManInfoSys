@@ -3,13 +3,13 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PlusCircle, Trash2, Loader2, RotateCcw, ShieldAlert, Info } from "lucide-react";
+import { Trash2, Loader2, RotateCcw, ShieldAlert, Info } from "lucide-react"; // Removed PlusCircle
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
-import { UserForm, type FormFieldConfig } from "@/components/user-form";
-import { adminUserSchema } from "@/lib/schemas";
-import type { AdminUser, AdminRole } from "@/types"; // Import AdminRole
+// import { UserForm, type FormFieldConfig } from "@/components/user-form"; // UserForm no longer needed for adding
+// import { adminUserSchema } from "@/lib/schemas"; // Schema no longer needed for adding
+import type { AdminUser, AdminRole } from "@/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,27 +33,15 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchData, postData, deleteData } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
-
-const adminRoleOptions: { value: AdminRole; label: string }[] = [
-    { value: "Super Admin", label: "Super Admin" },
-    { value: "Sub Admin", label: "Sub Admin" },
-    // Add other roles here if needed in the future
-];
-
-// Update form fields to remove names and add Role
-const adminFormFields: FormFieldConfig<AdminUser>[] = [
-  { name: "email", label: "Email", placeholder: "Enter admin email", type: "email", required: true, section: 'account' },
-  { name: "role", label: "Role", type: "select", options: adminRoleOptions, placeholder: "Select admin role", required: true, section: 'account' },
-];
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"; // For view details
 
 const CURRENT_SUPER_ADMIN_ID = 0; // Assuming Super Admin always has ID 0 from seed data
 
 export default function ManageAdminsPage() {
   const [admins, setAdmins] = React.useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [selectedAdmin, setSelectedAdmin] = React.useState<AdminUser | null>(null);
-  const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [isEditMode, setIsEditMode] = React.useState(false); // For viewing details (no actual edit)
+  const [selectedAdminForView, setSelectedAdminForView] = React.useState<AdminUser | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
 
@@ -64,6 +52,8 @@ export default function ManageAdminsPage() {
     const fetchAdmins = async () => {
       setIsLoading(true);
       try {
+        // The mock API for 'admins/read.php' now combines Super Admin from mockAdmins
+        // and Sub Admins derived from mockFaculty with 'Administrative' department.
         const data = await fetchData<AdminUser[]>('admins/read.php');
         setAdmins(data || []);
       } catch (error: any) {
@@ -76,30 +66,8 @@ export default function ManageAdminsPage() {
     fetchAdmins();
   }, [toast]);
 
-  const handleSaveAdmin = async (values: Pick<AdminUser, 'email' | 'role'>) => {
-    // Only Super Admin can add
-    if (!isCurrentUserSuperAdmin) {
-        toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can add new admins." });
-        return;
-    }
-    const payload = {
-      email: values.email,
-      role: values.role,
-    };
-    console.log(`Attempting to add admin:`, payload);
-    try {
-        const newAdmin = await postData<typeof payload, AdminUser>('admins/create.php', payload);
-        setAdmins(prev => [...prev, newAdmin]);
-        toast({ title: "Admin Added", description: `Admin ${newAdmin.username} (${newAdmin.email}) with role ${newAdmin.role} has been added.` });
-        closeModal();
-    } catch (error: any) {
-        console.error(`Failed to add admin:`, error);
-        toast({ variant: "destructive", title: `Error Adding Admin`, description: error.message || `Could not add admin.` });
-        throw error;
-    }
-  };
 
-  const handleDeleteAdmin = async (adminId: number) => {
+  const handleDeleteAdmin = async (adminId: number, adminUsername?: string) => {
       // Only Super Admin can delete, and cannot delete self
       if (!isCurrentUserSuperAdmin) {
          toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can delete admins." });
@@ -111,19 +79,21 @@ export default function ManageAdminsPage() {
        }
       setIsSubmitting(true);
       try {
+          // Note: Deleting an admin who is also a faculty member should ideally have cascading logic
+          // in a real backend (e.g., remove from faculty or change department).
+          // For mock, we just remove from the admin view. The faculty entry remains.
           await deleteData(`admins/delete.php/${adminId}`);
           setAdmins(prev => prev.filter(a => a.id !== adminId));
-          toast({ title: "Admin Deleted", description: `Admin record has been removed.` });
+          toast({ title: "Admin Removed", description: `Admin ${adminUsername || `ID ${adminId}`} has been removed from admin roles.` });
       } catch (error: any) {
            console.error("Failed to delete admin:", error);
-           toast({ variant: "destructive", title: "Error Deleting Admin", description: error.message || "Could not remove admin record." });
+           toast({ variant: "destructive", title: "Error Removing Admin", description: error.message || "Could not remove admin role." });
       } finally {
            setIsSubmitting(false);
       }
   };
 
-  const handleResetPassword = async (userId: number) => {
-       // Only Super Admin can reset others' passwords
+  const handleResetPassword = async (userId: number, username?: string) => {
        if (!isCurrentUserSuperAdmin) {
             toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can reset passwords." });
             return;
@@ -134,15 +104,20 @@ export default function ManageAdminsPage() {
       }
       setIsSubmitting(true);
       const adminToReset = admins.find(a => a.id === userId);
-      const lastNameForPassword = 'user'; // Use a generic fallback since names are removed
+      // For sub-admins (derived from faculty), their password reset is tied to their faculty last name.
+      // The 'admin/reset_password.php' endpoint needs to handle 'admin' userType and find the corresponding faculty's last name.
+      // Or, if sub-admins store their own password hash separately, then this works as is.
+      // Based on previous setup, reset_password.php takes userType: 'admin'
+      // and should ideally fetch the faculty's last name if the admin is a faculty member.
+      // For mock: we can assume the backend handles it.
+      const lastNameForPassword = adminToReset?.lastName || 'user'; // Use admin's last name if available, else generic
 
       try {
-           // The PHP endpoint now only needs userId and userType
-           await postData('admin/reset_password.php', { userId, userType: 'admin' });
-           const defaultPassword = `${lastNameForPassword.substring(0, 2).toLowerCase()}1000`; // Use generic default format
+           await postData('admin/reset_password.php', { userId, userType: 'admin', lastName: lastNameForPassword });
+           const defaultPassword = `${lastNameForPassword.substring(0, 2).toLowerCase()}1000`;
            toast({
                 title: "Password Reset Successful",
-                description: `Password for admin ID ${userId} has been reset. Default password: ${defaultPassword}`,
+                description: `Password for admin ${username || `ID ${userId}`} has been reset. Default password: ${defaultPassword}`,
            });
       } catch (error: any) {
            console.error("Failed to reset admin password:", error);
@@ -156,35 +131,30 @@ export default function ManageAdminsPage() {
       }
   };
 
-  const openAddModal = () => {
-     // Only Super Admin can open the add modal
-     if (!isCurrentUserSuperAdmin) {
-        toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can add new admins." });
-        return;
-    }
-    setIsEditMode(false);
-    setSelectedAdmin(null);
-    setIsModalOpen(true);
-  };
-
-   // Function to open modal in view mode (no edit functionality here)
    const openViewModal = (admin: AdminUser) => {
-       setIsEditMode(true); // Use edit mode flag to signal viewing
-       setSelectedAdmin(admin);
-       setIsModalOpen(true);
+       setSelectedAdminForView(admin);
+       setIsViewModalOpen(true);
    };
 
-   const closeModal = () => {
-       setIsModalOpen(false);
-       setSelectedAdmin(null);
-       setIsEditMode(false);
+   const closeViewModal = () => {
+       setIsViewModalOpen(false);
+       setSelectedAdminForView(null);
    };
 
-    // Update columns to remove names and add Role
    const columns: ColumnDef<AdminUser>[] = React.useMemo(() => [
     {
         accessorKey: "username",
         header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />,
+    },
+    { // Display First Name if available (for faculty-derived admins)
+        accessorKey: "firstName",
+        header: "First Name",
+        cell: ({ row }) => row.original.firstName || <span className="text-muted-foreground italic">N/A</span>,
+    },
+    { // Display Last Name if available
+        accessorKey: "lastName",
+        header: "Last Name",
+        cell: ({ row }) => row.original.lastName || <span className="text-muted-foreground italic">N/A</span>,
     },
     {
         accessorKey: "email",
@@ -192,23 +162,21 @@ export default function ManageAdminsPage() {
         cell: ({ row }) => row.original.email || <span className="text-muted-foreground italic">N/A</span>,
     },
     {
-        accessorKey: "role", // Use the new role field
+        accessorKey: "role",
         header: "Role",
         cell: ({ row }) => (
             <Badge variant={row.original.role === 'Super Admin' ? 'destructive' : 'secondary'}>
                 {row.original.role}
             </Badge>
         ),
-         filterFn: (row, id, value) => value.includes(row.getValue(id)), // Allow filtering by role
+         filterFn: (row, id, value) => value.includes(row.getValue(id)),
     }
    ], []);
 
-   // Generate actions, disable if not Super Admin or if action targets Super Admin
     const generateActionMenuItems = (admin: AdminUser) => (
         <>
           <DropdownMenuItem
             onClick={(e) => { e.stopPropagation(); openViewModal(admin); }}
-            // Viewing details might be allowed for non-super admins, adjust if needed
           >
             <Info className="mr-2 h-4 w-4" /> View Details
           </DropdownMenuItem>
@@ -234,7 +202,7 @@ export default function ManageAdminsPage() {
                  <AlertDialogFooter>
                      <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
                      <AlertDialogAction
-                          onClick={() => handleResetPassword(admin.id)}
+                          onClick={() => handleResetPassword(admin.id, admin.username)}
                           className={cn(buttonVariants({ variant: "destructive" }))}
                           disabled={isSubmitting}
                      >
@@ -252,25 +220,25 @@ export default function ManageAdminsPage() {
                     disabled={!isCurrentUserSuperAdmin || admin.isSuperAdmin || isSubmitting}
                  >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      Delete Admin
+                      Remove Admin Role
                  </DropdownMenuItem>
              </AlertDialogTrigger>
              <AlertDialogContent>
                  <AlertDialogHeader>
                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                  <AlertDialogDescription>
-                     This action cannot be undone. This will permanently delete the admin account for {admin.username} ({admin.email}).
+                     This action cannot be undone. This will remove the admin role for {admin.username} ({admin.email}). If this user is also a faculty member, their faculty record will remain.
                  </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
                  <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
                  <AlertDialogAction
-                      onClick={() => handleDeleteAdmin(admin.id)}
+                      onClick={() => handleDeleteAdmin(admin.id, admin.username)}
                       className={cn(buttonVariants({ variant: "destructive" }))}
                       disabled={isSubmitting}
                      >
                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                     Yes, delete admin
+                     Yes, remove role
                  </AlertDialogAction>
                  </AlertDialogFooter>
              </AlertDialogContent>
@@ -283,46 +251,56 @@ export default function ManageAdminsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Manage Admins</h1>
-        <Button onClick={openAddModal} disabled={!isCurrentUserSuperAdmin}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Admin
-        </Button>
-         {!isCurrentUserSuperAdmin && (
-            <p className="text-sm text-destructive">Only Super Admins can add new admins.</p>
-         )}
+         {/* "Add New Admin" button is removed. Admins are added via Faculty (Administrative department) */}
       </div>
+       <p className="text-sm text-muted-foreground">
+            This page lists all administrators. The Super Admin is a system default. Sub Admins are faculty members with an 'Administrative' department.
+            To add a new Sub Admin, add a new faculty member and assign them to the 'Administrative' department via the <Link href="/admin/teachers" className="underline hover:text-primary">Manage Faculty</Link> page.
+      </p>
 
       {isLoading ? (
          <div className="flex justify-center items-center py-10">
              <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" /> Loading admin data...
          </div>
-       ) : admins.length === 0 ? (
-            <p className="text-center text-muted-foreground py-10">No additional admins found.</p>
+       ) : admins.length === 0 ? ( // Should at least show Super Admin
+            <p className="text-center text-muted-foreground py-10">No admin accounts found (this should not happen).</p>
        ) : (
             <DataTable
                 columns={columns}
                 data={admins}
                 searchPlaceholder="Search by username or email..."
                 searchColumnId="username"
-                 filterableColumnHeaders={[ // Add role filter
-                    { columnId: 'role', title: 'Role', options: adminRoleOptions }
+                 filterableColumnHeaders={[
+                    { columnId: 'role', title: 'Role', options: [{value: 'Super Admin', label: 'Super Admin'}, {value: 'Sub Admin', label: 'Sub Admin'}] }
                  ]}
                 actionMenuItems={generateActionMenuItems}
             />
         )}
 
-      {/* Modal uses UserForm, now expecting email and role */}
-      <UserForm<AdminUser>
-            isOpen={isModalOpen}
-            onOpenChange={setIsModalOpen}
-            formSchema={adminUserSchema}
-            onSubmit={(values) => handleSaveAdmin(values as Pick<AdminUser, 'email' | 'role'>)}
-            title={isEditMode ? `Admin Details: ${selectedAdmin?.username}` : 'Add New Admin'}
-            description={isEditMode ? "View admin details." : "Enter email and select role for the new admin. Username and default password will be auto-generated."}
-            formFields={adminFormFields}
-            isEditMode={isEditMode} // Used for title/description and read-only state
-            initialData={isEditMode ? selectedAdmin : undefined}
-            startReadOnly={isEditMode} // Start read-only when viewing
-        />
+        {/* Modal for viewing admin details */}
+        <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Admin Details: {selectedAdminForView?.username}</DialogTitle>
+                    <DialogDescription>
+                        Role: {selectedAdminForView?.role}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-2">
+                     <p><strong>Username:</strong> {selectedAdminForView?.username}</p>
+                     <p><strong>Email:</strong> {selectedAdminForView?.email || 'N/A'}</p>
+                     {selectedAdminForView?.firstName && <p><strong>First Name:</strong> {selectedAdminForView.firstName}</p>}
+                     {selectedAdminForView?.lastName && <p><strong>Last Name:</strong> {selectedAdminForView.lastName}</p>}
+                     <p><strong>Role:</strong> <Badge variant={selectedAdminForView?.role === 'Super Admin' ? 'destructive' : 'secondary'}>{selectedAdminForView?.role}</Badge></p>
+                     {selectedAdminForView?.role !== 'Super Admin' && (
+                        <p className="text-xs text-muted-foreground">This Sub Admin is managed through the Faculty list.</p>
+                     )}
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={closeViewModal}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }

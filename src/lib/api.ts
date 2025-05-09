@@ -7,7 +7,7 @@ import { generateStudentUsername, generateTeacherId, generateSectionCode, genera
 // --- MOCK DATA STORE ---
 let nextStudentDbId = 3;
 let nextFacultyDbId = 3;
-let nextAdminDbId = 2;
+// let nextAdminDbId = 2; // nextAdminDbId is not directly used for creating sub-admins anymore
 let nextProgramDbId = 3;
 let nextCourseDbId = 10;
 
@@ -51,7 +51,7 @@ let mockSectionAssignments: SectionSubjectAssignment[] = [
 ];
 
 let mockAnnouncements: Announcement[] = [
-  { id: "ann1", title: "Welcome Back Students!", content: "Welcome to the new academic year.", date: new Date(2024, 7, 15), target: { programId: "all" }, author: "Admin" },
+  { id: "ann1", title: "Welcome Back Students!", content: "Welcome to the new academic year.", date: new Date(2024, 7, 15), target: { course: "all" }, author: "Admin" },
 ];
 
 let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[] = [
@@ -60,42 +60,36 @@ let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[
 ];
 
 let mockAdmins: AdminUser[] = [
-    { id: 0, username: "admin", email: "superadmin@example.com", role: "Super Admin", isSuperAdmin: true },
-    { id: 1, username: "a1001", email: "subadmin1@example.com", role: "Sub Admin", isSuperAdmin: false }
+    // Only the Super Admin is explicitly stored here. Sub-admins are derived from faculty.
+    { id: 0, username: "admin", firstName: "Super", lastName: "Admin", email: "superadmin@example.com", role: "Super Admin", isSuperAdmin: true },
 ];
 
-let mockDashboardStats: DashboardStats = {
-    totalStudents: mockStudents.length,
-    totalTeachers: mockFaculty.filter(f => f.department === 'Teaching').length,
-    // Initialize with faculty admins and sub-admins from mockAdmins, excluding super admin
-    totalAdmins: mockFaculty.filter(f => f.department === 'Administrative').length + mockAdmins.filter(a => !a.isSuperAdmin).length,
-    upcomingEvents: 1,
-};
+let mockDashboardStats: DashboardStats; // Declare, will be initialized by recalculate
 
 // Function to recalculate dashboard stats from current mock data
 const recalculateDashboardStats = () => {
     const teachingStaffCount = mockFaculty.filter(f => f.department === 'Teaching').length;
-    // Count administrative staff from faculty list
-    const facultyAdminCount = mockFaculty.filter(f => f.department === 'Administrative').length;
-    // Count sub-admins from the mockAdmins list (excluding the super admin)
-    const subAdminCount = mockAdmins.filter(a => !a.isSuperAdmin).length;
+    const adminStaffFacultyCount = mockFaculty.filter(f => f.department === 'Administrative').length;
 
-    mockDashboardStats = { // Assign to the already declared variable
+    // Total Admins = Super Admin (1) + Faculty members with 'Administrative' department
+    const totalAdminsCount = 1 + adminStaffFacultyCount;
+
+    mockDashboardStats = {
         totalStudents: mockStudents.length,
         totalTeachers: teachingStaffCount,
-        totalAdmins: facultyAdminCount + subAdminCount, // Sum of faculty admins and user sub-admins
+        totalAdmins: totalAdminsCount,
         upcomingEvents: 1, // Keep upcoming events static for now
     };
 };
-// Initial calculation after declaration
+// Initial calculation after mock data declarations
 recalculateDashboardStats();
 
 
 let mockTestUsers = [
     { username: "admin", password: "defadmin", role: "Admin", userId: 0 },
     { username: "s101", password: "password", role: "Student", userId: 1 }, // Example student
-    { username: "t1001", password: "password", role: "Teacher", userId: 1 }, // Example teacher
-    { username: "a1001", password: "password", role: "Admin", userId: 1 }, // Example sub-admin
+    { username: "t1001", password: "password", role: "Teacher", userId: 1 }, // Example teacher (Teaching dept)
+    { username: "a1002", password: "password", role: "Teacher", userId: 2 }, // Example faculty (Admin dept), will also be a Sub Admin
 ];
 
 
@@ -108,7 +102,7 @@ const getApiUrl = (path: string): string => {
         return path;
     }
     const baseUrl = API_BASE_URL.replace(/\/$/, '');
-    const formattedPath = path.startsWith('/') ? path : `/${path}`;
+    const formattedPath = path.startsWith('/') ? path : `/${path}`; // Ensures single slash
     return `${baseUrl}${formattedPath}`;
 };
 
@@ -153,7 +147,22 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
     try {
         if (phpPath === 'students/read.php') return [...mockStudents] as T;
         if (phpPath === 'teachers/read.php') return [...mockFaculty] as T;
-        if (phpPath === 'admins/read.php') return [...mockAdmins] as T;
+        if (phpPath === 'admins/read.php') {
+            const superAdmin = mockAdmins.find(a => a.isSuperAdmin);
+            const facultyAdmins: AdminUser[] = mockFaculty
+                .filter(f => f.department === 'Administrative')
+                .map(f => ({
+                    id: f.id, // Use faculty ID as admin ID for consistency
+                    username: f.username,
+                    firstName: f.firstName,
+                    lastName: f.lastName,
+                    email: f.email,
+                    role: 'Sub Admin',
+                    isSuperAdmin: false,
+                }));
+            const allAdmins = superAdmin ? [superAdmin, ...facultyAdmins] : facultyAdmins;
+            return allAdmins as T;
+        }
         if (phpPath === 'programs/read.php') return [...mockPrograms] as T;
         if (phpPath === 'courses/read.php') return [...mockCourses] as T;
         if (phpPath === 'sections/read.php') {
@@ -179,7 +188,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
         }
          if (phpPath === 'student/grades/read.php') {
              const studentGrades = mockStudentSubjectAssignmentsWithGrades
-                .filter(g => g.studentId === 1)
+                .filter(g => g.studentId === 1) // Assuming student ID 1 for mock
                 .map(g => ({
                     id: g.subjectId,
                     subjectName: g.subjectName,
@@ -194,16 +203,16 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
          if (phpPath === 'teacher/assignments/grades/read.php') {
              return mockStudentSubjectAssignmentsWithGrades.filter(g => {
                  const assignment = mockSectionAssignments.find(a => a.subjectId === g.subjectId && g.section === a.sectionId);
-                 return assignment?.teacherId === 1;
+                 return assignment?.teacherId === 1; // Assuming teacher ID 1 for mock
              }) as T;
          }
          if (phpPath === 'student/profile/read.php') {
-             const student = mockStudents.find(s => s.id === 1);
+             const student = mockStudents.find(s => s.id === 1); // Assuming student ID 1
              if (student) return { ...student } as T;
              throw new Error("Mock student profile not found.");
         }
         if (phpPath === 'teacher/profile/read.php') {
-             const faculty = mockFaculty.find(t => t.id === 1);
+             const faculty = mockFaculty.find(t => t.id === 1); // Assuming faculty ID 1
              if (faculty) return { ...faculty } as T;
              throw new Error("Mock faculty profile not found.");
         }
@@ -234,7 +243,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
          if (phpPath === 'teacher/schedule/read.php') {
             const schedule: ScheduleEntry[] = [];
             mockSectionAssignments
-                .filter(a => a.teacherId === 1)
+                .filter(a => a.teacherId === 1) // Assuming teacher ID 1
                 .forEach((assign, index) => {
                      const dayOffset = index % 5;
                      const startTime = new Date();
@@ -301,6 +310,11 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
              const user = mockTestUsers.find(u => u.username === username && u.password === password);
              if (user) {
                 const redirectPath = user.role === 'Admin' ? '/admin/dashboard' : user.role === 'Student' ? '/student/dashboard' : '/teacher/dashboard';
+                // Store role and ID in localStorage for mock session
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('userRole', user.role);
+                    localStorage.setItem('userId', String(user.userId));
+                }
                 return { success: true, role: user.role as any, redirectPath: redirectPath, userId: user.userId } as ResponseData;
              }
              throw new Error("Invalid mock credentials.");
@@ -325,7 +339,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
          if (phpPath === 'teachers/create.php') {
             const newFacultyData = data as unknown as Omit<Faculty, 'id' | 'teacherId' | 'username'>;
             const nextId = nextFacultyDbId++;
-            const teacherIdStr = generateTeacherId(nextId);
+            const teacherIdStr = generateTeacherId(nextId); // Generate numeric teacher ID string
             const department = newFacultyData.department || 'Teaching';
             const username = generateTeacherUsername(teacherIdStr, department);
 
@@ -336,22 +350,17 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 username: username,
             };
             mockFaculty.push(faculty);
+            // If administrative faculty, they are implicitly a Sub Admin.
+            // The 'admins/read.php' mock will pick them up.
+            // No need to directly add to mockAdmins here.
             recalculateDashboardStats();
             return faculty as ResponseData;
         }
          if (phpPath === 'admins/create.php') {
-            const newAdminData = data as unknown as Pick<AdminUser, 'email' | 'role'>;
-            const nextId = nextAdminDbId++;
-            const adminUser: AdminUser = {
-                id: nextId,
-                username: generateAdminUsername(nextId),
-                email: newAdminData.email,
-                role: newAdminData.role,
-                isSuperAdmin: newAdminData.role === 'Super Admin',
-            };
-            mockAdmins.push(adminUser);
-            recalculateDashboardStats();
-            return adminUser as ResponseData;
+             // This endpoint is no longer used for creating sub-admins.
+             // Sub-admins are created when a faculty with 'Administrative' department is added.
+             // Super admin is pre-defined.
+             throw new Error("Mock: Direct admin creation is disabled. Admins are managed via Faculty (Administrative department).");
         }
         if (phpPath === 'programs/create.php') {
              const newProgramData = data as unknown as Program;
@@ -407,17 +416,36 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
          }
 
          if (phpPath === 'admin/reset_password.php') {
-              const { userId, userType } = data as { userId: number; userType: string; lastName: string };
-              const userArray = userType === 'student' ? mockStudents : userType === 'teacher' ? mockFaculty : mockAdmins;
-              const userIndex = userArray.findIndex(u => u.id === userId);
+              const { userId, userType, lastName } = data as { userId: number; userType: string; lastName: string };
+              let targetArray: (Student | Faculty | AdminUser)[];
+              let targetUsername: string | undefined;
 
+              if (userType === 'student') {
+                  targetArray = mockStudents;
+              } else if (userType === 'teacher') {
+                  targetArray = mockFaculty;
+              } else if (userType === 'admin') {
+                  // If admin, check if it's a faculty-derived admin or the super admin
+                  const facultyAdmin = mockFaculty.find(f => f.id === userId && f.department === 'Administrative');
+                  if (facultyAdmin) {
+                      targetUsername = facultyAdmin.username;
+                  } else {
+                      const coreAdmin = mockAdmins.find(a => a.id === userId);
+                      if (coreAdmin?.isSuperAdmin) throw new Error("Cannot reset super admin password this way.");
+                      targetUsername = coreAdmin?.username;
+                  }
+                   // For mock, no actual password change needed in the array.
+                  console.log(`Mock password reset for admin ID ${userId} (username: ${targetUsername}) using lastName: ${lastName}`);
+                  return { message: `Admin password reset successfully.` } as ResponseData;
+              } else {
+                  throw new Error(`Invalid user type for password reset: ${userType}`);
+              }
+
+              const userIndex = targetArray.findIndex(u => u.id === userId);
               if (userIndex > -1) {
-                    if (userType === 'admin' && (userArray[userIndex] as AdminUser).isSuperAdmin) {
-                         throw new Error("Cannot reset super admin password.");
-                    }
-                    console.log(`Mock password reset for ${userType} ID ${userId}`);
-                    return { message: `${userType} password reset successfully.` } as ResponseData;
-               }
+                  console.log(`Mock password reset for ${userType} ID ${userId} using lastName: ${lastName}`);
+                  return { message: `${userType} password reset successfully.` } as ResponseData;
+              }
              throw new Error(`${userType} with ID ${userId} not found.`);
         }
         if (phpPath === 'announcements/create.php') {
@@ -429,7 +457,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 content: newAnnData.content,
                 date: new Date(),
                 target: newAnnData.target,
-                author: "Admin"
+                author: "Admin" // Mock author
             };
             mockAnnouncements.unshift(newAnnouncement);
             return newAnnouncement as ResponseData;
@@ -483,7 +511,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                     }
                     updated.status = status;
                    return updated as ResponseData;
-               } else {
+               } else { // If not found, create a new entry (should ideally not happen if UI is correct)
                     let status: 'Not Submitted' | 'Incomplete' | 'Complete' = 'Not Submitted';
                     if (gradeData.prelimGrade !== null || gradeData.midtermGrade !== null || gradeData.finalGrade !== null) {
                         status = 'Incomplete';
@@ -571,7 +599,7 @@ const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): 
                      ...mockPrograms[programIndex],
                      name: updatedData.name ?? mockPrograms[programIndex].name,
                      description: updatedData.description ?? mockPrograms[programIndex].description,
-                     courses: mockPrograms[programIndex].courses,
+                     courses: mockPrograms[programIndex].courses, // Course list updates handled by separate assign/remove
                  };
                  return { ...mockPrograms[programIndex] } as ResponseData;
              }
@@ -583,6 +611,7 @@ const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): 
               if (courseIndex > -1) {
                    const updatedCourseData = data as Partial<Course>;
                    mockCourses[courseIndex] = { ...mockCourses[courseIndex], ...updatedCourseData };
+                    // Update course in any program it's assigned to
                     mockPrograms.forEach(program => {
                          Object.keys(program.courses).forEach(year => {
                              const yr = year as YearLevel;
@@ -626,16 +655,26 @@ const mockDeleteData = async (path: string): Promise<void> => {
             const initialLength = mockFaculty.length;
             mockFaculty = mockFaculty.filter(t => t.id !== id);
              if (mockFaculty.length === initialLength) throw new Error("Faculty not found for mock delete.");
-            recalculateDashboardStats();
+            recalculateDashboardStats(); // This will also update admin count if the faculty was administrative
             return;
         }
          if (phpPath.startsWith('admins/delete.php/')) {
-            const id = parseInt(idPart || '0', 10);
-            const adminToDelete = mockAdmins.find(a => a.id === id);
-            if (!adminToDelete) throw new Error("Admin not found for mock delete.");
-            if (adminToDelete.isSuperAdmin) throw new Error("Cannot delete super admin.");
-            mockAdmins = mockAdmins.filter(a => a.id !== id);
+            // This simulates removing an admin role from a faculty member.
+            // The faculty member themselves is not deleted from mockFaculty here.
+            // True deletion of the faculty (and thus their admin role) happens via 'teachers/delete.php'.
+            const adminIdToRemove = parseInt(idPart || '0', 10);
+            if (adminIdToRemove === 0) throw new Error("Cannot remove Super Admin role.");
+
+            // For mock, effectively no change to mockAdmins as sub-admins are derived.
+            // The change is reflected by mockFaculty no longer having that user, or their department changing.
+            // If this admin was *only* in mockAdmins (not faculty derived), and we want to support that:
+            // const initialAdminLength = mockAdmins.length;
+            // mockAdmins = mockAdmins.filter(a => a.id !== adminIdToRemove);
+            // if (mockAdmins.length === initialAdminLength) throw new Error("Admin role not found for mock removal.");
+            // For now, assume we are just ensuring this admin is no longer counted/listed.
+            // The 'admins/read.php' will no longer include them if their faculty record is deleted or department changes.
             recalculateDashboardStats();
+            console.log(`Mock admin role removal for ID ${adminIdToRemove}. Actual faculty record might still exist.`);
             return;
         }
          if (phpPath.startsWith('announcements/delete.php/')) {
@@ -656,6 +695,9 @@ const mockDeleteData = async (path: string): Promise<void> => {
              const programId = idPart;
              const initialLength = mockPrograms.length;
              mockPrograms = mockPrograms.filter(p => p.id !== programId);
+             // Also remove related courses if they were exclusive and sections/assignments
+             mockCourses = mockCourses.filter(c => c.programId !== programId || c.type !== 'Major');
+             mockSections = mockSections.filter(s => s.programId !== programId);
              mockSectionAssignments = mockSectionAssignments.filter(a => {
                 const section = mockSections.find(s => s.id === a.sectionId);
                 return section?.programId !== programId;
@@ -667,6 +709,7 @@ const mockDeleteData = async (path: string): Promise<void> => {
              const courseId = idPart;
              const initialLength = mockCourses.length;
              mockCourses = mockCourses.filter(c => c.id !== courseId);
+             // Remove from all programs' course lists
              mockPrograms.forEach(program => {
                  Object.keys(program.courses).forEach(year => {
                       const yr = year as YearLevel;
@@ -687,6 +730,7 @@ const mockDeleteData = async (path: string): Promise<void> => {
                  if (mockPrograms[programIndex].courses[yearLevel].length === initialLength) {
                     throw new Error("Course assignment not found in program/year for mock removal.");
                  }
+                 // Optionally, also remove from section assignments if this course was only for this program/year
                  mockSectionAssignments = mockSectionAssignments.filter(a => !(a.subjectId === courseId && mockSections.find(s => s.id === a.sectionId)?.programId === programId && mockSections.find(s => s.id === a.sectionId)?.yearLevel === yearLevel));
                  return;
              }
@@ -745,13 +789,14 @@ export const fetchData = USE_MOCK_API ? mockFetchData : async <T>(path: string):
 
 export const postData = USE_MOCK_API ? mockPostData : async <Payload, ResponseData>(path: string, data: Payload): Promise<ResponseData> => {
     const url = getApiUrl(path);
-    let response: Response;
-     console.log(`Posting data to: ${url}`, data);
+    let response;
+     console.log(`Posting data to: ${url}`, data); // Log the URL and data
     try {
         response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                // Add any other headers like Authorization if needed
             },
             body: JSON.stringify(data),
         });
@@ -765,12 +810,13 @@ export const postData = USE_MOCK_API ? mockPostData : async <Payload, ResponseDa
         let responseBodyText = "";
         try {
             responseBodyText = await response.text();
+            console.error("API Error Response Text:", responseBodyText); // Log the raw text
             try {
                  errorData = JSON.parse(responseBodyText);
                  errorMessage = errorData?.message || responseBodyText || errorMessage;
             } catch (jsonParseError) {
-                 console.error("API Error Response Text:", responseBodyText);
-                 errorMessage = responseBodyText || errorMessage;
+                 // console.error("API Error Response Text:", responseBodyText); // Already logged
+                 errorMessage = responseBodyText || errorMessage; // Use raw text if JSON parsing fails
                  errorData = { message: errorMessage };
             }
         } catch (readError) {
@@ -781,6 +827,7 @@ export const postData = USE_MOCK_API ? mockPostData : async <Payload, ResponseDa
         handleFetchError({ ...errorData, name: 'HTTPError', message: errorMessage }, path, 'POST');
     }
 
+    // Handle successful responses (200, 201, etc.)
     if (response.status === 201 || response.status === 200) {
        try {
            const contentType = response.headers.get("content-type");
@@ -788,14 +835,17 @@ export const postData = USE_MOCK_API ? mockPostData : async <Payload, ResponseDa
                 return await response.json() as ResponseData;
            } else {
                console.log(`POST to ${url} successful with status ${response.status}, but no JSON body.`);
+               // Return a generic success response if no JSON body is expected/returned
                return { success: true, message: `Operation successful (Status ${response.status})` } as unknown as ResponseData;
            }
        } catch (jsonError: any) {
            console.error("Failed to parse JSON response on successful POST:", jsonError);
+           // Even if JSON parsing fails, if status was OK, consider it a success but note parsing issue
            return { success: true, message: "Operation successful, but response body could not be parsed." } as unknown as ResponseData;
        }
     }
 
+    // Fallback for other success status codes (e.g., 202 Accepted)
     console.warn(`Unexpected successful status code ${response.status} for POST ${url}`);
     return { success: true, message: `Operation completed with status ${response.status}.` } as unknown as ResponseData;
 };
@@ -819,11 +869,11 @@ export const putData = USE_MOCK_API ? mockPutData : async <Payload, ResponseData
         let responseBodyText = "";
          try {
              responseBodyText = await response.text();
+             console.error("API Error Response Text:", responseBodyText);
              try {
                  errorData = JSON.parse(responseBodyText);
                  errorMessage = errorData?.message || responseBodyText || errorMessage;
              } catch (jsonParseError) {
-                 console.error("API Error Response Text:", responseBodyText);
                  errorMessage = responseBodyText || errorMessage;
                  errorData = { message: errorMessage };
              }
@@ -864,11 +914,11 @@ export const deleteData = USE_MOCK_API ? mockDeleteData : async (path: string): 
         let responseBodyText = "";
          try {
              responseBodyText = await response.text();
+             console.error("API Error Response Text:", responseBodyText);
              try {
                  errorData = JSON.parse(responseBodyText);
                  errorMessage = errorData?.message || responseBodyText || errorMessage;
              } catch (jsonParseError) {
-                 console.error("API Error Response Text:", responseBodyText);
                  errorMessage = responseBodyText || errorMessage;
                  errorData = { message: errorMessage };
              }
@@ -897,8 +947,6 @@ export const deleteData = USE_MOCK_API ? mockDeleteData : async (path: string): 
          }
      } catch (error: any) {
          console.error("Failed to process body on successful DELETE:", error);
-         // Don't throw an error here if the status code indicated success,
-         // but log that the body (if any) couldn't be parsed.
      }
 };
 
@@ -910,3 +958,7 @@ function formatDate(date: Date): string {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}${month}${day}`;
 }
+
+// Ensure `USE_MOCK_API` is accessible if needed by other parts of the app (e.g., for conditional rendering)
+// This might not be necessary if it's only used internally in this file.
+export { USE_MOCK_API };

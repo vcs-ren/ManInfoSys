@@ -1,16 +1,16 @@
 
-"use client"; // Add use client directive
+"use client";
 
 import * as React from 'react';
 import type { ReactNode } from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { SidebarNav } from './sidebar-nav'; // Assuming sidebar-nav is in the same directory
-import type { IconName } from 'lucide-react'; // Import IconName type
+import { SidebarNav } from './sidebar-nav';
+import type { IconName } from 'lucide-react';
 
 interface NavItem {
   href: string;
   label: string;
-  icon: IconName; // Change type to IconName (string)
+  icon: IconName;
 }
 
 interface NavItemGroup {
@@ -20,7 +20,7 @@ interface NavItemGroup {
 
 interface MainLayoutProps {
   children: ReactNode;
-  userRole: string; // The role of the currently logged-in user
+  userRole: string;
 }
 
 // Define all navigation items centrally
@@ -30,9 +30,10 @@ const allNavItems: NavItemGroup[] = [
         items: [
             { href: '/admin/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
             { href: '/admin/students', label: 'Manage Students', icon: 'Users' },
-            { href: '/admin/teachers', label: 'Manage Faculty', icon: 'UserCog' }, // Renamed Label
-            { href: '/admin/programs', label: 'Manage Programs', icon: 'Library' }, // Added Programs
+            { href: '/admin/teachers', label: 'Manage Faculty', icon: 'UserCog' },
+            { href: '/admin/programs', label: 'Programs & Courses', icon: 'Library' }, // Changed label
             { href: '/admin/assignments', label: 'Section Management', icon: 'ClipboardList' },
+            // "Manage Admins" is removed from here. It's linked from the dashboard or implicit via Faculty.
             { href: '/admin/settings', label: 'Settings', icon: 'Settings' },
         ]
     },
@@ -60,23 +61,16 @@ const allNavItems: NavItemGroup[] = [
 
 
 export function MainLayout({ children, userRole }: MainLayoutProps) {
-  // Find the navigation items for the current user role
-  const currentUserNavItems = allNavItems.find(group => group.role === userRole)?.items || [];
-    // Add a default check for ReactNode type for children
-    const validChildren: React.ReactNode = React.Children.toArray(children).filter(child => React.isValidElement(child));
-
+  const validChildren: React.ReactNode = React.Children.toArray(children).filter(child => React.isValidElement(child));
 
   return (
     <SidebarProvider defaultOpen={true}>
-      {/* Pass only the navigation items for the current user */}
       <SidebarNav navItemGroups={allNavItems} currentUserRole={userRole} />
       <SidebarInset>
-        <div className="p-4 pt-16 md:pt-4"> {/* Add padding top for mobile header */}
+        <div className="p-4 pt-16 md:pt-4">
             {validChildren}
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
-
-    

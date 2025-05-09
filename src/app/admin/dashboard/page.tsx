@@ -21,7 +21,6 @@ export default function AdminDashboardPage() {
       setIsLoading(true);
       setError(null);
       try {
-        // Use fetchData helper, ensure path is correct relative to API base URL
         const data = await fetchData<DashboardStats>('admin/dashboard-stats.php');
         setStats(data);
       } catch (err: any) {
@@ -35,8 +34,10 @@ export default function AdminDashboardPage() {
     fetchStats();
   }, []);
 
-  const handleCardClick = (path: string) => {
-    router.push(path);
+  const handleCardClick = (path: string | null) => {
+    if (path) {
+        router.push(path);
+    }
   };
 
   return (
@@ -74,14 +75,17 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-           {/* Administrative Staff Card - Now uses totalAdmins */}
-           <Card onClick={() => handleCardClick('/admin/admins')} className="cursor-pointer hover:shadow-md transition-shadow">
+           {/* Administrative Staff Card - Now UNCLICKABLE, for display only */}
+           <Card className="hover:shadow-md transition-shadow"> {/* Removed onClick and cursor-pointer */}
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Administrative Staff</CardTitle>
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalAdmins}</div>
+               <p className="text-xs text-muted-foreground pt-1">
+                View and manage in <Link href="/admin/admins" className="underline hover:text-primary">Manage Admins</Link>.
+              </p>
             </CardContent>
           </Card>
 
