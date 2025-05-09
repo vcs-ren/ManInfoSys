@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCog, CalendarDays, Loader2, ShieldAlert, ListChecks, RotateCcw } from "lucide-react";
+import { Users, UserCog, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase } from "lucide-react"; // Added Briefcase for Faculty
 import * as React from 'react';
 import { fetchData, postData } from "@/lib/api";
 import type { DashboardStats, ActivityLogEntry } from "@/types";
@@ -84,7 +84,7 @@ export default function AdminDashboardPage() {
       {error && <p className="text-destructive text-center py-4">{error}</p>}
 
       {stats && !isLoading && !error && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"> {/* Adjusted grid to 3 columns */}
           <Card onClick={() => handleCardClick('/admin/students/population')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle>
@@ -95,27 +95,17 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-           <Card onClick={() => handleCardClick('/admin/teachers')} className="cursor-pointer hover:shadow-md transition-shadow">
+           <Card onClick={() => handleCardClick('/admin/faculty/population')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Teaching Staff</CardTitle>
-              <UserCog className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Faculty Staff</CardTitle> {/* New Card */}
+              <Briefcase className="h-4 w-4 text-muted-foreground" /> {/* Icon for Faculty */}
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalTeachers}</div>
+              <div className="text-2xl font-bold">{stats.totalFaculty}</div>
             </CardContent>
           </Card>
 
-           <Card className="hover:shadow-md transition-shadow bg-muted/50 cursor-not-allowed">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Administrative Staff</CardTitle>
-              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalAdmins}</div>
-            </CardContent>
-          </Card>
-
-          <Card onClick={() => handleCardClick('/admin/assignments')} className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card onClick={() => handleCardClick('/admin/assignments')} className="cursor-pointer hover:shadow-md transition-shadow"> {/* Assuming assignments covers tasks */}
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Upcoming Events/Tasks</CardTitle>
               <CalendarDays className="h-4 w-4 text-muted-foreground" />

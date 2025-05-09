@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry } from '@/types';
+import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry, EmploymentType } from '@/types';
 import { generateStudentUsername, generateTeacherId, generateSectionCode, generateAdminUsername, generateTeacherUsername, generateStudentId } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -20,7 +20,8 @@ let mockStudents: Student[] = [
 
 let mockFaculty: Faculty[] = [
   { id: 1, teacherId: "1001", username: "t1001", firstName: "David", lastName: "Lee", department: "Teaching", email: "david.lee@example.com", phone: "555-1234", employmentType: 'Regular', lastAccessed: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 2, teacherId: "1002", username: "a1002", firstName: "Eve", lastName: "Davis", department: "Administrative", email: "eve.davis@example.com", employmentType: 'Part Time', lastAccessed: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+  { id: 2, teacherId: "1002", username: "a1002", firstName: "Eve", lastName: "Davis", department: "Administrative", email: "eve.davis@example.com", phone: "555-5678", employmentType: 'Part Time', lastAccessed: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+  { id: 3, teacherId: "1003", username: "t1003", firstName: "Carol", lastName: "White", department: "Teaching", email: "carol.white@example.com", phone: "555-9012", employmentType: 'Regular', lastAccessed: null },
 ];
 
 let mockCourses: Course[] = [
@@ -28,16 +29,17 @@ let mockCourses: Course[] = [
     { id: "IT101", name: "IT Fundamentals", description: "Basics of IT.", type: "Major", programId: "IT", yearLevel: "1st Year" },
     { id: "CS201", name: "Data Structures", description: "Study of data organization.", type: "Major", programId: "CS", yearLevel: "2nd Year" },
     { id: "GEN001", name: "Purposive Communication", description: "Effective communication skills", type: "Minor" },
+    { id: "MATH101", name: "Calculus I", description: "Differential Calculus", type: "Minor"},
 ];
 
 let mockPrograms: Program[] = [
     {
         id: "CS", name: "Computer Science", description: "Focuses on algorithms, data structures, and software development.",
-        courses: { "1st Year": [mockCourses[0]], "2nd Year": [mockCourses[2]], "3rd Year": [], "4th Year": [] },
+        courses: { "1st Year": [mockCourses[0], mockCourses[4]], "2nd Year": [mockCourses[2]], "3rd Year": [], "4th Year": [] },
     },
     {
         id: "IT", name: "Information Technology", description: "Focuses on network administration, system management, and web technologies.",
-        courses: { "1st Year": [mockCourses[1]], "2nd Year": [], "3rd Year": [], "4th Year": [] },
+        courses: { "1st Year": [mockCourses[1], mockCourses[3]], "2nd Year": [], "3rd Year": [], "4th Year": [] },
     },
 ];
 
@@ -102,18 +104,9 @@ let mockDashboardStats: DashboardStats;
 
 // Function to recalculate dashboard stats from current mock data
 const recalculateDashboardStats = () => {
-    const teachingStaffCount = mockFaculty.filter(f => f.department === 'Teaching').length;
-    // Administrative staff are faculty members with 'Administrative' department
-    const adminStaffCount = mockFaculty.filter(f => f.department === 'Administrative').length;
-
-    // Total Admins = Super Admin (always 1 from mockAdmins) + Administrative Staff from faculty
-    const totalAdminsCount = 1 + adminStaffCount;
-
-
     mockDashboardStats = {
         totalStudents: mockStudents.length,
-        totalTeachers: teachingStaffCount,
-        totalAdmins: totalAdminsCount,
+        totalFaculty: mockFaculty.length, // Total faculty members
         upcomingEvents: 1, // Keep upcoming events static for now
     };
 };

@@ -19,7 +19,7 @@ export interface Student {
   suffix?: string;
   gender?: 'Male' | 'Female' | 'Other';
   birthday?: string; // YYYY-MM-DD format
-  course?: string; // References Program Name (UI Label: Program) - Keep key as 'course' for backend
+  course: string; // References Program Name (UI Label: Program) - Keep key as 'course' for backend
   status: StudentStatus;
   year?: YearLevel; // Use YearLevel type
   section: string; // e.g., "CS-1A", "IT-1B" - Auto-generated
@@ -30,7 +30,7 @@ export interface Student {
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
   emergencyContactAddress?: string;
-  lastAccessed?: string; // ISO date string
+  lastAccessed?: string | null; // ISO date string or null
 }
 
 // Renamed Teacher to Faculty and updated department type
@@ -43,7 +43,7 @@ export interface Faculty {
   middleName?: string;
   suffix?: string;
   gender?: 'Male' | 'Female' | 'Other';
-  employmentType?: EmploymentType;
+  employmentType: EmploymentType; // Make employmentType non-optional
   address?: string;
   department: DepartmentType; // Updated to use defined types
   email?: string;
@@ -54,7 +54,7 @@ export interface Faculty {
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
   emergencyContactAddress?: string;
-  lastAccessed?: string; // ISO date string
+  lastAccessed?: string | null; // ISO date string or null
 }
 
 // Defines the grading periods
@@ -77,7 +77,7 @@ export interface Course {
     name: string; // e.g., "Introduction to Programming"
     description?: string;
     type: CourseType; // Major or Minor
-    programId?: string; // Reference to the Program it belongs to (REQUIRED for Major)
+    programId?: string; // Reference to the Program it belongs to (REQUIRED for Major if type is Major)
     yearLevel?: YearLevel; // Year level this course is typically assigned in
 }
 
@@ -187,8 +187,7 @@ export interface AdminUser {
 // Interface for dashboard stats fetched from API
 export interface DashboardStats {
     totalStudents: number;
-    totalTeachers: number; // Keep as totalTeachers for backend consistency
-    totalAdmins: number;
+    totalFaculty: number; // Changed from totalTeachers and totalAdmins
     upcomingEvents: number;
 }
 
