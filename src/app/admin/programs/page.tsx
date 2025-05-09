@@ -58,7 +58,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockApiCourses } from "@/lib/api";
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockCourses } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -101,7 +101,7 @@ export default function ProgramsCoursesPage() {
       if (USE_MOCK_API) {
         await new Promise(resolve => setTimeout(resolve, 300));
         setPrograms(mockApiPrograms || []);
-        setAllCourses(mockApiCourses || []);
+        setAllCourses(mockCourses || []);
       } else {
         const [programsData, coursesData] = await Promise.all([
           fetchData<Program[]>('programs/read.php'),
@@ -314,6 +314,7 @@ export default function ProgramsCoursesPage() {
         const program = row.original;
         return (
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => handleOpenProgramModal(program)}><Edit3 className="mr-2 h-4 w-4" />Edit</Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={isSubmitting}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>
