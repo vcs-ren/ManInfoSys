@@ -5,6 +5,7 @@
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
 import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react";
+import { format, formatDistanceToNow } from 'date-fns';
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -72,7 +73,7 @@ const studentFormFields: FormFieldConfig<Student>[] = [
   // Enrollment Info (Order: Status, Year, Program) - Student ID shown read-only in edit mode
   { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'enrollment' },
   { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false },
-  { name: "course", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' },
+  { name: "course", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' }, // Keep key as 'course'
   // Contact / Account Details
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
   { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
@@ -105,6 +106,7 @@ export default function ManageStudentsPage() {
     birthday: false,
     section: true, // Show section by default now
     username: false, // Hide username by default
+    lastAccessed: false, // Hide lastAccessed by default
   });
 
   React.useEffect(() => {
@@ -158,7 +160,7 @@ export default function ManageStudentsPage() {
             setStudents(prev => prev.map(s => s.id === savedStudent.id ? savedStudent : s));
             toast({ title: "Student Updated", description: `${savedStudent.firstName} ${savedStudent.lastName} has been updated.` });
         } else {
-             savedStudent = await postData<Omit<typeof payload, 'id'>, Student>('students/create.php', payload);
+             savedStudent = await postData<Omit<typeof payload, 'id' | 'studentId' | 'username' | 'section' | 'lastAccessed'>, Student>('students/create.php', payload);
             setStudents(prev => [...prev, savedStudent]);
             toast({ title: "Student Added", description: `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.year || savedStudent.status}, Section ${savedStudent.section}) has been added.` });
         }
@@ -375,6 +377,25 @@ export default function ManageStudentsPage() {
             cell: ({ row }) => <div className="max-w-xs truncate">{row.original.emergencyContactAddress || '-'}</div>,
             enableHiding: true,
         },
+        {
+            accessorKey: "lastAccessed",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Last Accessed" />,
+            cell: ({ row }) => {
+                const lastAccessed = row.original.lastAccessed;
+                if (!lastAccessed) return <span className="text-muted-foreground italic">Never</span>;
+                try {
+                    return (
+                        <div className="flex flex-col">
+                            <span>{format(new Date(lastAccessed), "MMM d, yyyy, p")}</span>
+                            <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(lastAccessed), { addSuffix: true })}</span>
+                        </div>
+                    );
+                } catch (e) {
+                    return <span className="text-muted-foreground italic">Invalid Date</span>;
+                }
+            },
+            enableHiding: true,
+        },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     ], [sectionOptions]);
 
@@ -493,5 +514,3 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-
-    

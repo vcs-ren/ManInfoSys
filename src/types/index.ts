@@ -19,7 +19,7 @@ export interface Student {
   suffix?: string;
   gender?: 'Male' | 'Female' | 'Other';
   birthday?: string; // YYYY-MM-DD format
-  program?: string; // References Program Name (UI Label: Program)
+  course?: string; // References Program Name (UI Label: Program) - Keep key as 'course' for backend
   status: StudentStatus;
   year?: YearLevel; // Use YearLevel type
   section: string; // e.g., "CS-1A", "IT-1B" - Auto-generated
@@ -30,6 +30,7 @@ export interface Student {
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
   emergencyContactAddress?: string;
+  lastAccessed?: string; // ISO date string
 }
 
 // Renamed Teacher to Faculty and updated department type
@@ -53,6 +54,7 @@ export interface Faculty {
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
   emergencyContactAddress?: string;
+  lastAccessed?: string; // ISO date string
 }
 
 // Defines the grading periods
@@ -122,7 +124,7 @@ export interface Announcement {
     content: string;
     date: Date; // Changed to Date type
     target: {
-        programId?: string | 'all' | null; // Program target using Program ID
+        course?: string | 'all' | null; // Program target using Program ID (keep key as 'course')
         yearLevel?: string | 'all' | null; // Specific year level or 'all' or null
         section?: string | 'all' | null; // Specific section or 'all' or null
     };
@@ -206,7 +208,7 @@ export interface ActivityLogEntry {
   action: string; // e.g., "Added Student", "Deleted Faculty"
   description: string; // e.g., "John Doe (s103)", "Jane Smith (t1003)"
   targetId?: number | string; // ID of the entity affected (studentId, facultyId, etc.)
-  targetType?: 'student' | 'faculty' | 'program' | 'course' | 'section' | 'announcement'; // Type of entity
+  targetType?: 'student' | 'faculty' | 'program' | 'course' | 'section' | 'announcement' | 'admin';
   canUndo: boolean;
   originalData?: any; // To store data for undo operation
 }

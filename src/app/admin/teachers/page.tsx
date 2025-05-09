@@ -1,9 +1,12 @@
 
+
 "use client";
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
 import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react"; // Added Pencil
+import { format, formatDistanceToNow } from 'date-fns';
+
 
 import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -98,6 +101,7 @@ export default function ManageFacultyPage() { // Renamed component
      emergencyContactPhone: false,
      emergencyContactAddress: false,
      username: false, // Hide username by default
+     lastAccessed: false, // Hide lastAccessed by default
    });
 
 
@@ -106,7 +110,7 @@ export default function ManageFacultyPage() { // Renamed component
       setIsLoading(true);
        try {
         // Use fetchData with the correct endpoint (still /teachers/read.php)
-        const data = await fetchData<Faculty[]>('/teachers/read.php');
+        const data = await fetchData<Faculty[]>('teachers/read.php');
         setFaculty(data || []); // Update state with fetched data
       } catch (error: any) {
         console.error("Failed to fetch faculty:", error); // Updated log message
@@ -137,12 +141,12 @@ export default function ManageFacultyPage() { // Renamed component
          let savedFaculty: Faculty; // Renamed variable
          if (isEditMode && payload.id) {
              // Use putData with the correct endpoint (still /teachers/update.php/)
-              savedFaculty = await putData<typeof payload, Faculty>(`/teachers/update.php/${payload.id}`, payload);
+              savedFaculty = await putData<typeof payload, Faculty>(`teachers/update.php/${payload.id}`, payload);
              setFaculty(prev => prev.map(t => t.id === savedFaculty.id ? savedFaculty : t)); // Update faculty state
              toast({ title: "Faculty Updated", description: `${savedFaculty.firstName} ${savedFaculty.lastName} has been updated.` }); // Updated message
          } else {
              // Use postData with the correct endpoint (still /teachers/create.php)
-              savedFaculty = await postData<Omit<typeof payload, 'id' | 'teacherId' | 'username'>, Faculty>('/teachers/create.php', payload);
+              savedFaculty = await postData<Omit<typeof payload, 'id' | 'teacherId' | 'username' | 'lastAccessed'>, Faculty>('teachers/create.php', payload);
              setFaculty(prev => [...prev, savedFaculty]); // Update faculty state
              toast({ title: "Faculty Added", description: `${savedFaculty.firstName} ${savedFaculty.lastName} (${savedFaculty.username}) has been added.` }); // Display username
          }
@@ -161,7 +165,7 @@ export default function ManageFacultyPage() { // Renamed component
       setIsSubmitting(true);
       try {
             // Use deleteData with the correct endpoint (still /teachers/delete.php/)
-             await deleteData(`/teachers/delete.php/${facultyId}`);
+             await deleteData(`teachers/delete.php/${facultyId}`);
             setFaculty(prev => prev.filter(t => t.id !== facultyId)); // Update faculty state
             toast({ title: "Faculty Deleted", description: `Faculty record has been removed.` }); // Updated message
       } catch (error: any) {
@@ -176,7 +180,7 @@ export default function ManageFacultyPage() { // Renamed component
         setIsSubmitting(true);
         try {
             // Use postData with the correct endpoint (still /admin/reset_password.php)
-             await postData('/admin/reset_password.php', { userId, userType: 'teacher', lastName }); // userType remains 'teacher' for backend
+             await postData('admin/reset_password.php', { userId, userType: 'teacher', lastName }); // userType remains 'teacher' for backend
              const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
              toast({
                   title: "Password Reset Successful",
@@ -305,6 +309,25 @@ export default function ManageFacultyPage() { // Renamed component
         { accessorKey: "emergencyContactRelationship", header: "Relationship", cell: ({ row }) => row.original.emergencyContactRelationship || '-', enableHiding: true },
         { accessorKey: "emergencyContactPhone", header: "Emergency Phone", cell: ({ row }) => row.original.emergencyContactPhone || '-', enableHiding: true },
         { accessorKey: "emergencyContactAddress", header: "Emergency Address", cell: ({ row }) => <div className="max-w-xs truncate">{row.original.emergencyContactAddress || '-'}</div>, enableHiding: true },
+        {
+            accessorKey: "lastAccessed",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Last Accessed" />,
+            cell: ({ row }) => {
+                const lastAccessed = row.original.lastAccessed;
+                if (!lastAccessed) return <span className="text-muted-foreground italic">Never</span>;
+                try {
+                    return (
+                        <div className="flex flex-col">
+                            <span>{format(new Date(lastAccessed), "MMM d, yyyy, p")}</span>
+                            <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(lastAccessed), { addSuffix: true })}</span>
+                        </div>
+                    );
+                } catch (e) {
+                    return <span className="text-muted-foreground italic">Invalid Date</span>;
+                }
+            },
+            enableHiding: true,
+        },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     ], [currentDepartmentOptions]); // Updated dependency
 
