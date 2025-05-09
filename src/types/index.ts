@@ -175,6 +175,8 @@ export interface StudentTermGrade {
 export interface AdminUser {
   id: number;
   username: string;
+  firstName?: string; // Added optional first name
+  lastName?: string;  // Added optional last name
   email?: string; // Email is required by form schema
   role: AdminRole; // Use AdminRole type
   isSuperAdmin?: boolean;
@@ -194,4 +196,17 @@ export interface UpcomingItem {
     title: string;
     date?: string; // Date might be string from API
     type: string; // Keep type flexible
+}
+
+// Interface for Activity Log Entries
+export interface ActivityLogEntry {
+  id: string;
+  timestamp: Date;
+  user: string; // e.g., "Admin", "System", or specific username if available
+  action: string; // e.g., "Added Student", "Deleted Faculty"
+  description: string; // e.g., "John Doe (s103)", "Jane Smith (t1003)"
+  targetId?: number | string; // ID of the entity affected (studentId, facultyId, etc.)
+  targetType?: 'student' | 'faculty' | 'program' | 'course' | 'section' | 'announcement'; // Type of entity
+  canUndo: boolean;
+  originalData?: any; // To store data for undo operation
 }
