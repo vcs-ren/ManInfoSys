@@ -8,6 +8,7 @@ const employmentTypeEnum: [EmploymentType, ...EmploymentType[]] = ['Regular', 'P
 const adminRoleEnum: [AdminRole, ...AdminRole[]] = ['Super Admin', 'Sub Admin'];
 const departmentEnum: [DepartmentType, ...DepartmentType[]] = ['Teaching', 'Administrative']; // Use DepartmentType
 const courseTypeEnum: [CourseType, ...CourseType[]] = ['Major', 'Minor']; // Define course types
+const announcementAudienceEnum: ['Student', 'Faculty', 'All'] = ['Student', 'Faculty', 'All'];
 
 // Schema for Course Management (used for global courses and within programs)
 export const courseSchema = z.object({
@@ -109,12 +110,16 @@ export const teacherSchema = z.object({
 });
 
 // Schema for adding a new admin (now based on Faculty)
+// No dedicated "add admin" form. Admin role is derived from Faculty's department.
+// This schema is more for type validation if an AdminUser object is handled directly.
 export const adminUserSchema = z.object({
-  id: z.number().optional(), // This will be the Faculty ID
-  username: z.string().min(1, "Username is required (auto-generated from Faculty)."),
+  id: z.number(), // Faculty ID
+  username: z.string().min(1, "Username is required."),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   email: z.string().email("Valid email is required.").optional().or(z.literal('')),
   role: z.enum(adminRoleEnum, { required_error: "Admin role is required" }),
-  // First Name and Last Name are part of the Faculty record, not directly in admin form for adding.
+  isSuperAdmin: z.boolean().optional(),
 });
 
 
@@ -166,7 +171,7 @@ export const teacherProfileSchema = z.object({
     lastName: z.string().min(1, "Last name is required"),
     middleName: z.string().optional().or(z.literal('')),
     suffix: z.string().optional().or(z.literal('')),
-    gender: z.enum(genderEnum).optional().or(z.literal('')),
+    gender: z.enum(genderEnum).optional().or(z.literal('')), // Added gender
     birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')),
     address: z.string().optional().or(z.literal('')),
     email: z.string().email("Invalid email address").optional().or(z.literal('')),
@@ -188,6 +193,7 @@ export const assignAdviserSchema = z.object({
 export const announcementSchema = z.object({
   title: z.string().min(1, "Announcement title is required"),
   content: z.string().min(10, "Announcement content must be at least 10 characters"),
+  targetAudience: z.enum(announcementAudienceEnum).default('All'), // Added target audience
   targetProgramId: z.string().optional(),
   targetYearLevel: z.string().optional(),
   targetSection: z.string().optional(),

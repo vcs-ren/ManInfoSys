@@ -123,6 +123,7 @@ export interface Announcement {
     title: string;
     content: string;
     date: Date; // Changed to Date type
+    targetAudience?: 'Student' | 'Faculty' | 'All'; // New field
     target: {
         course?: string | 'all' | null; // Program target using Program ID (keep key as 'course')
         yearLevel?: string | 'all' | null; // Specific year level or 'all' or null
@@ -213,3 +214,4 @@ export interface ActivityLogEntry {
   canUndo: boolean;
   originalData?: any; // To store data for undo operation
 }
+

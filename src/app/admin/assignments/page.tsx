@@ -3,11 +3,11 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, Megaphone, BookOpen, Trash2, Loader2, CalendarX, Settings2, Filter } from "lucide-react";
+import { UserCheck, Megaphone, BookOpen, Trash2, Loader2, CalendarX, Settings2, Filter, Users, Briefcase } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
-import type { Section, Faculty, Announcement, Subject, SectionSubjectAssignment, Program as ProgramType, YearLevel } from "@/types";
+import type { Section, Faculty, Announcement, Subject, SectionSubjectAssignment, Program as ProgramType, YearLevel, Course } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -36,7 +36,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { assignAdviserSchema, announcementSchema } from "@/lib/schemas";
 import { format } from 'date-fns';
@@ -62,6 +62,11 @@ type AssignAdviserFormValues = z.infer<typeof assignAdviserSchema>;
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;
 
 const yearLevelOptions: { value: YearLevel; label: string }[] = ["1st Year", "2nd Year", "3rd Year", "4th Year"].map(y => ({ value: y, label: y }));
+const announcementAudienceOptions = [
+    { value: 'All', label: 'All Users' },
+    { value: 'Student', label: 'Students Only' },
+    { value: 'Faculty', label: 'Faculty Only' },
+];
 
 // Helper to get distinct values for filtering
 const getDistinctValues = (data: any[], key: string): { value: string; label: string }[] => {
@@ -73,7 +78,7 @@ const getDistinctValues = (data: any[], key: string): { value: string; label: st
 export default function ScheduleAnnouncementsPage() {
   const [sections, setSections] = React.useState<Section[]>([]);
   const [faculty, setFaculty] = React.useState<Faculty[]>([]);
-  const [subjects, setSubjects] = React.useState<Subject[]>([]); // Still needed for announcement targeting
+  const [subjects, setSubjects] = React.useState<Course[]>([]); 
   const [programsList, setProgramsList] = React.useState<ProgramType[]>([]);
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -82,7 +87,6 @@ export default function ScheduleAnnouncementsPage() {
   const [isAnnounceModalOpen, setIsAnnounceModalOpen] = React.useState(false);
 
   const [selectedSection, setSelectedSection] = React.useState<Section | null>(null);
-  // No longer managing selectedSectionAssignments here directly, as it's program-level.
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { toast } = useToast();
@@ -97,11 +101,19 @@ export default function ScheduleAnnouncementsPage() {
     defaultValues: {
       title: "",
       content: "",
+      targetAudience: "All", // Default to All
       targetProgramId: "all",
       targetYearLevel: "all",
       targetSection: "all",
     },
   });
+  
+  const watchedTargetAudience = useWatch({
+    control: announcementForm.control,
+    name: 'targetAudience',
+    defaultValue: "All"
+  });
+
 
   const loadData = React.useCallback(async () => {
     setIsLoading(true);
@@ -110,20 +122,20 @@ export default function ScheduleAnnouncementsPage() {
           await new Promise(resolve => setTimeout(resolve, 300));
           setSections(mockSections.map(s => ({...s, programName: mockApiPrograms.find(p => p.id === s.programId)?.name || s.programId })));
           setFaculty(mockFaculty);
-          setSubjects(mockCourses); // Keep for announcement targeting
+          setSubjects(mockCourses); 
           setAnnouncements(mockAnnouncements);
           setProgramsList(mockApiPrograms);
       } else {
           const [sectionsData, facultyData, subjectsData, announcementsData, programsData] = await Promise.all([
           fetchData<Section[]>('sections/read.php'),
           fetchData<Faculty[]>('teachers/read.php'),
-          fetchData<Subject[]>('courses/read.php'),
+          fetchData<Course[]>('courses/read.php'),
           fetchData<Announcement[]>('announcements/read.php'),
           fetchData<ProgramType[]>('programs/read.php')
           ]);
           setSections(sectionsData || []);
           setFaculty(facultyData || []);
-          setSubjects(subjectsData || []); // Keep for announcement targeting
+          setSubjects(subjectsData || []); 
           setAnnouncements(announcementsData || []);
           setProgramsList(programsData || []);
       }
@@ -165,8 +177,8 @@ export default function ScheduleAnnouncementsPage() {
     const adviserIdToAssign = values.adviserId === 0 ? null : values.adviserId;
 
     try {
-        const updatedSectionData = await postData<{ adviserId: number | null }, Section>(
-            `sections/adviser/update.php`, // Backend should parse sectionId from payload or URL
+        const updatedSectionData = await postData<{ sectionId: string, adviserId: number | null }, Section>(
+            `sections/adviser/update.php`, 
             { sectionId: selectedSection.id, adviserId: adviserIdToAssign }
         );
 
@@ -192,6 +204,7 @@ export default function ScheduleAnnouncementsPage() {
     const announcementPayload = {
       title: values.title,
       content: values.content,
+      targetAudience: values.targetAudience,
       target: {
         course: values.targetProgramId === 'all' ? null : values.targetProgramId, // Keep key as 'course'
         yearLevel: values.targetYearLevel === 'all' ? null : values.targetYearLevel,
@@ -272,11 +285,10 @@ export default function ScheduleAnnouncementsPage() {
                 >
                 <UserCheck className="mr-2 h-4 w-4" /> Assign Adviser
             </Button>
-            {/* Manage Courses(subjects) button removed from here */}
              <AlertDialog>
                     <AlertDialogTrigger asChild>
                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isSubmitting}>
-                             <Trash2 className="h-4 w-4" /> {/* Changed icon */}
+                             <Trash2 className="h-4 w-4" /> 
                          </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -312,7 +324,7 @@ export default function ScheduleAnnouncementsPage() {
              cell: ({ row }) => {
                  try {
                      const dateValue = row.original.date instanceof Date ? row.original.date : new Date(row.original.date);
-                     return format(dateValue, "PPpp"); // Added time
+                     return format(dateValue, "PPpp"); 
                  } catch (e) {
                      return "Invalid Date";
                  }
@@ -332,20 +344,32 @@ export default function ScheduleAnnouncementsPage() {
             header: "Target Audience",
             cell: ({ row }) => {
                  const target = row.original.target || {};
-                 const { course: programId, yearLevel, section } = target; // 'course' is programId from backend
+                 const audience = row.original.targetAudience || 'All';
+                 const { course: programId, yearLevel, section } = target; 
                  const programName = programsList.find(p => p.id === programId)?.name;
-                 const targetParts = [];
-                 if (programId && programId !== 'all') targetParts.push(`Program: ${programName || programId}`);
-                 if (yearLevel && yearLevel !== 'all') targetParts.push(`Year: ${yearLevel}`);
-                 if (section && section !== 'all') targetParts.push(`Section: ${section}`);
-                 return targetParts.length > 0 ? targetParts.join(', ') : 'All';
+                 
+                 let targetParts = [`Audience: ${audience}`];
+                 if (audience === 'Student' || audience === 'All') {
+                    if (programId && programId !== 'all') targetParts.push(`Program: ${programName || programId}`);
+                    if (yearLevel && yearLevel !== 'all') targetParts.push(`Year: ${yearLevel}`);
+                    if (section && section !== 'all') targetParts.push(`Section: ${section}`);
+                 }
+                 if (targetParts.length === 1 && audience === 'All' && (!programId || programId === 'all') && (!yearLevel || yearLevel === 'all') && (!section || section === 'all')) {
+                     return 'All Users';
+                 }
+                 return targetParts.join('; ');
             },
-             filterFn: (row, id, value) => { // Add filter for target
+             filterFn: (row, id, value) => { 
                 const target = row.original.target || {};
+                const audience = row.original.targetAudience || 'All';
                 const programId = target.course;
                 const yearLevel = target.yearLevel;
                 const section = target.section;
-                if (value.includes('all')) return true;
+
+                if (value.includes('All Users')) return audience === 'All';
+                if (value.includes('Students Only')) return audience === 'Student';
+                if (value.includes('Faculty Only')) return audience === 'Faculty';
+                
                 if (programId && value.includes(programId)) return true;
                 if (yearLevel && value.includes(yearLevel)) return true;
                 if (section && value.includes(section)) return true;
@@ -449,7 +473,7 @@ export default function ScheduleAnnouncementsPage() {
                         <Megaphone className="mr-2 h-4 w-4" /> Create Announcement
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[525px]">
+                    <DialogContent className="sm:max-w-2xl"> {/* Increased width */}
                         <DialogHeader>
                         <DialogTitle>Create New Announcement</DialogTitle>
                         <DialogDescription>Compose and target your announcement.</DialogDescription>
@@ -482,13 +506,36 @@ export default function ScheduleAnnouncementsPage() {
                                 </FormItem>
                                 )}
                             />
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                             <FormField
+                                control={announcementForm.control}
+                                name="targetAudience"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Target Audience</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value || "All"}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Audience" />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                        {announcementAudienceOptions.map(option => (
+                                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                        ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            {(watchedTargetAudience === 'Student' || watchedTargetAudience === 'All') && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t mt-4">
                                 <FormField
                                     control={announcementForm.control}
                                     name="targetProgramId"
                                     render={({ field }) => (
                                         <FormItem>
-                                        <FormLabel>Target Program</FormLabel>
+                                        <FormLabel>Target Program (Students)</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
                                             <FormControl>
                                             <SelectTrigger>
@@ -510,7 +557,7 @@ export default function ScheduleAnnouncementsPage() {
                                     name="targetYearLevel"
                                     render={({ field }) => (
                                         <FormItem>
-                                        <FormLabel>Target Year Level</FormLabel>
+                                        <FormLabel>Target Year Level (Students)</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
                                             <FormControl>
                                             <SelectTrigger>
@@ -532,7 +579,7 @@ export default function ScheduleAnnouncementsPage() {
                                     name="targetSection"
                                     render={({ field }) => (
                                         <FormItem>
-                                        <FormLabel>Target Section</FormLabel>
+                                        <FormLabel>Target Section (Students)</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
                                             <FormControl>
                                             <SelectTrigger>
@@ -549,7 +596,12 @@ export default function ScheduleAnnouncementsPage() {
                                         </FormItem>
                                     )}
                                     />
-                            </div>
+                                </div>
+                            )}
+                             {watchedTargetAudience === 'Faculty' && (
+                                 <p className="text-sm text-muted-foreground pt-2 border-t mt-4">This announcement will be visible to all faculty members.</p>
+                             )}
+
                             <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setIsAnnounceModalOpen(false)} disabled={isSubmitting}>
                                 Cancel
@@ -575,7 +627,14 @@ export default function ScheduleAnnouncementsPage() {
                         searchColumnId="title"
                         searchPlaceholder="Search by title..."
                         filterableColumnHeaders={[
-                             { columnId: 'target', title: 'Target Audience', options: [...programOptionsForTargeting, ...yearLevelOptionsForTargeting, ...sectionOptionsForTargeting, {value: 'all', label: 'All'}] },
+                            { columnId: 'target', title: 'Audience Filter', options: [
+                                {value: 'All Users', label: 'All Users'},
+                                {value: 'Students Only', label: 'Students Only'},
+                                {value: 'Faculty Only', label: 'Faculty Only'},
+                                ...programOptionsForTargeting.filter(o => o.value !== 'all'),
+                                ...yearLevelOptionsForTargeting.filter(o => o.value !== 'all'),
+                                ...sectionOptionsForTargeting.filter(o => o.value !== 'all'),
+                            ] },
                         ]}
                     />
                 ) : (
@@ -648,3 +707,4 @@ export default function ScheduleAnnouncementsPage() {
     </div>
   );
 }
+
