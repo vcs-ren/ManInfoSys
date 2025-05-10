@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -50,6 +51,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger, // Added AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments, logActivity } from "@/lib/api";
 import { generateSectionCode } from "@/lib/utils";
