@@ -366,23 +366,25 @@ export default function ProgramsCoursesPage() {
             <DialogTitle>{isEditProgramMode ? "Edit Program" : "Add New Program"}</DialogTitle>
             <DialogDescription>{isEditProgramMode ? "Update the program details." : "Enter details for the new program."}</DialogDescription>
           </DialogHeader>
-          <Form {...programForm}>
-            <form onSubmit={programForm.handleSubmit(handleSaveProgram)} className="space-y-4 py-4">
-              <FormField control={programForm.control} name="id" render={({ field }) => (<FormItem><FormLabel>Program ID (e.g., CS, IT)</FormLabel><FormControl><Input placeholder="Unique Program ID" {...field} disabled={isEditProgramMode || isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={programForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Program Name</FormLabel><FormControl><Input placeholder="e.g., Bachelor of Science in Computer Science" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={programForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea placeholder="Brief description of the program" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
-              {!isEditProgramMode && (
-                <div className="space-y-2 border-t pt-4">
-                    <Label className="text-sm font-medium">Initial Courses (Optional)</Label>
-                    <p className="text-xs text-muted-foreground">You can add more courses per year level after creating the program.</p>
-                </div>
-              )}
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsProgramModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{isEditProgramMode ? "Save Changes" : "Add Program"}</Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <ScrollArea className="max-h-[70vh] p-1 pr-4">
+            <Form {...programForm}>
+                <form onSubmit={programForm.handleSubmit(handleSaveProgram)} className="space-y-4 py-4">
+                <FormField control={programForm.control} name="id" render={({ field }) => (<FormItem><FormLabel>Program ID (e.g., CS, IT)</FormLabel><FormControl><Input placeholder="Unique Program ID" {...field} disabled={isEditProgramMode || isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={programForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Program Name</FormLabel><FormControl><Input placeholder="e.g., Bachelor of Science in Computer Science" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={programForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea placeholder="Brief description of the program" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+                {!isEditProgramMode && (
+                    <div className="space-y-2 border-t pt-4">
+                        <Label className="text-sm font-medium">Initial Courses (Optional)</Label>
+                        <p className="text-xs text-muted-foreground">You can add more courses per year level after creating the program.</p>
+                    </div>
+                )}
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsProgramModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                    <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{isEditProgramMode ? "Save Changes" : "Add Program"}</Button>
+                </DialogFooter>
+                </form>
+            </Form>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
@@ -392,72 +394,74 @@ export default function ProgramsCoursesPage() {
             <DialogTitle>{isEditCourseMode ? "Edit Course" : "Add New System Course"}</DialogTitle>
             <DialogDescription>{isEditCourseMode ? "Update the course details." : "Enter details for a new course."}</DialogDescription>
           </DialogHeader>
-          <Form {...courseForm}>
-            <form onSubmit={courseForm.handleSubmit(handleSaveCourse)} className="space-y-4 py-4">
-              <FormField control={courseForm.control} name="id" render={({ field }) => (<FormItem><FormLabel>Course ID (e.g., CS101, GEN001)</FormLabel><FormControl><Input placeholder="Unique Course ID" {...field} disabled={isEditCourseMode || isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={courseForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Course Name</FormLabel><FormControl><Input placeholder="e.g., Introduction to Programming" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={courseForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea placeholder="Brief description of the course" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField
-                control={courseForm.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Course Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={(isEditCourseMode && !!selectedCourse?.programId && selectedCourse.programId.length > 0) || isSubmitting}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Select course type" /></SelectTrigger></FormControl>
-                      <SelectContent>{courseTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <Controller
-                  control={courseForm.control}
-                  name="programId"
-                  render={({ field, fieldState }) => (
-                    <FormItem style={{ display: courseForm.watch("type") === 'Major' ? 'block' : 'none' }}>
-                        <FormLabel>Assign to Program(s) (Required for Major)</FormLabel>
-                        <ScrollArea className="max-h-32 overflow-y-auto border p-2 rounded-md">
-                            <div className="space-y-2">
-                                {programs.map(p => (
-                                    <FormField
-                                        key={p.id}
-                                        control={courseForm.control}
-                                        name="programId"
-                                        render={() => (
-                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                <FormControl>
-                                                    <Checkbox
-                                                        checked={(field.value || []).includes(p.id)}
-                                                        onCheckedChange={(checked) => {
-                                                            const currentProgramIds = field.value || [];
-                                                            if (checked) {
-                                                                field.onChange([...currentProgramIds, p.id]);
-                                                            } else {
-                                                                field.onChange(currentProgramIds.filter((id) => id !== p.id));
-                                                            }
-                                                        }}
-                                                        disabled={isSubmitting}
-                                                    />
-                                                </FormControl>
-                                                <FormLabel className="font-normal text-sm">{p.name} ({p.id})</FormLabel>
-                                            </FormItem>
-                                        )}
-                                    />
-                                ))}
-                            </div>
-                        </ScrollArea>
-                        {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
-                         <p className="text-xs text-muted-foreground">A Major course must be assigned to at least one program.</p>
+          <ScrollArea className="max-h-[70vh] p-1 pr-4">
+            <Form {...courseForm}>
+                <form onSubmit={courseForm.handleSubmit(handleSaveCourse)} className="space-y-4 py-4">
+                <FormField control={courseForm.control} name="id" render={({ field }) => (<FormItem><FormLabel>Course ID (e.g., CS101, GEN001)</FormLabel><FormControl><Input placeholder="Unique Course ID" {...field} disabled={isEditCourseMode || isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={courseForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Course Name</FormLabel><FormControl><Input placeholder="e.g., Introduction to Programming" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={courseForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea placeholder="Brief description of the course" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField
+                    control={courseForm.control}
+                    name="type"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Course Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={(isEditCourseMode && !!selectedCourse?.programId && selectedCourse.programId.length > 0) || isSubmitting}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select course type" /></SelectTrigger></FormControl>
+                        <SelectContent>{courseTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <FormMessage />
                     </FormItem>
-                  )}
+                    )}
                 />
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => {setIsCourseModalOpen(false);}} disabled={isSubmitting}>Cancel</Button>
-                <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{isEditCourseMode ? "Save Changes" : "Add Course"}</Button>
-              </DialogFooter>
-            </form>
-          </Form>
+                <Controller
+                    control={courseForm.control}
+                    name="programId"
+                    render={({ field, fieldState }) => (
+                        <FormItem style={{ display: courseForm.watch("type") === 'Major' ? 'block' : 'none' }}>
+                            <FormLabel>Assign to Program(s) (Required for Major)</FormLabel>
+                            <ScrollArea className="max-h-32 overflow-y-auto border p-2 rounded-md">
+                                <div className="space-y-2">
+                                    {programs.map(p => (
+                                        <FormField
+                                            key={p.id}
+                                            control={courseForm.control}
+                                            name="programId"
+                                            render={() => (
+                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                    <FormControl>
+                                                        <Checkbox
+                                                            checked={(field.value || []).includes(p.id)}
+                                                            onCheckedChange={(checked) => {
+                                                                const currentProgramIds = field.value || [];
+                                                                if (checked) {
+                                                                    field.onChange([...currentProgramIds, p.id]);
+                                                                } else {
+                                                                    field.onChange(currentProgramIds.filter((id) => id !== p.id));
+                                                                }
+                                                            }}
+                                                            disabled={isSubmitting}
+                                                        />
+                                                    </FormControl>
+                                                    <FormLabel className="font-normal text-sm">{p.name} ({p.id})</FormLabel>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                            {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
+                            <p className="text-xs text-muted-foreground">A Major course must be assigned to at least one program.</p>
+                        </FormItem>
+                    )}
+                    />
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => {setIsCourseModalOpen(false);}} disabled={isSubmitting}>Cancel</Button>
+                    <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{isEditCourseMode ? "Save Changes" : "Add Course"}</Button>
+                </DialogFooter>
+                </form>
+            </Form>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -578,140 +579,142 @@ export default function ScheduleAnnouncementsPage() {
                         <DialogTitle>Create New Announcement</DialogTitle>
                         <DialogDescription>Compose and target your announcement.</DialogDescription>
                         </DialogHeader>
-                        <Form {...announcementForm}>
-                        <form onSubmit={announcementForm.handleSubmit(handleCreateAnnouncement)} className="space-y-4 py-4">
-                            <FormField
-                                control={announcementForm.control}
-                                name="title"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Title</FormLabel>
-                                    <FormControl>
-                                    <Input placeholder="Enter announcement title" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={announcementForm.control}
-                                name="content"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Content</FormLabel>
-                                    <FormControl>
-                                    <Textarea placeholder="Enter announcement content..." {...field} rows={5} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={announcementForm.control}
-                                name="targetAudience"
-                                render={({ field }) => (
+                        <ScrollArea className="max-h-[70vh] p-1 pr-4">
+                            <Form {...announcementForm}>
+                            <form onSubmit={announcementForm.handleSubmit(handleCreateAnnouncement)} className="space-y-4 py-4">
+                                <FormField
+                                    control={announcementForm.control}
+                                    name="title"
+                                    render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>Target Audience</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value || "All"}>
+                                        <FormLabel>Title</FormLabel>
                                         <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select Audience" />
-                                        </SelectTrigger>
+                                        <Input placeholder="Enter announcement title" {...field} />
                                         </FormControl>
-                                        <SelectContent>
-                                        {announcementAudienceOptions.map(option => (
-                                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                        ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
+                                        <FormMessage />
                                     </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={announcementForm.control}
+                                    name="content"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Content</FormLabel>
+                                        <FormControl>
+                                        <Textarea placeholder="Enter announcement content..." {...field} rows={5} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={announcementForm.control}
+                                    name="targetAudience"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel>Target Audience</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value || "All"}>
+                                            <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Audience" />
+                                            </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                            {announcementAudienceOptions.map(option => (
+                                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                            ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                {(watchedTargetAudience === 'Student' || watchedTargetAudience === 'All') && (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t mt-4">
+                                    <FormField
+                                        control={announcementForm.control}
+                                        name="targetProgramId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>Target Program (Students)</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
+                                                <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select Program" />
+                                                </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                {programOptionsForTargeting.map(option => (
+                                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                                ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                        />
+                                    <FormField
+                                        control={announcementForm.control}
+                                        name="targetYearLevel"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>Target Year Level (Students)</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
+                                                <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select Year Level" />
+                                                </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                {yearLevelOptionsForTargeting.map(option => (
+                                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                                ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                        />
+                                    <FormField
+                                        control={announcementForm.control}
+                                        name="targetSection"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>Target Section (Students)</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
+                                                <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select Section" />
+                                                </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                {sectionOptionsForTargeting.map(option => (
+                                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                                ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                        />
+                                    </div>
                                 )}
-                            />
-                            {(watchedTargetAudience === 'Student' || watchedTargetAudience === 'All') && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t mt-4">
-                                <FormField
-                                    control={announcementForm.control}
-                                    name="targetProgramId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                        <FormLabel>Target Program (Students)</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
-                                            <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Program" />
-                                            </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                            {programOptionsForTargeting.map(option => (
-                                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                            ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                        </FormItem>
-                                    )}
-                                    />
-                                <FormField
-                                    control={announcementForm.control}
-                                    name="targetYearLevel"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                        <FormLabel>Target Year Level (Students)</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
-                                            <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Year Level" />
-                                            </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                            {yearLevelOptionsForTargeting.map(option => (
-                                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                            ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                        </FormItem>
-                                    )}
-                                    />
-                                <FormField
-                                    control={announcementForm.control}
-                                    name="targetSection"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                        <FormLabel>Target Section (Students)</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
-                                            <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Section" />
-                                            </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                            {sectionOptionsForTargeting.map(option => (
-                                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                            ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                        </FormItem>
-                                    )}
-                                    />
-                                </div>
-                            )}
-                             {watchedTargetAudience === 'Faculty' && (
-                                 <p className="text-sm text-muted-foreground pt-2 border-t mt-4">This announcement will be visible to all faculty members.</p>
-                             )}
+                                {watchedTargetAudience === 'Faculty' && (
+                                    <p className="text-sm text-muted-foreground pt-2 border-t mt-4">This announcement will be visible to all faculty members.</p>
+                                )}
 
-                            <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsAnnounceModalOpen(false)} disabled={isSubmitting}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Posting...</> : 'Post Announcement'}
-                            </Button>
-                            </DialogFooter>
-                        </form>
-                        </Form>
+                                <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setIsAnnounceModalOpen(false)} disabled={isSubmitting}>
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Posting...</> : 'Post Announcement'}
+                                </Button>
+                                </DialogFooter>
+                            </form>
+                            </Form>
+                        </ScrollArea>
                     </DialogContent>
                  </Dialog>
             </CardHeader>
@@ -753,55 +756,57 @@ export default function ScheduleAnnouncementsPage() {
                 Current: {selectedSection?.adviserName || 'None'}
             </DialogDescription>
           </DialogHeader>
-          <Form {...assignAdviserForm}>
-            <form onSubmit={assignAdviserForm.handleSubmit(handleAssignAdviser)} className="space-y-4 py-4">
-              <FormField
-                control={assignAdviserForm.control}
-                name="adviserId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Select Adviser (Teaching Staff Only)</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(parseInt(value || '0', 10))} value={field.value ? String(field.value) : "0"}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select an adviser..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={"0"}>--- Unassign Adviser ---</SelectItem>
-                         {isLoading ? (
-                            <SelectItem value="loading" disabled>Loading faculty...</SelectItem>
-                        ) : (
-                             teachingFaculty
-                                .filter(facultyMember => !assignedAdviserIds.includes(facultyMember.id) || facultyMember.id === selectedSection?.adviserId)
-                                .map((facultyMember) => (
-                                    <SelectItem key={facultyMember.id} value={String(facultyMember.id)}>
-                                        {facultyMember.firstName} {facultyMember.lastName}
-                                    </SelectItem>
-                                ))
-                        )}
-                         {teachingFaculty.length > 0 && !isLoading && teachingFaculty.filter(facultyMember => !assignedAdviserIds.includes(facultyMember.id) || facultyMember.id === selectedSection?.adviserId).length === 0 && (
-                            <SelectItem value="no-available" disabled>No available teaching staff</SelectItem>
-                         )}
-                         {teachingFaculty.length === 0 && !isLoading && (
-                            <SelectItem value="no-faculty" disabled>No teaching staff found</SelectItem>
-                         )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAssignModalOpen(false)} disabled={isSubmitting}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                   {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Assigning...</> : 'Assign Adviser'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <ScrollArea className="max-h-[70vh] p-1 pr-4">
+            <Form {...assignAdviserForm}>
+                <form onSubmit={assignAdviserForm.handleSubmit(handleAssignAdviser)} className="space-y-4 py-4">
+                <FormField
+                    control={assignAdviserForm.control}
+                    name="adviserId"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Select Adviser (Teaching Staff Only)</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(parseInt(value || '0', 10))} value={field.value ? String(field.value) : "0"}>
+                        <FormControl>
+                            <SelectTrigger>
+                            <SelectValue placeholder="Select an adviser..." />
+                            </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value={"0"}>--- Unassign Adviser ---</SelectItem>
+                            {isLoading ? (
+                                <SelectItem value="loading" disabled>Loading faculty...</SelectItem>
+                            ) : (
+                                teachingFaculty
+                                    .filter(facultyMember => !assignedAdviserIds.includes(facultyMember.id) || facultyMember.id === selectedSection?.adviserId)
+                                    .map((facultyMember) => (
+                                        <SelectItem key={facultyMember.id} value={String(facultyMember.id)}>
+                                            {facultyMember.firstName} {facultyMember.lastName}
+                                        </SelectItem>
+                                    ))
+                            )}
+                            {teachingFaculty.length > 0 && !isLoading && teachingFaculty.filter(facultyMember => !assignedAdviserIds.includes(facultyMember.id) || facultyMember.id === selectedSection?.adviserId).length === 0 && (
+                                <SelectItem value="no-available" disabled>No available teaching staff</SelectItem>
+                            )}
+                            {teachingFaculty.length === 0 && !isLoading && (
+                                <SelectItem value="no-faculty" disabled>No teaching staff found</SelectItem>
+                            )}
+                        </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsAssignModalOpen(false)} disabled={isSubmitting}>
+                    Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Assigning...</> : 'Assign Adviser'}
+                    </Button>
+                </DialogFooter>
+                </form>
+            </Form>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
@@ -812,95 +817,97 @@ export default function ScheduleAnnouncementsPage() {
             <DialogTitle>Assign Courses to Program/Year</DialogTitle>
             <DialogDescription>Select a program and year level, then choose the courses to assign.</DialogDescription>
           </DialogHeader>
-          <Form {...assignProgramCoursesForm}>
-            <form onSubmit={assignProgramCoursesForm.handleSubmit(handleAssignCoursesToProgram)} className="space-y-4 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={assignProgramCoursesForm.control}
-                  name="programId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Program</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select Program" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {programsList.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.id})</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={assignProgramCoursesForm.control}
-                  name="yearLevel"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Year Level</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select Year Level" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {yearLevelOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+          <ScrollArea className="max-h-[70vh] p-1 pr-4">
+            <Form {...assignProgramCoursesForm}>
+                <form onSubmit={assignProgramCoursesForm.handleSubmit(handleAssignCoursesToProgram)} className="space-y-4 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                    control={assignProgramCoursesForm.control}
+                    name="programId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Program</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select Program" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                            {programsList.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.id})</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField
+                    control={assignProgramCoursesForm.control}
+                    name="yearLevel"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Year Level</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select Year Level" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                            {yearLevelOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </div>
 
-              {watchedProgramIdForCourseAssignment && watchedYearLevelForCourseAssignment && (
-                <FormItem>
-                  <FormLabel className="text-base font-medium">Available Courses for {programsList.find(p=>p.id === watchedProgramIdForCourseAssignment)?.name} - {watchedYearLevelForCourseAssignment}</FormLabel>
-                  <p className="text-xs text-muted-foreground">Minor courses are available to all programs. Major courses are specific to the selected program. Courses assigned to other year levels in this program are not shown.</p>
-                  <ScrollArea className="h-60 w-full rounded-md border p-4 mt-2">
-                    <div className="space-y-2">
-                      {availableCoursesForAssignment.length > 0 ? availableCoursesForAssignment.map(course => (
-                        <FormField
-                          key={course.id}
-                          control={assignProgramCoursesForm.control}
-                          name="courseIds"
-                          render={({ field }) => {
-                            return (
-                              <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(course.id)}
-                                    onCheckedChange={(checked) => {
-                                      return checked
-                                        ? field.onChange([...(field.value || []), course.id])
-                                        : field.onChange(
-                                          (field.value || []).filter(
-                                            (value) => value !== course.id
-                                          )
-                                        )
-                                    }}
-                                    disabled={isSubmitting}
-                                  />
-                                </FormControl>
-                                <FormLabel className="font-normal text-sm">
-                                  {course.name} ({course.id}) - <span className="text-xs italic text-muted-foreground">{course.type}</span>
-                                </FormLabel>
-                              </FormItem>
-                            )
-                          }}
-                        />
-                      )) : <p className="text-sm text-muted-foreground text-center">No courses available for assignment based on selection, or no courses in the system.</p>}
-                    </div>
-                  </ScrollArea>
-                  <FormMessage>{assignProgramCoursesForm.formState.errors.courseIds?.message}</FormMessage>
-                </FormItem>
-              )}
+                {watchedProgramIdForCourseAssignment && watchedYearLevelForCourseAssignment && (
+                    <FormItem>
+                    <FormLabel className="text-base font-medium">Available Courses for {programsList.find(p=>p.id === watchedProgramIdForCourseAssignment)?.name} - {watchedYearLevelForCourseAssignment}</FormLabel>
+                    <p className="text-xs text-muted-foreground">Minor courses are available to all programs. Major courses are specific to the selected program. Courses assigned to other year levels in this program are not shown.</p>
+                    <ScrollArea className="h-60 w-full rounded-md border p-4 mt-2">
+                        <div className="space-y-2">
+                        {availableCoursesForAssignment.length > 0 ? availableCoursesForAssignment.map(course => (
+                            <FormField
+                            key={course.id}
+                            control={assignProgramCoursesForm.control}
+                            name="courseIds"
+                            render={({ field }) => {
+                                return (
+                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                    <FormControl>
+                                    <Checkbox
+                                        checked={field.value?.includes(course.id)}
+                                        onCheckedChange={(checked) => {
+                                        return checked
+                                            ? field.onChange([...(field.value || []), course.id])
+                                            : field.onChange(
+                                            (field.value || []).filter(
+                                                (value) => value !== course.id
+                                            )
+                                            )
+                                        }}
+                                        disabled={isSubmitting}
+                                    />
+                                    </FormControl>
+                                    <FormLabel className="font-normal text-sm">
+                                    {course.name} ({course.id}) - <span className="text-xs italic text-muted-foreground">{course.type}</span>
+                                    </FormLabel>
+                                </FormItem>
+                                )
+                            }}
+                            />
+                        )) : <p className="text-sm text-muted-foreground text-center">No courses available for assignment based on selection, or no courses in the system.</p>}
+                        </div>
+                    </ScrollArea>
+                    <FormMessage>{assignProgramCoursesForm.formState.errors.courseIds?.message}</FormMessage>
+                    </FormItem>
+                )}
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAssignProgramCoursesModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
-                <Button type="submit" disabled={isSubmitting || !watchedProgramIdForCourseAssignment || !watchedYearLevelForCourseAssignment}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                  Save Course Assignments
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsAssignProgramCoursesModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                    <Button type="submit" disabled={isSubmitting || !watchedProgramIdForCourseAssignment || !watchedYearLevelForCourseAssignment}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                    Save Course Assignments
+                    </Button>
+                </DialogFooter>
+                </form>
+            </Form>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
