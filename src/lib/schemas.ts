@@ -25,18 +25,12 @@ export const courseSchema = z.object({
       path: ["programId"],
     });
   }
-  if (data.type === 'Minor' && data.programId && data.programId.length > 0) {
-    // Minors should not have programId set, as they are general.
-    // Or, if they can be suggested for programs, this logic might change.
-    // For now, let's assume minors don't have specific program associations at the course definition level.
-    // If data.programId is an empty array for minors, it's fine.
-  }
 });
 
 
 export const yearLevelCoursesSchema = z.record(
   z.enum(yearLevelEnum),
-  z.array(courseSchema) // Courses within a program year will use the courseSchema
+  z.array(courseSchema) 
 );
 
 export const programSchema = z.object({
@@ -64,7 +58,7 @@ export const studentSchema = z.object({
   // Enrollment Info
   status: z.enum(studentStatusEnum, { required_error: "Status is required"}),
   year: z.enum(yearLevelEnum).optional(),
-  course: z.string().min(1, "Program is required"), // References Program ID/Name
+  course: z.string().min(1, "Program is required"), 
   // Contact / Account Info
   email: z.string().email("Invalid email address").optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
@@ -114,14 +108,13 @@ export const teacherSchema = z.object({
   username: z.string().optional(),
 });
 
-// Schema for adding a new admin
+// Schema for adding a new admin (now based on Faculty)
 export const adminUserSchema = z.object({
-  id: z.number().optional(),
-  username: z.string().min(1, "Username is required."),
+  id: z.number().optional(), // This will be the Faculty ID
+  username: z.string().min(1, "Username is required (auto-generated from Faculty)."),
   email: z.string().email("Valid email is required.").optional().or(z.literal('')),
   role: z.enum(adminRoleEnum, { required_error: "Admin role is required" }),
-  firstName: z.string().optional().or(z.literal('')),
-  lastName: z.string().optional().or(z.literal('')),
+  // First Name and Last Name are part of the Faculty record, not directly in admin form for adding.
 });
 
 
@@ -222,12 +215,12 @@ export const loginSchema = z.object({
   password: z.string().min(1, { message: "Password is required" }),
 });
 
-// Schema for creating/editing a Section
+// Schema for editing an existing Section (sectionCode/ID is not editable here)
 export const sectionSchema = z.object({
-    id: z.string().optional(), // Optional for creation, present for editing
+    id: z.string().optional(), // This is the sectionCode, and is the PK. Not directly edited.
     programId: z.string().min(1, "Program is required."),
     yearLevel: z.enum(yearLevelEnum, { required_error: "Year level is required." }),
-    sectionCode: z.string().optional().or(z.literal('')), // e.g., CS-1A, can be auto-generated
+    sectionCode: z.string().optional().or(z.literal('')), // For display in form, but derived from id
     adviserId: z.number().optional().nullable(),
 });
     

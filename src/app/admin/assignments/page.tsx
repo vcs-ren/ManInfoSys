@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, PlusCircle, Megaphone, BookOpen, Trash2, Loader2, Info, Edit, CalendarPlus, CalendarX, Settings2 } from "lucide-react";
+import { UserCheck, Megaphone, BookOpen, Trash2, Loader2, Edit, CalendarX, Settings2 } from "lucide-react"; // Removed PlusCircle, CalendarPlus
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
@@ -51,10 +51,10 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger, // Added AlertDialogTrigger
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments, logActivity } from "@/lib/api";
-import { generateSectionCode } from "@/lib/utils";
+// import { generateSectionCode } from "@/lib/utils"; // generateSectionCode is now handled by backend/mock API
 
 type AssignAdviserFormValues = z.infer<typeof assignAdviserSchema>;
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;
@@ -81,7 +81,7 @@ export default function ScheduleAnnouncementsPage() {
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
   const [isAnnounceModalOpen, setIsAnnounceModalOpen] = React.useState(false);
   const [isSectionModalOpen, setIsSectionModalOpen] = React.useState(false);
-  const [isEditSectionMode, setIsEditSectionMode] = React.useState(false);
+  // const [isEditSectionMode, setIsEditSectionMode] = React.useState(false); // Editing is the only mode for section modal now
   const [isManageSubjectsModalOpen, setIsManageSubjectsModalOpen] = React.useState(false);
 
   const [selectedSection, setSelectedSection] = React.useState<Section | null>(null);
@@ -107,12 +107,12 @@ export default function ScheduleAnnouncementsPage() {
     },
   });
 
-  const sectionForm = useForm<SectionFormValues>({
+  const sectionForm = useForm<SectionFormValues>({ // This form is now only for editing
     resolver: zodResolver(sectionSchema),
     defaultValues: {
         programId: "",
         yearLevel: "1st Year",
-        sectionCode: "", // Will be auto-generated or manually input
+        sectionCode: "", // This will be the ID, non-editable
     },
   });
 
@@ -130,7 +130,7 @@ export default function ScheduleAnnouncementsPage() {
           const [sectionsData, facultyData, subjectsData, announcementsData, programsData] = await Promise.all([
           fetchData<Section[]>('sections/read.php'),
           fetchData<Faculty[]>('teachers/read.php'),
-          fetchData<Subject[]>('courses/read.php'), // Use courses/read.php for subjects
+          fetchData<Subject[]>('courses/read.php'), 
           fetchData<Announcement[]>('announcements/read.php'),
           fetchData<ProgramType[]>('programs/read.php')
           ]);
@@ -187,16 +187,10 @@ export default function ScheduleAnnouncementsPage() {
     setIsAssignModalOpen(true);
   };
 
-  const handleOpenSectionModal = (section?: Section) => {
-      if (section) {
-          setSelectedSection(section);
-          setIsEditSectionMode(true);
-          sectionForm.reset(section);
-      } else {
-          setSelectedSection(null);
-          setIsEditSectionMode(false);
-          sectionForm.reset({ programId: "", yearLevel: "1st Year", sectionCode: "" });
-      }
+  const handleOpenEditSectionModal = (section: Section) => { // Renamed, only for editing
+      setSelectedSection(section);
+      // section.id IS the sectionCode
+      sectionForm.reset({ ...section, sectionCode: section.id }); 
       setIsSectionModalOpen(true);
   };
 
@@ -205,25 +199,26 @@ export default function ScheduleAnnouncementsPage() {
         setIsManageSubjectsModalOpen(true);
     };
 
-    const handleSaveSection = async (values: SectionFormValues) => {
+    const handleSaveSection = async (values: SectionFormValues) => { // This function now only handles editing
         setIsSubmitting(true);
+        if (!selectedSection) {
+            toast({ variant: "destructive", title: "Error", description: "No section selected for editing." });
+            setIsSubmitting(false);
+            return;
+        }
+
+        // Section code (ID) is not part of the editable form values here, it's from selectedSection.id
         let sectionPayload: Partial<Section> = {
-            ...values,
-            sectionCode: values.sectionCode || generateSectionCode(values.yearLevel, sections.filter(s => s.programId === values.programId && s.yearLevel === values.yearLevel).length)
+            programId: values.programId,
+            yearLevel: values.yearLevel,
+            // adviserId is handled by its own modal/endpoint
         };
 
         try {
-            if (isEditSectionMode && selectedSection) {
-                const updatedSection = await putData<Partial<Section>, Section>(`sections/update.php/${selectedSection.id}`, sectionPayload);
-                setSections(prev => prev.map(s => s.id === updatedSection.id ? { ...updatedSection, programName: programsList.find(p=>p.id === updatedSection.programId)?.name } : s));
-                toast({ title: "Section Updated", description: `Section ${updatedSection.sectionCode} updated successfully.` });
-                logActivity("Updated Section", `Section ${updatedSection.sectionCode} details modified.`, "Admin", updatedSection.id, "section");
-            } else {
-                const newSection = await postData<Partial<Section>, Section>('sections/create.php', sectionPayload);
-                setSections(prev => [...prev, { ...newSection, programName: programsList.find(p=>p.id === newSection.programId)?.name }]);
-                toast({ title: "Section Added", description: `Section ${newSection.sectionCode} added successfully.` });
-                logActivity("Added Section", `Section ${newSection.sectionCode} for program ${programsList.find(p=>p.id === newSection.programId)?.name} created.`, "Admin", newSection.id, "section");
-            }
+            const updatedSection = await putData<Partial<Section>, Section>(`sections/update.php/${selectedSection.id}`, sectionPayload);
+            setSections(prev => prev.map(s => s.id === updatedSection.id ? { ...updatedSection, programName: programsList.find(p=>p.id === updatedSection.programId)?.name } : s));
+            toast({ title: "Section Updated", description: `Section ${updatedSection.sectionCode} updated successfully.` });
+            logActivity("Updated Section", `Section ${updatedSection.sectionCode} details modified.`, "Admin", updatedSection.id, "section");
             setIsSectionModalOpen(false);
         } catch (error:any) {
             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save section." });
@@ -384,7 +379,7 @@ export default function ScheduleAnnouncementsPage() {
              <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleOpenSectionModal(row.original)}
+                onClick={() => handleOpenEditSectionModal(row.original)}
                 >
                 <Settings2 className="mr-2 h-4 w-4" /> Edit Section
             </Button>
@@ -523,9 +518,7 @@ export default function ScheduleAnnouncementsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Schedule &amp; Announcements</h1>
          <div className="flex gap-2">
-            <Button onClick={() => handleOpenSectionModal()}>
-                 <CalendarPlus className="mr-2 h-4 w-4" /> Add New Section
-            </Button>
+            {/* "Add New Section" button removed */}
             <Dialog open={isAnnounceModalOpen} onOpenChange={setIsAnnounceModalOpen}>
                 <DialogTrigger asChild>
                     <Button>
@@ -654,7 +647,7 @@ export default function ScheduleAnnouncementsPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Class Sections</CardTitle>
-                <CardDescription>Manage sections, assign advisers, and set course schedules.</CardDescription>
+                <CardDescription>Manage sections, assign advisers, and set course schedules. Sections are auto-generated based on student enrollment.</CardDescription>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
@@ -664,7 +657,7 @@ export default function ScheduleAnnouncementsPage() {
                 ) : sections.length > 0 ? (
                     <DataTable columns={sectionColumns} data={sections} searchColumnId="sectionCode" searchPlaceholder="Search by section code..." />
                 ) : (
-                    <p className="text-center text-muted-foreground py-4">No sections found. Click 'Add New Section' to begin.</p>
+                    <p className="text-center text-muted-foreground py-4">No sections found. Sections are generated when students are added.</p>
                 )}
             </CardContent>
         </Card>
@@ -751,17 +744,29 @@ export default function ScheduleAnnouncementsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add/Edit Section Modal */}
+      {/* Edit Section Modal */}
         <Dialog open={isSectionModalOpen} onOpenChange={setIsSectionModalOpen}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>{isEditSectionMode ? "Edit Section" : "Add New Section"}</DialogTitle>
+                    <DialogTitle>Edit Section: {selectedSection?.sectionCode}</DialogTitle>
                     <DialogDescription>
-                        {isEditSectionMode ? `Update details for ${selectedSection?.sectionCode}.` : "Enter new section details. Section code can be auto-generated or manually set."}
+                        Update program and year level for this section. Section code cannot be changed.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...sectionForm}>
                     <form onSubmit={sectionForm.handleSubmit(handleSaveSection)} className="space-y-4 py-4">
+                        <FormField
+                            control={sectionForm.control}
+                            name="sectionCode" // This is the ID, display only
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Section Code (ID)</FormLabel>
+                                    <FormControl>
+                                        <Input {...field} disabled readOnly className="bg-muted"/>
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
                         <FormField
                             control={sectionForm.control}
                             name="programId"
@@ -794,23 +799,10 @@ export default function ScheduleAnnouncementsPage() {
                                 </FormItem>
                             )}
                         />
-                         <FormField
-                            control={sectionForm.control}
-                            name="sectionCode"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Section Code (Optional)</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="e.g., CS-1A (auto if empty)" {...field} disabled={isSubmitting} />
-                                    </FormControl>
-                                     <FormMessage />
-                                </FormItem>
-                            )}
-                        />
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setIsSectionModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
                             <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (isEditSectionMode ? "Save Changes" : "Add Section")}
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -824,14 +816,14 @@ export default function ScheduleAnnouncementsPage() {
                 isOpen={isManageSubjectsModalOpen}
                 onOpenChange={setIsManageSubjectsModalOpen}
                 section={selectedSection}
-                subjects={subjects} // System-wide courses
+                subjects={subjects} 
                 teachers={faculty}
                 assignments={selectedSectionAssignments}
                 onAddAssignment={handleAddSubjectAssignment}
                 onDeleteAssignment={handleDeleteSubjectAssignment}
                 isLoadingAssignments={isLoadingAssignments}
-                isLoadingSubjects={isLoading} // Use the main isLoading for subjects
-                isLoadingTeachers={isLoading} // Use the main isLoading for faculty
+                isLoadingSubjects={isLoading} 
+                isLoadingTeachers={isLoading} 
             />
          )}
     </div>
