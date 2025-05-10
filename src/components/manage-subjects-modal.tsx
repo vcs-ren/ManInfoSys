@@ -28,7 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
-import type { Section, Subject, Faculty, SectionSubjectAssignment } from "@/types"; // Renamed Teacher to Faculty
+import type { Section, Subject, Faculty, SectionSubjectAssignment } from "@/types"; 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,13 +37,13 @@ interface ManageSubjectsModalProps {
   onOpenChange: (open: boolean) => void;
   section: Section;
   subjects: Subject[];
-  teachers: Faculty[]; // Use Faculty type
+  teachers: Faculty[]; // Expects already filtered teaching staff
   assignments: SectionSubjectAssignment[];
   onAddAssignment: (sectionId: string, subjectId: string, teacherId: number) => Promise<void> | void;
   onDeleteAssignment: (assignmentId: string) => Promise<void> | void;
   isLoadingAssignments: boolean;
   isLoadingSubjects: boolean;
-  isLoadingTeachers: boolean; // Renamed from isLoadingTeachers to isLoadingFaculty
+  isLoadingTeachers: boolean; 
 }
 
 export function ManageSubjectsModal({
@@ -51,29 +51,29 @@ export function ManageSubjectsModal({
   onOpenChange,
   section,
   subjects,
-  teachers: faculty, // Rename variable for clarity
+  teachers, // Already filtered teaching staff
   assignments,
   onAddAssignment,
   onDeleteAssignment,
   isLoadingAssignments,
   isLoadingSubjects,
-  isLoadingTeachers: isLoadingFaculty, // Rename variable
+  isLoadingTeachers, 
 }: ManageSubjectsModalProps) {
   const [selectedSubjectId, setSelectedSubjectId] = React.useState<string>("");
-  const [selectedTeacherId, setSelectedTeacherId] = React.useState<string>(""); // Keep as teacherId for backend compatibility
+  const [selectedTeacherId, setSelectedTeacherId] = React.useState<string>(""); 
   const [isSubmittingAdd, setIsSubmittingAdd] = React.useState(false);
   const [isDeletingId, setIsDeletingId] = React.useState<string | null>(null);
   const { toast } = useToast();
 
   const handleAddClick = async () => {
       if (!selectedSubjectId || !selectedTeacherId) {
-          toast({ variant: "warning", title: "Selection Required", description: "Please select both a course(subject) and a faculty member." }); // Updated message
+          toast({ variant: "warning", title: "Selection Required", description: "Please select both a course(subject) and a faculty member." }); 
           return;
       }
 
       const teacherIdNum = parseInt(selectedTeacherId, 10);
       if (isNaN(teacherIdNum)) {
-           toast({ variant: "destructive", title: "Error", description: "Invalid faculty selected." }); // Updated message
+           toast({ variant: "destructive", title: "Error", description: "Invalid faculty selected." }); 
            return;
       }
 
@@ -116,7 +116,7 @@ export function ManageSubjectsModal({
         <DialogHeader>
           <DialogTitle>Manage Courses(subjects) for {section.sectionCode}</DialogTitle>
           <DialogDescription>
-            Assign courses(subjects) and faculty members for the {section.programName} - {section.yearLevel} section. {/* Updated "teachers" to "faculty members" */}
+            Assign courses(subjects) and faculty members (Teaching Staff Only) for the {section.programName} - {section.yearLevel} section. 
           </DialogDescription>
         </DialogHeader>
 
@@ -144,22 +144,22 @@ export function ManageSubjectsModal({
 
           {/* Faculty Selection */}
           <div className="space-y-1">
-            <Label htmlFor="faculty-select">Faculty</Label> {/* Updated label */}
-            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId} disabled={isLoadingFaculty || isLoadingAssignments || isSubmittingAdd}> {/* Updated disabled prop */}
+            <Label htmlFor="faculty-select">Faculty (Teaching Staff Only)</Label> 
+            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId} disabled={isLoadingTeachers || isLoadingAssignments || isSubmittingAdd}> 
               <SelectTrigger id="faculty-select">
-                <SelectValue placeholder="Select Faculty..." /> {/* Updated placeholder */}
+                <SelectValue placeholder="Select Faculty..." /> 
               </SelectTrigger>
               <SelectContent>
-                 {isLoadingFaculty ? ( // Updated loading check
-                    <SelectItem value="loading" disabled>Loading faculty...</SelectItem> // Updated message
-                 ) : faculty.length > 0 ? ( // Use faculty variable
-                    faculty.map((facultyMember) => ( // Iterate over faculty
+                 {isLoadingTeachers ? ( 
+                    <SelectItem value="loading" disabled>Loading faculty...</SelectItem> 
+                 ) : teachers.length > 0 ? ( 
+                    teachers.map((facultyMember) => ( 
                         <SelectItem key={facultyMember.id} value={String(facultyMember.id)}>
-                            {facultyMember.firstName} {facultyMember.lastName} ({facultyMember.department}) {/* Display faculty details */}
+                            {facultyMember.firstName} {facultyMember.lastName}
                         </SelectItem>
                     ))
                 ) : (
-                     <SelectItem value="no-faculty" disabled>No faculty available</SelectItem> // Updated message
+                     <SelectItem value="no-faculty" disabled>No teaching staff available</SelectItem> 
                 )}
               </SelectContent>
             </Select>
@@ -184,7 +184,7 @@ export function ManageSubjectsModal({
                 <TableHeader>
                 <TableRow>
                     <TableHead>Course(subject)</TableHead>
-                    <TableHead>Assigned Faculty</TableHead> {/* Updated header */}
+                    <TableHead>Assigned Faculty</TableHead> 
                     <TableHead className="text-right">Action</TableHead>
                 </TableRow>
                 </TableHeader>
@@ -200,7 +200,7 @@ export function ManageSubjectsModal({
                     assignments.map((assign) => (
                     <TableRow key={assign.id}>
                         <TableCell className="font-medium">{assign.subjectName || assign.subjectId}</TableCell>
-                        <TableCell>{assign.teacherName || `Faculty ID: ${assign.teacherId}`}</TableCell> {/* Updated text */}
+                        <TableCell>{assign.teacherName || `Faculty ID: ${assign.teacherId}`}</TableCell> 
                         <TableCell className="text-right">
                         <Button
                             variant="ghost"
