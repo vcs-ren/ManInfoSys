@@ -1,8 +1,9 @@
+
 "use client";
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, Megaphone, BookOpen, Loader2, CalendarX, Settings2, Filter, Users, Briefcase, PlusCircle, Eye } from "lucide-react"; // Added Eye
+import { UserCheck, Megaphone, BookOpen, Loader2, Eye, Settings2, Filter, Users, Briefcase, PlusCircle, Trash2 } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -37,7 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { assignAdviserSchema, announcementSchema, assignCoursesToProgramSchema, sectionSchema } from "@/lib/schemas"; // Added assignCoursesToProgramSchema
+import { assignAdviserSchema, announcementSchema, assignCoursesToProgramSchema, sectionSchema } from "@/lib/schemas";
 import { format } from 'date-fns';
 import { z } from 'zod';
 import {
@@ -51,9 +52,9 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { fetchData, postData, deleteData, putData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, logActivity } from "@/lib/api"; // Added putData
+import { fetchData, postData, deleteData, putData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, logActivity } from "@/lib/api";
 import Link from "next/link";
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter } from 'next/navigation';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -88,13 +89,13 @@ export default function ScheduleAnnouncementsPage() {
 
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
   const [isAnnounceModalOpen, setIsAnnounceModalOpen] = React.useState(false);
-  const [isAssignProgramCoursesModalOpen, setIsAssignProgramCoursesModalOpen] = React.useState(false); // New state for assign courses modal
+  const [isAssignProgramCoursesModalOpen, setIsAssignProgramCoursesModalOpen] = React.useState(false);
 
   const [selectedSection, setSelectedSection] = React.useState<Section | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { toast } = useToast();
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
 
   const assignAdviserForm = useForm<AssignAdviserFormValues>({
     resolver: zodResolver(assignAdviserSchema),
@@ -119,7 +120,6 @@ export default function ScheduleAnnouncementsPage() {
     defaultValue: "All"
   });
 
-  // Form for assigning courses to program/year
   const assignProgramCoursesForm = useForm<AssignCoursesToProgramFormValues>({
     resolver: zodResolver(assignCoursesToProgramSchema),
     defaultValues: {
@@ -149,15 +149,15 @@ export default function ScheduleAnnouncementsPage() {
           setSubjects(mockCourses);
           setAnnouncements(mockAnnouncements);
           setProgramsList(mockApiPrograms);
-          setAllCourses(mockCourses); // Ensure allCourses is populated for the modal
+          setAllCourses(mockCourses);
       } else {
           const [sectionsData, facultyData, subjectsData, announcementsData, programsData, allCoursesData] = await Promise.all([
             fetchData<Section[]>('sections/read.php'),
             fetchData<Faculty[]>('teachers/read.php'),
-            fetchData<Course[]>('courses/read.php'), // This might be all system courses
+            fetchData<Course[]>('courses/read.php'),
             fetchData<Announcement[]>('announcements/read.php'),
             fetchData<ProgramType[]>('programs/read.php'),
-            fetchData<Course[]>('courses/read.php') // Fetch all courses for the new modal
+            fetchData<Course[]>('courses/read.php')
           ]);
           setSections(sectionsData || []);
           setFaculty(facultyData || []);
@@ -178,7 +178,6 @@ export default function ScheduleAnnouncementsPage() {
     loadData();
   }, [loadData]);
 
-  // Effect to update course checkboxes when program/year changes in assign courses modal
   React.useEffect(() => {
     if (watchedProgramIdForCourseAssignment && watchedYearLevelForCourseAssignment) {
       const selectedProgram = programsList.find(p => p.id === watchedProgramIdForCourseAssignment);
@@ -222,6 +221,7 @@ export default function ScheduleAnnouncementsPage() {
             )
         );
         toast({ title: "Adviser Assigned", description: `Adviser ${adviserIdToAssign ? 'assigned' : 'unassigned'} successfully ${adviserIdToAssign ? `(${updatedSectionData.adviserName}) to` : 'from'} ${selectedSection.sectionCode}.` });
+        logActivity("Assigned Adviser", `To section ${selectedSection.sectionCode}: ${updatedSectionData.adviserName || 'None'}`, "Admin");
         setIsAssignModalOpen(false);
     } catch (error: any) {
         console.error("Failed to assign adviser:", error);
@@ -238,7 +238,7 @@ export default function ScheduleAnnouncementsPage() {
       content: values.content,
       targetAudience: values.targetAudience,
       target: {
-        course: values.targetProgramId === 'all' ? null : values.targetProgramId,
+        program: values.targetProgramId === 'all' ? null : values.targetProgramId,
         yearLevel: values.targetYearLevel === 'all' ? null : values.targetYearLevel,
         section: values.targetSection === 'all' ? null : values.targetSection,
       }
@@ -248,6 +248,7 @@ export default function ScheduleAnnouncementsPage() {
         const newAnnouncement = await postData<typeof announcementPayload, Announcement>('announcements/create.php', announcementPayload);
         setAnnouncements(prev => [newAnnouncement, ...prev]);
         toast({ title: "Announcement Posted", description: "Announcement created successfully." });
+        logActivity("Created Announcement", values.title, "Admin");
         setIsAnnounceModalOpen(false);
         announcementForm.reset();
     } catch (error: any) {
@@ -261,9 +262,13 @@ export default function ScheduleAnnouncementsPage() {
   const handleDeleteAnnouncement = async (announcementId: string) => {
         setIsSubmitting(true);
         try {
+            const announcementToDelete = announcements.find(a => a.id === announcementId);
             await deleteData(`announcements/delete.php/${announcementId}`);
             setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
             toast({ title: "Deleted", description: "Announcement removed." });
+            if (announcementToDelete) {
+                logActivity("Deleted Announcement", announcementToDelete.title, "Admin");
+            }
         } catch (error: any) {
                 toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete announcement." });
         } finally {
@@ -293,8 +298,9 @@ export default function ScheduleAnnouncementsPage() {
     try {
       await putData<ProgramType, ProgramType>(`programs/update.php/${values.programId}`, updatedProgramData);
       toast({ title: "Courses Assigned", description: `Courses assigned to ${targetProgram.name} - ${values.yearLevel} successfully.` });
+      logActivity("Assigned Courses to Program", `${targetProgram.name} - ${values.yearLevel}`, "Admin");
       setIsAssignProgramCoursesModalOpen(false);
-      await loadData(); // Refresh programsList to reflect changes
+      await loadData();
     } catch (error: any) {
       console.error("Failed to assign courses:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign courses." });
@@ -392,7 +398,7 @@ export default function ScheduleAnnouncementsPage() {
             cell: ({ row }) => {
                  const target = row.original.target || {};
                  const audience = row.original.targetAudience || 'All';
-                 const { course: programId, yearLevel, section } = target;
+                 const { program: programId, yearLevel, section } = target;
                  const programName = programsList.find(p => p.id === programId)?.name;
 
                  let targetParts = [`Audience: ${audience}`];
@@ -409,7 +415,7 @@ export default function ScheduleAnnouncementsPage() {
              filterFn: (row, id, value) => {
                 const target = row.original.target || {};
                 const audience = row.original.targetAudience || 'All';
-                const programId = target.course;
+                const programId = target.program;
                 const yearLevel = target.yearLevel;
                 const section = target.section;
 
@@ -439,7 +445,7 @@ export default function ScheduleAnnouncementsPage() {
                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
                              disabled={isSubmitting}
                          >
-                             <CalendarX className="h-4 w-4" />
+                             <Trash2 className="h-4 w-4" />
                          </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -473,27 +479,24 @@ export default function ScheduleAnnouncementsPage() {
   const programFilterOptions = React.useMemo(() => programsList.map(p => ({ value: p.id, label: p.name })), [programsList]);
   const yearFilterOptions = React.useMemo(() => yearLevelOptions, []);
 
-  // Filter available courses for the "Assign Courses to Program/Year" modal
   const availableCoursesForAssignment = React.useMemo(() => {
     if (!watchedProgramIdForCourseAssignment || !watchedYearLevelForCourseAssignment) return [];
     const selectedProgramObject = programsList.find(p => p.id === watchedProgramIdForCourseAssignment);
     if (!selectedProgramObject) return [];
 
     return allCourses.filter(course => {
-      // Basic type filtering
       if (course.type === 'Major' && !(course.programId?.includes(selectedProgramObject.id))) {
           return false;
       }
 
-      // Check if the course is already assigned to a *different* year level in the *current* program
       for (const [year, assignedCoursesInYear] of Object.entries(selectedProgramObject.courses || {})) {
-        if (year as YearLevel !== watchedYearLevelForCourseAssignment) { // Don't check against the year level currently being edited
+        if (year as YearLevel !== watchedYearLevelForCourseAssignment) {
           if (assignedCoursesInYear.some(assignedCourse => assignedCourse.id === course.id)) {
-            return false; // Course found in another year level of this program, exclude it
+            return false;
           }
         }
       }
-      return true; // Course is available for assignment to the current year level
+      return true;
     });
   }, [watchedProgramIdForCourseAssignment, watchedYearLevelForCourseAssignment, allCourses, programsList]);
 
@@ -510,9 +513,14 @@ export default function ScheduleAnnouncementsPage() {
                         Manage sections and assign advisers. Courses are automatically assigned based on the program's curriculum.
                     </CardDescription>
                 </div>
-                <Button onClick={() => setIsAssignProgramCoursesModalOpen(true)} variant="outline">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Assign Courses to Program/Year
-                </Button>
+                 <div className="flex gap-2">
+                    <Button onClick={() => { alert("Open modal to assign course/teacher to a specific section - TBD"); }} variant="outline">
+                         <PlusCircle className="mr-2 h-4 w-4" /> Assign Course/Teacher to Section
+                    </Button>
+                    <Button onClick={() => setIsAssignProgramCoursesModalOpen(true)} variant="outline">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Assign Courses to Program/Year
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 {isLoading ? (

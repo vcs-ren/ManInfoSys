@@ -8,7 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
 import { Loader2, ArrowLeft, Users, CalendarClock, BookOpen, Edit2, Trash2, PlusCircle } from "lucide-react";
 import type { Section, Student, Course, SectionSubjectAssignment, ScheduleEntry, Faculty } from "@/types";
-import { fetchData, postData, deleteData, USE_MOCK_API, mockSections, mockStudents, mockCourses, mockSectionAssignments, mockFaculty, mockApiPrograms } from "@/lib/api";
+import { fetchData, postData, deleteData, USE_MOCK_API, mockSections, mockStudents, mockCourses, mockSectionAssignments, mockFaculty, mockApiPrograms, logActivity } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { format, addHours, setHours, setMinutes, setSeconds, nextMonday, isMonday, previousMonday } from 'date-fns';
 import {
@@ -18,7 +18,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
     AlertDialog,
@@ -29,7 +28,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger, // Added import
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
     Form,
@@ -50,7 +49,7 @@ import { assignSubjectSchema } from "@/lib/schemas";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useForm } from "react-hook-form"; // Added import for useForm
+import { useForm } from "react-hook-form";
 
 type AssignSubjectFormValues = z.infer<typeof assignSubjectSchema>;
 
@@ -202,15 +201,25 @@ export default function SectionDetailsPage() {
     try {
         if (selectedAssignmentToEdit) { // This implies update, but backend create might handle upsert or we need separate PUT
             // For mock, we'll treat it as a new assignment if ID changes, or update teacher if ID is same
-            const existing = mockSectionAssignments.find(a => a.id === `${section.id}-${values.subjectId}`);
-            if (existing && existing.id !== selectedAssignmentToEdit.id) {
-                 throw new Error("This course is already assigned. Edit that assignment instead.");
+            if (USE_MOCK_API) {
+                const existing = mockSectionAssignments.find(a => a.sectionId === section.id && a.subjectId === values.subjectId);
+                 if (existing && existing.id !== selectedAssignmentToEdit.id) {
+                     throw new Error("This course is already assigned. Edit that assignment instead.");
+                }
+                await postData<typeof payload, SectionSubjectAssignment>(`sections/assignments/create.php`, payload); // Mock create handles this
+            } else {
+                // Real API logic for update would go here, likely a PUT to sections/assignments/update.php/{assignmentId}
+                // For now, we'll assume the create.php can handle updates by composite key or a similar logic.
+                // This part might need adjustment based on backend capabilities for updating assignments.
+                 await postData<typeof payload, SectionSubjectAssignment>(`sections/assignments/create.php`, payload); // Re-using create for simplicity
             }
-             await postData<typeof payload, SectionSubjectAssignment>(`sections/assignments/create.php`, payload); // Mock create handles this
             toast({ title: "Course Assignment Updated", description: "Teacher assignment updated." });
+            logActivity("Updated Section Assignment", `Teacher for ${values.subjectId} in section ${section.id}`, "Admin");
+
         } else {
             await postData<typeof payload, SectionSubjectAssignment>(`sections/assignments/create.php`, payload);
             toast({ title: "Course Assigned", description: "Course and teacher assigned to section." });
+            logActivity("Assigned Course to Section", `${values.subjectId} to section ${section.id}`, "Admin");
         }
         setIsAssignSubjectModalOpen(false);
         await loadSectionData(); // Refresh data
@@ -226,8 +235,12 @@ export default function SectionDetailsPage() {
     if (!section) return;
     setIsSubmitting(true);
     try {
-        await deleteData(`assignments/delete.php/${assignmentId}`);
+        await deleteData(`assignments/delete.php/${assignmentId}`); // Assuming this is the correct endpoint for deleting assignments
         toast({ title: "Course Unassigned", description: "Course removed from this section."});
+        const deletedAssignment = assignedSubjects.find(a => a.id === assignmentId);
+        if (deletedAssignment) {
+            logActivity("Unassigned Course from Section", `${deletedAssignment.subjectName} from section ${section.id}`, "Admin");
+        }
         await loadSectionData(); // Refresh data
     } catch (error: any) {
         console.error("Failed to unassign subject:", error);
@@ -311,7 +324,9 @@ export default function SectionDetailsPage() {
     // Course must be minor OR a major for this section's program
     const isProgramMatch = course.type === 'Major' ? course.programId?.includes(section.programId) : true;
     // Course must be for this section's year level (if yearLevel is defined on course)
-    const isYearMatch = course.yearLevel ? course.yearLevel === section.yearLevel : true;
+    const program = mockApiPrograms.find(p => p.id === section.programId);
+    const isYearMatch = program ? program.courses[section.yearLevel]?.some(c => c.id === course.id) : false;
+
     // Course should not be already assigned (unless editing the current one)
     const isAlreadyAssigned = assignedSubjects.some(as => as.subjectId === course.id && (!selectedAssignmentToEdit || selectedAssignmentToEdit.subjectId !== course.id));
     return isProgramMatch && isYearMatch && !isAlreadyAssigned;
@@ -334,17 +349,15 @@ export default function SectionDetailsPage() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex items-center"><BookOpen className="mr-2 h-5 w-5 text-primary" /> Assigned Courses & Teachers</CardTitle>
-             <Button onClick={() => handleOpenAssignSubjectModal()} size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" /> Assign Course/Teacher
-            </Button>
+            {/* "Assign Course/Teacher" button removed from here */}
           </div>
-          <CardDescription>Manage subjects and assigned teachers for this section.</CardDescription>
+          <CardDescription>Manage subjects and assigned teachers for this section. Courses are automatically populated based on the program curriculum for this year level.</CardDescription>
         </CardHeader>
         <CardContent>
           {assignedSubjects.length > 0 ? (
             <DataTable columns={subjectAssignmentColumns} data={assignedSubjects} />
           ) : (
-            <p className="text-muted-foreground">No courses assigned to this section yet.</p>
+            <p className="text-muted-foreground">No courses assigned to this section yet. Ensure courses are set for {programName} - {section.yearLevel} in "Programs & Courses".</p>
           )}
         </CardContent>
       </Card>
@@ -392,9 +405,9 @@ export default function SectionDetailsPage() {
        <Dialog open={isAssignSubjectModalOpen} onOpenChange={setIsAssignSubjectModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedAssignmentToEdit ? 'Edit Teacher Assignment' : 'Assign Course to Section'}</DialogTitle>
+            <DialogTitle>{selectedAssignmentToEdit ? 'Edit Teacher Assignment' : 'Assign Teacher to Course'}</DialogTitle>
             <DialogDescription>
-              {selectedAssignmentToEdit ? `Update teacher for ${selectedAssignmentToEdit.subjectName} in section ${section.sectionCode}.` : `Assign a new course and teacher to section ${section.sectionCode}.`}
+              {selectedAssignmentToEdit ? `Update teacher for ${selectedAssignmentToEdit.subjectName} in section ${section.sectionCode}.` : `Assign a teacher to an auto-assigned course in section ${section.sectionCode}.`}
             </DialogDescription>
           </DialogHeader>
           <Form {...assignSubjectForm}>
@@ -408,7 +421,10 @@ export default function SectionDetailsPage() {
                     <Select onValueChange={field.onChange} value={field.value} disabled={isLoading || isSubmitting || !!selectedAssignmentToEdit}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select a course" /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {availableCoursesForSection.map(course => (
+                        {/* Populate with courses already assigned to the section's program and year level */}
+                        {mockApiPrograms.find(p => p.id === section.programId)?.courses[section.yearLevel]
+                          ?.filter(course => !assignedSubjects.some(as => as.subjectId === course.id && (!selectedAssignmentToEdit || selectedAssignmentToEdit.subjectId !== course.id)))
+                          .map(course => (
                           <SelectItem key={course.id} value={course.id}>{course.name} ({course.type})</SelectItem>
                         ))}
                         {selectedAssignmentToEdit && <SelectItem value={selectedAssignmentToEdit.subjectId}>{selectedAssignmentToEdit.subjectName}</SelectItem> }
@@ -440,7 +456,7 @@ export default function SectionDetailsPage() {
                 <Button type="button" variant="outline" onClick={() => setIsAssignSubjectModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {selectedAssignmentToEdit ? 'Save Changes' : 'Assign Course'}
+                    {selectedAssignmentToEdit ? 'Save Changes' : 'Assign Teacher'}
                 </Button>
               </DialogFooter>
             </form>
