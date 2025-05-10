@@ -8,21 +8,21 @@ class Student {
 
     // Student properties
     public $id;
-    public $studentId; // e.g., 101XXXX (base + 4 random digits)
-    public $username; // e.g., s101XXXX
+    public $studentId; // e.g., 100XXXX (base 100 + 4 random digits)
+    public $username; // e.g., s100XXXX
     public $firstName;
     public $lastName;
-    public $middleName; 
-    public $suffix; 
-    public $gender; 
+    public $middleName;
+    public $suffix;
+    public $gender;
     public $birthday; // (expect YYYY-MM-DD)
-    public $course; 
+    public $course;
     public $status;
     public $year;
     public $section;
     public $email;
     public $phone;
-    public $passwordHash; 
+    public $passwordHash;
     public $emergencyContactName;
     public $emergencyContactRelationship;
     public $emergencyContactPhone;
@@ -45,7 +45,7 @@ class Student {
                     suffix,
                     gender,
                     birthday,
-                    course, 
+                    course,
                     status,
                     year,
                     section,
@@ -58,7 +58,7 @@ class Student {
                   FROM
                     " . $this->table . "
                   ORDER BY
-                    lastName ASC, firstName ASC"; 
+                    lastName ASC, firstName ASC";
 
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
@@ -67,11 +67,9 @@ class Student {
 
     // Create student
     public function create() {
-        // Generate student ID (base + 4 random digits) and username ('s' + full_student_id)
-        $nextDbId = $this->getNextAutoIncrement();
-        // $this->studentId is now the full ID string "baseXXXX"
-        $this->studentId = $this->generateStudentId($nextDbId); 
-        $this->username = $this->generateStudentUsername($this->studentId); 
+        // Generate student ID (base 100 + 4 random digits) and username ('s' + full_student_id)
+        $this->studentId = $this->generateStudentId();
+        $this->username = $this->generateStudentUsername($this->studentId);
         $this->section = $this->generateSection($this->year);
         $this->passwordHash = $this->generateDefaultPassword($this->lastName);
 
@@ -86,7 +84,7 @@ class Student {
                         suffix = :suffix,
                         gender = :gender,
                         birthday = :birthday,
-                        course = :course, 
+                        course = :course,
                         status = :status,
                         year = :year,
                         section = :section,
@@ -108,7 +106,7 @@ class Student {
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
         $this->gender = !empty($this->gender) ? htmlspecialchars(strip_tags($this->gender)) : null;
         $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
-        $this->course = htmlspecialchars(strip_tags($this->course)); 
+        $this->course = htmlspecialchars(strip_tags($this->course));
         $this->status = htmlspecialchars(strip_tags($this->status));
         $this->year = htmlspecialchars(strip_tags($this->year));
         $this->section = htmlspecialchars(strip_tags($this->section));
@@ -128,7 +126,7 @@ class Student {
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':gender', $this->gender, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
-        $stmt->bindParam(':course', $this->course); 
+        $stmt->bindParam(':course', $this->course);
         $stmt->bindParam(':status', $this->status);
         $stmt->bindParam(':year', $this->year);
         $stmt->bindParam(':section', $this->section);
@@ -143,7 +141,7 @@ class Student {
 
         // Execute query
         if ($stmt->execute()) {
-             $this->id = $this->conn->lastInsertId(); 
+             $this->id = $this->conn->lastInsertId();
              return $this->readOne();
         }
         error_log("Student Create Error: " . implode(" | ", $stmt->errorInfo()));
@@ -167,7 +165,7 @@ class Student {
                         emergency_contact_address = :emergencyContactAddress
                     WHERE
                         id = :id";
-        
+
         $stmt = $this->conn->prepare($query);
 
         $this->firstName = htmlspecialchars(strip_tags($this->firstName));
@@ -200,7 +198,7 @@ class Student {
         $stmt->bindParam(':emergencyContactAddress', $this->emergencyContactAddress, PDO::PARAM_STR | PDO::PARAM_NULL);
 
         if ($stmt->execute()) {
-             return $this->readOne(); 
+             return $this->readOne();
         }
         error_log("Student Update Error: " . implode(" | ", $stmt->errorInfo()));
         return false;
@@ -215,7 +213,7 @@ class Student {
                         suffix = :suffix,
                         gender = :gender,
                         birthday = :birthday,
-                        course = :course, 
+                        course = :course,
                         status = :status,
                         year = :year,
                         email = :email,
@@ -235,7 +233,7 @@ class Student {
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
         $this->gender = !empty($this->gender) ? htmlspecialchars(strip_tags($this->gender)) : null;
         $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
-        $this->course = htmlspecialchars(strip_tags($this->course)); 
+        $this->course = htmlspecialchars(strip_tags($this->course));
         $this->status = htmlspecialchars(strip_tags($this->status));
         $this->year = htmlspecialchars(strip_tags($this->year));
         $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
@@ -252,7 +250,7 @@ class Student {
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':gender', $this->gender, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
-        $stmt->bindParam(':course', $this->course); 
+        $stmt->bindParam(':course', $this->course);
         $stmt->bindParam(':status', $this->status);
         $stmt->bindParam(':year', $this->year);
         $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -265,7 +263,7 @@ class Student {
 
 
         if ($stmt->execute()) {
-             return $this->readOne(); 
+             return $this->readOne();
         }
         error_log("Student Admin Update Error: " . implode(" | ", $stmt->errorInfo()));
         return false;
@@ -277,7 +275,7 @@ class Student {
         $this->id = htmlspecialchars(strip_tags($this->id));
         $stmt->bindParam(':id', $this->id);
         if ($stmt->execute()) {
-             return $stmt->rowCount() > 0; 
+             return $stmt->rowCount() > 0;
         }
          error_log("Student Delete Error: " . implode(" | ", $stmt->errorInfo()));
         return false;
@@ -287,7 +285,7 @@ class Student {
         $query = "SELECT
                     id, student_id as studentId, username,
                     first_name as firstName, last_name as lastName, middle_name as middleName, suffix, gender, birthday,
-                    course, status, year, section, email, phone, 
+                    course, status, year, section, email, phone,
                     emergency_contact_name as emergencyContactName,
                     emergency_contact_relationship as emergencyContactRelationship,
                     emergency_contact_phone as emergencyContactPhone,
@@ -309,7 +307,7 @@ class Student {
             $this->suffix = $row['suffix'];
             $this->gender = $row['gender'];
             $this->birthday = $row['birthday'];
-            $this->course = $row['course']; 
+            $this->course = $row['course'];
             $this->status = $row['status'];
             $this->year = $row['year'];
             $this->section = $row['section'];
@@ -321,15 +319,15 @@ class Student {
             $this->emergencyContactAddress = $row['emergencyContactAddress'];
              return [
                  "id" => (int)$this->id,
-                 "studentId" => $this->studentId, 
-                 "username" => $this->username, 
+                 "studentId" => $this->studentId,
+                 "username" => $this->username,
                  "firstName" => $this->firstName,
                  "lastName" => $this->lastName,
                  "middleName" => $this->middleName,
                  "suffix" => $this->suffix,
                  "gender" => $this->gender,
                  "birthday" => $this->birthday,
-                 "course" => $this->course, 
+                 "course" => $this->course,
                  "status" => $this->status,
                  "year" => $this->year,
                  "section" => $this->section,
@@ -345,53 +343,25 @@ class Student {
     }
 
 
-    private function getNextAutoIncrement() {
-        try {
-            $query = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = :dbName AND TABLE_NAME = :tableName";
-            $stmt = $this->conn->prepare($query);
-            $dbName = 'campus_connect_db'; 
-            $stmt->bindParam(':dbName', $dbName);
-            $stmt->bindParam(':tableName', $this->table);
-            $stmt->execute();
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $nextId = ($row && $row['AUTO_INCREMENT']) ? $row['AUTO_INCREMENT'] : 1; 
-
-            if (!$nextId || $nextId <= 0) {
-                $maxIdQuery = "SELECT MAX(id) as last_id FROM " . $this->table;
-                $maxStmt = $this->conn->prepare($maxIdQuery);
-                $maxStmt->execute();
-                $maxRow = $maxStmt->fetch(PDO::FETCH_ASSOC);
-                $nextId = ($maxRow && $maxRow['last_id']) ? $maxRow['last_id'] + 1 : 1;
-            }
-             return (int)$nextId;
-        } catch (PDOException $e) {
-             error_log("Error getting next auto increment: " . $e->getMessage());
-             $maxIdQuery = "SELECT MAX(id) as last_id FROM " . $this->table;
-             $maxStmt = $this->conn->prepare($maxIdQuery);
-             $maxStmt->execute();
-             $maxRow = $maxStmt->fetch(PDO::FETCH_ASSOC);
-             return ($maxRow && $maxRow['last_id']) ? (int)$maxRow['last_id'] + 1 : 1;
-        }
-    }
-
     private function generateFourRandomDigits(): string {
         return sprintf('%04d', mt_rand(0, 9999));
     }
 
-    private function generateStudentId(int $dbId): string {
-         $baseId = (string)(100 + $dbId);
+    // Generates student ID: base "100" + 4 random digits
+    private function generateStudentId(): string {
+         $baseId = "100";
          return $baseId . $this->generateFourRandomDigits();
     }
 
     private function generateStudentUsername(string $studentId): string {
-         return 's' . $studentId; // studentId is now the full ID like "101XXXX"
+         return 's' . $studentId; // studentId is now the full ID like "100XXXX"
     }
 
      private function generateSection($year) {
          $yearPrefixMap = [
             "1st Year" => "10", "2nd Year" => "20", "3rd Year" => "30", "4th Year" => "40",
          ];
-         $prefix = $yearPrefixMap[$year] ?? "10"; 
+         $prefix = $yearPrefixMap[$year] ?? "10";
 
           try {
              $query = "SELECT COUNT(*) as count FROM " . $this->table . " WHERE year = :year";
@@ -400,7 +370,7 @@ class Student {
              $stmt->execute();
              $row = $stmt->fetch(PDO::FETCH_ASSOC);
              $count = $row ? (int)$row['count'] : 0;
-             $sectionLetter = chr(65 + ($count % 4)); 
+             $sectionLetter = chr(65 + ($count % 4));
              return $prefix . $sectionLetter;
          } catch (PDOException $e) {
              error_log("Error generating section: " . $e->getMessage());
@@ -412,10 +382,10 @@ class Student {
 
      private function generateDefaultPassword($lastName) {
          if (empty($lastName) || strlen($lastName) < 2) {
-             $lastName = "user"; 
+             $lastName = "user";
          }
          $defaultPassword = strtolower(substr($lastName, 0, 2)) . '1000';
-         return password_hash($defaultPassword, PASSWORD_DEFAULT); 
+         return password_hash($defaultPassword, PASSWORD_DEFAULT);
     }
 
     public function resetPassword($userId, $lastName) {
@@ -427,7 +397,7 @@ class Student {
          $stmt->bindParam(':userId', $userId);
 
          if ($stmt->execute()) {
-             return $stmt->rowCount() > 0; 
+             return $stmt->rowCount() > 0;
          }
           error_log("Student Reset Password Error: " . implode(" | ", $stmt->errorInfo()));
          return false;
@@ -441,7 +411,7 @@ class Student {
         $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$student || !password_verify($currentPassword, $student['password_hash'])) {
-             throw new Exception("Incorrect current password."); 
+             throw new Exception("Incorrect current password.");
         }
 
         $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
@@ -455,7 +425,7 @@ class Student {
              return $updateStmt->rowCount() > 0;
         } else {
              error_log("Failed to update password for student ID: " . $studentId . " Error: " . implode(" | ", $updateStmt->errorInfo()));
-             throw new Exception("Failed to update password."); 
+             throw new Exception("Failed to update password.");
         }
     }
 

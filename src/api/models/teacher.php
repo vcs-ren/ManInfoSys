@@ -7,18 +7,18 @@ class Teacher {
 
     // Teacher properties
     public $id;
-    public $teacherId; // e.g., 1001YYYY (base + 4 random digits)
-    public $username; // e.g., t1001YYYY or a1002ZZZZ
+    public $teacherId; // e.g., 1000YYYY (base 1000 + 4 random digits)
+    public $username; // e.g., t1000YYYY or a1000ZZZZ
     public $firstName;
     public $lastName;
-    public $middleName; 
-    public $suffix; 
-    public $address; 
+    public $middleName;
+    public $suffix;
+    public $address;
     public $department;
     public $email;
     public $phone;
     public $birthday; // (expect YYYY-MM-DD)
-    public $passwordHash; 
+    public $passwordHash;
     public $emergencyContactName;
     public $emergencyContactRelationship;
     public $emergencyContactPhone;
@@ -60,9 +60,7 @@ class Teacher {
     }
 
     public function create() {
-        $nextDbId = $this->getNextAutoIncrement();
-        // $this->teacherId is now the full ID string "baseYYYY"
-        $this->teacherId = $this->generateTeacherId($nextDbId); 
+        $this->teacherId = $this->generateTeacherId();
         $this->username = $this->generateUsername($this->teacherId, $this->department);
         $this->passwordHash = $this->generateDefaultPassword($this->lastName);
 
@@ -92,7 +90,7 @@ class Teacher {
         $this->lastName = htmlspecialchars(strip_tags($this->lastName));
         $this->middleName = !empty($this->middleName) ? htmlspecialchars(strip_tags($this->middleName)) : null;
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
-        $this->address = !empty($this->address) ? htmlspecialchars(strip_tags($this->address)) : null; 
+        $this->address = !empty($this->address) ? htmlspecialchars(strip_tags($this->address)) : null;
         $this->department = htmlspecialchars(strip_tags($this->department));
         $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
         $this->phone = !empty($this->phone) ? htmlspecialchars(strip_tags($this->phone)) : null;
@@ -110,7 +108,7 @@ class Teacher {
         $stmt->bindParam(':lastName', $this->lastName);
         $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
-        $stmt->bindParam(':address', $this->address, PDO::PARAM_STR | PDO::PARAM_NULL); 
+        $stmt->bindParam(':address', $this->address, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':department', $this->department);
         $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':phone', $this->phone, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -125,7 +123,7 @@ class Teacher {
 
         if ($stmt->execute()) {
             $this->id = $this->conn->lastInsertId();
-             return $this->readOne(); 
+             return $this->readOne();
         }
         error_log("Teacher Create Error: " . implode(" | ", $stmt->errorInfo()));
         return false;
@@ -314,53 +312,24 @@ class Teacher {
         return null;
     }
 
-
-    private function getNextAutoIncrement() {
-        try {
-            $query = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = :dbName AND TABLE_NAME = :tableName";
-            $stmt = $this->conn->prepare($query);
-            $dbName = 'campus_connect_db'; 
-            $stmt->bindParam(':dbName', $dbName);
-            $stmt->bindParam(':tableName', $this->table);
-            $stmt->execute();
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $nextId = ($row && $row['AUTO_INCREMENT']) ? $row['AUTO_INCREMENT'] : 1;
-
-            if ($nextId <= 0) { // Ensure it's positive
-                $maxIdQuery = "SELECT MAX(id) as last_id FROM " . $this->table;
-                $maxStmt = $this->conn->prepare($maxIdQuery);
-                $maxStmt->execute();
-                $maxRow = $maxStmt->fetch(PDO::FETCH_ASSOC);
-                $nextId = ($maxRow && $maxRow['last_id']) ? (int)$maxRow['last_id'] + 1 : 1;
-            }
-            return (int)$nextId;
-        } catch (PDOException $e) {
-            error_log("Error getting next auto increment for teachers: " . $e->getMessage());
-            $maxIdQuery = "SELECT MAX(id) as last_id FROM " . $this->table;
-            $maxStmt = $this->conn->prepare($maxIdQuery);
-            $maxStmt->execute();
-            $maxRow = $maxStmt->fetch(PDO::FETCH_ASSOC);
-            return ($maxRow && $maxRow['last_id']) ? (int)$maxRow['last_id'] + 1 : 1;
-        }
-    }
-
     private function generateFourRandomDigits(): string {
         return sprintf('%04d', mt_rand(0, 9999));
     }
-    
-    private function generateTeacherId(int $dbId): string {
-        $baseId = (string)(1000 + $dbId);
+
+    // Generates faculty ID: base "1000" + 4 random digits
+    private function generateTeacherId(): string {
+        $baseId = "1000";
         return $baseId . $this->generateFourRandomDigits();
     }
-    
+
     private function generateUsername(string $teacherId, string $department): string {
         $prefix = (strtolower($department) === 'teaching') ? 't' : 'a';
-        return $prefix . $teacherId; // teacherId is now the full ID like "1001YYYY"
+        return $prefix . $teacherId; // teacherId is now the full ID like "1000YYYY"
     }
 
     private function generateDefaultPassword($lastName) {
         if (empty($lastName) || strlen($lastName) < 2) {
-             $lastName = "user"; 
+             $lastName = "user";
         }
         $defaultPassword = strtolower(substr($lastName, 0, 2)) . '1000';
         return password_hash($defaultPassword, PASSWORD_DEFAULT);
@@ -375,7 +344,7 @@ class Teacher {
          $stmt->bindParam(':userId', $userId);
 
          if ($stmt->execute()) {
-             return $stmt->rowCount() > 0; 
+             return $stmt->rowCount() > 0;
          }
          error_log("Teacher Reset Password Error: " . implode(" | ", $stmt->errorInfo()));
          return false;
@@ -389,7 +358,7 @@ class Teacher {
         $teacher = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$teacher || !password_verify($currentPassword, $teacher['password_hash'])) {
-            throw new Exception("Incorrect current password."); 
+            throw new Exception("Incorrect current password.");
         }
 
         $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
@@ -403,7 +372,7 @@ class Teacher {
              return $updateStmt->rowCount() > 0;
         } else {
             error_log("Failed to update password for teacher ID: " . $teacherId . " Error: " . implode(" | ", $updateStmt->errorInfo()));
-            throw new Exception("Failed to update password."); 
+            throw new Exception("Failed to update password.");
         }
     }
 }
