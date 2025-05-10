@@ -1,13 +1,14 @@
+
 "use client";
 
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
-import { Loader2, ArrowLeft, Users, CalendarClock, BookOpen, Edit2, Trash2 } from "lucide-react";
+import { Loader2, ArrowLeft, Users, CalendarClock, BookOpen, Edit2, Trash2, PlusCircle } from "lucide-react";
 import type { Section, Student, Course, SectionSubjectAssignment, ScheduleEntry, Faculty } from "@/types";
-import { fetchData, postData, deleteData, USE_MOCK_API, mockSections, mockStudents, mockCourses, mockSectionAssignments, mockFaculty } from "@/lib/api";
+import { fetchData, postData, deleteData, USE_MOCK_API, mockSections, mockStudents, mockCourses, mockSectionAssignments, mockFaculty, mockApiPrograms } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { format, addHours, setHours, setMinutes, setSeconds, nextMonday, isMonday, previousMonday } from 'date-fns';
 import {
@@ -19,6 +20,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
     Form,
     FormControl,
@@ -38,6 +49,7 @@ import { assignSubjectSchema } from "@/lib/schemas";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ColumnDef } from "@tanstack/react-table";
+import { useForm } from "react-hook-form"; // Added import for useForm
 
 type AssignSubjectFormValues = z.infer<typeof assignSubjectSchema>;
 
