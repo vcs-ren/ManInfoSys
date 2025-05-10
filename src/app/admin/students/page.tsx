@@ -20,6 +20,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger, // Added missing import
 } from "@/components/ui/alert-dialog";
 import {
     DropdownMenu,
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms } from "@/lib/api"; // Import API helpers, mockApiPrograms
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockStudents } from "@/lib/api"; // Import API helpers, mockApiPrograms
 
 // Updated status options (removed 'Continuing')
 const statusOptions: { value: StudentStatus; label: string }[] = [
@@ -65,7 +66,7 @@ const getStudentFormFields = (programs: Program[]): FormFieldConfig<Student>[] =
     { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
     // Enrollment Info (Order: Status, Year, Program)
     { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'enrollment' },
-    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false },
+    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false }, // Required only if status is Transferee or Returnee
     { name: "course", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' }, // Use dynamic program options
     // Contact / Account Details
     { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
@@ -112,10 +113,7 @@ export default function ManageStudentsPage() {
       try {
         if (USE_MOCK_API) {
           await new Promise(resolve => setTimeout(resolve, 300));
-          setStudents([
-            { id: 1, studentId: "101", username: "s101", firstName: "Alice", lastName: "Smith", course: "CS", status: "Returnee", year: "2nd Year", section: "CS-2A", email: "alice@example.com", phone: "123-456-7890", emergencyContactName: "John Smith", emergencyContactRelationship: "Father", emergencyContactPhone: "111-222-3333", emergencyContactAddress: "123 Main St", lastAccessed: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-            { id: 2, studentId: "102", username: "s102", firstName: "Bob", lastName: "Johnson", course: "IT", status: "New", year: "1st Year", section: "IT-1B", email: "bob@example.com", phone: "987-654-3210", lastAccessed: null },
-          ]);
+          setStudents(mockStudents);
           setPrograms(mockApiPrograms);
         } else {
           const [studentsData, programsData] = await Promise.all([
@@ -136,12 +134,14 @@ export default function ManageStudentsPage() {
   }, [toast]);
 
   const handleSaveStudent = async (values: Student) => {
-    const year = values.status === 'New' ? '1st Year' : values.year;
-
-    if (['Transferee', 'Returnee'].includes(values.status) && !year) {
+    let year = values.year;
+    if (values.status === 'New') {
+      year = '1st Year';
+    } else if (['Transferee', 'Returnee'].includes(values.status) && !year) {
         toast({ variant: "destructive", title: "Validation Error", description: "Year level is required for this status." });
         throw new Error("Year level missing");
     }
+
 
     if (!isEditMode) {
         const nameExists = students.some(
@@ -156,7 +156,7 @@ export default function ManageStudentsPage() {
 
     const payload = {
       ...values,
-      year: year,
+      year: year, // Use the determined year
       id: isEditMode ? selectedStudent?.id : undefined,
     };
 
@@ -359,7 +359,7 @@ export default function ManageStudentsPage() {
             accessorKey: "phone",
             header: "Phone",
             cell: ({ row }) => <div>{row.getValue("phone") || '-'}</div>,
-            enableHiding: true,
+             enableHiding: true,
         },
          {
             accessorKey: "emergencyContactName",
@@ -526,3 +526,4 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
+

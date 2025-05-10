@@ -22,7 +22,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
+    AlertDialogTrigger, // Added missing import
 } from "@/components/ui/alert-dialog";
 import {
     DropdownMenu,
@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu"; // Import DropdownMenu components
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockFaculty } from "@/lib/api"; // Import API helpers
 
 // Updated department options using DepartmentType
 const departmentOptions: { value: DepartmentType; label: string }[] = [
@@ -109,9 +109,13 @@ export default function ManageFacultyPage() { // Renamed component
     const fetchFaculty = async () => { // Renamed function
       setIsLoading(true);
        try {
-        // Use fetchData with the correct endpoint (still /teachers/read.php)
-        const data = await fetchData<Faculty[]>('teachers/read.php');
-        setFaculty(data || []); // Update state with fetched data
+        if (USE_MOCK_API) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            setFaculty(mockFaculty);
+        } else {
+            const data = await fetchData<Faculty[]>('teachers/read.php');
+            setFaculty(data || []);
+        }
       } catch (error: any) {
         console.error("Failed to fetch faculty:", error); // Updated log message
         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load faculty data." }); // Updated toast message
@@ -140,12 +144,10 @@ export default function ManageFacultyPage() { // Renamed component
      try {
          let savedFaculty: Faculty; // Renamed variable
          if (isEditMode && payload.id) {
-             // Use putData with the correct endpoint (still /teachers/update.php/)
               savedFaculty = await putData<typeof payload, Faculty>(`teachers/update.php/${payload.id}`, payload);
              setFaculty(prev => prev.map(t => t.id === savedFaculty.id ? savedFaculty : t)); // Update faculty state
              toast({ title: "Faculty Updated", description: `${savedFaculty.firstName} ${savedFaculty.lastName} has been updated.` }); // Updated message
          } else {
-             // Use postData with the correct endpoint (still /teachers/create.php)
               savedFaculty = await postData<Omit<typeof payload, 'id' | 'teacherId' | 'username' | 'lastAccessed'>, Faculty>('teachers/create.php', payload);
              setFaculty(prev => [...prev, savedFaculty]); // Update faculty state
              toast({ title: "Faculty Added", description: `${savedFaculty.firstName} ${savedFaculty.lastName} (${savedFaculty.username}) has been added.` }); // Display username
@@ -164,7 +166,6 @@ export default function ManageFacultyPage() { // Renamed component
   const handleDeleteFaculty = async (facultyId: number) => { // Renamed function and parameter
       setIsSubmitting(true);
       try {
-            // Use deleteData with the correct endpoint (still /teachers/delete.php/)
              await deleteData(`teachers/delete.php/${facultyId}`);
             setFaculty(prev => prev.filter(t => t.id !== facultyId)); // Update faculty state
             toast({ title: "Faculty Deleted", description: `Faculty record has been removed.` }); // Updated message
@@ -179,7 +180,6 @@ export default function ManageFacultyPage() { // Renamed component
     const handleResetPassword = async (userId: number, lastName: string) => {
         setIsSubmitting(true);
         try {
-            // Use postData with the correct endpoint (still /admin/reset_password.php)
              await postData('admin/reset_password.php', { userId, userType: 'teacher', lastName }); // userType remains 'teacher' for backend
              const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
              toast({
@@ -446,3 +446,4 @@ export default function ManageFacultyPage() { // Renamed component
     </div>
   );
 }
+
