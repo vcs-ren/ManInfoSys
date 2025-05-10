@@ -22,7 +22,7 @@ let mockCourses: Course[] = [
     { id: "MATH101", name: "Calculus I", description: "Differential Calculus", type: "Minor", programId: []},
 ];
 
-let mockApiPrograms: Program[] = [
+let mockApiPrograms: ProgramType[] = [
     {
         id: "CS", name: "Computer Science", description: "Focuses on algorithms, data structures, and software development.",
         courses: { "1st Year": [mockCourses[0], mockCourses[4]], "2nd Year": [mockCourses[2]], "3rd Year": [], "4th Year": [] },
@@ -47,7 +47,7 @@ let mockFaculty: Faculty[] = [
 let mockSections: Section[] = [
     { id: "CS1A", sectionCode: "CS1A", programId: "CS", programName: "Computer Science", yearLevel: "1st Year", adviserId: 1, adviserName: "David Lee", studentCount: 0 },
     { id: "CS2A", sectionCode: "CS2A", programId: "CS", programName: "Computer Science", yearLevel: "2nd Year", adviserId: 1, adviserName: "David Lee", studentCount: 1 },
-    { id: "IT1A", sectionCode: "IT1A", programId: "IT", programName: "Information Technology", yearLevel: "1st Year", studentCount: 1 }, // Bob Johnson is in IT1A
+    { id: "IT1A", sectionCode: "IT1A", programId: "IT", programName: "Information Technology", yearLevel: "1st Year", studentCount: 1 }, 
 ];
 
 let mockSectionAssignments: SectionSubjectAssignment[] = [
@@ -66,8 +66,8 @@ let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[
 
 let mockApiAdmins: AdminUser[] = [
     { id: 0, username: "admin", firstName: "Super", lastName: "Admin", email: "superadmin@example.com", role: "Super Admin", isSuperAdmin: true },
-    { id: 2, username: "a1002", firstName: "Eve", lastName: "Davis", email: "eve.davis@example.com", role: "Sub Admin", isSuperAdmin: false }, // Derived from faculty
-    { id: 1001, username: "a1001", firstName: "Test", lastName: "SubAdmin", email: "test.sub@example.com", role: "Sub Admin", isSuperAdmin: false }, // Explicitly added
+    { id: 2, username: "a1002", firstName: "Eve", lastName: "Davis", email: "eve.davis@example.com", role: "Sub Admin", isSuperAdmin: false }, 
+    { id: 1001, username: "a1001", firstName: "Test", lastName: "SubAdmin", email: "test.sub@example.com", role: "Sub Admin", isSuperAdmin: false }, 
 ];
 
 let mockActivityLog: ActivityLogEntry[] = [
@@ -105,14 +105,13 @@ let mockDashboardStats: DashboardStats;
 
 const recalculateDashboardStats = () => {
     const teachingStaffCount = mockFaculty.filter(f => f.department === 'Teaching').length;
-    // Count Administrative faculty, excluding anyone who is also the Super Admin (ID 0)
     const adminStaffCount = mockFaculty.filter(f => f.department === 'Administrative' && f.id !== 0).length;
 
     mockDashboardStats = {
         totalStudents: mockStudents.length,
         totalTeachers: teachingStaffCount,
-        totalAdmins: adminStaffCount, // Only includes faculty-derived admins, excluding Super Admin
-        upcomingEvents: mockAnnouncements.filter(a => a.date > new Date()).length, // Example for upcoming events
+        totalAdmins: adminStaffCount, 
+        upcomingEvents: mockAnnouncements.filter(a => a.date > new Date()).length, 
         totalFaculty: mockFaculty.length,
     };
 };
@@ -220,7 +219,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
             return [...mockAnnouncements].sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
         if (phpPath === 'student/announcements/read.php') {
-            const studentProgram = mockStudents.find(s => s.id === 1)?.course; // Mock student ID 1
+            const studentProgram = mockStudents.find(s => s.id === 1)?.course; 
             const studentYear = mockStudents.find(s => s.id === 1)?.year;
             const studentSection = mockStudents.find(s => s.id === 1)?.section;
              return mockAnnouncements.filter(ann => 
@@ -231,7 +230,6 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
             ).sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
         if (phpPath === 'teacher/announcements/read.php') {
-            // For mock, show announcements for "All" or "Faculty"
             return mockAnnouncements.filter(ann => ann.targetAudience === 'All' || ann.targetAudience === 'Faculty')
                 .sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
@@ -494,7 +492,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
         }
          if (phpPath === 'programs/create.php') {
              const newProgramData = data as unknown as Program;
-             const newProgram: Program = {
+             const newProgram: ProgramType = {
                  id: newProgramData.id || newProgramData.name.toUpperCase().substring(0, 3) + Date.now().toString().slice(-3),
                  name: newProgramData.name,
                  description: newProgramData.description,
@@ -798,13 +796,7 @@ const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): 
             const id = parseInt(idStr, 10);
             const studentIndex = mockStudents.findIndex(s => s.id === id);
             if (studentIndex > -1) {
-                
-                
-                const updatedStudentData = { ...mockStudents[studentIndex], ...(data as unknown as Partial<Student>) };
-                
-                
-                
-                mockStudents[studentIndex] = updatedStudentData;
+                mockStudents[studentIndex] = { ...mockStudents[studentIndex], ...(data as unknown as Partial<Student>) };
                 logActivity("Updated Student", `${mockStudents[studentIndex].firstName} ${mockStudents[studentIndex].lastName}`, "Admin", id, "student");
                 recalculateDashboardStats();
                 return { ...mockStudents[studentIndex] } as ResponseData;
@@ -866,13 +858,20 @@ const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): 
              const programId = idStr;
              const programIndex = mockApiPrograms.findIndex(p => p.id === programId);
              if (programIndex > -1) {
-                 const updatedData = data as unknown as Partial<Program>;
-                 mockApiPrograms[programIndex] = {
-                     ...mockApiPrograms[programIndex],
-                     name: updatedData.name ?? mockApiPrograms[programIndex].name,
-                     description: updatedData.description ?? mockApiPrograms[programIndex].description,
-                     courses: updatedData.courses ?? mockApiPrograms[programIndex].courses,
-                 };
+                 const updatedData = data as unknown as Partial<ProgramType>; // Use ProgramType
+                 // If courses are being updated (e.g., from assign courses modal)
+                if (updatedData.courses && typeof updatedData.courses === 'object') {
+                     mockApiPrograms[programIndex] = {
+                         ...mockApiPrograms[programIndex],
+                         ...updatedData, // This will overwrite the entire courses object if present in updatedData
+                     };
+                } else { // Handle simple name/description update
+                     mockApiPrograms[programIndex] = {
+                        ...mockApiPrograms[programIndex],
+                        name: updatedData.name ?? mockApiPrograms[programIndex].name,
+                        description: updatedData.description ?? mockApiPrograms[programIndex].description,
+                    };
+                }
                  logActivity("Updated Program", mockApiPrograms[programIndex].name, "Admin", programId, "program");
                  return { ...mockApiPrograms[programIndex] } as ResponseData;
              }
@@ -1089,7 +1088,6 @@ export const fetchData = async <T>(path: string): Promise<T> => {
                  errorData = JSON.parse(errorBody); 
                  errorMessage = errorData?.message || errorBody || errorMessage;
             } catch (parseError) {
-                 
                  errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
             }
@@ -1138,7 +1136,6 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
                  errorData = JSON.parse(errorBody); 
                  errorMessage = errorData?.message || errorBody || errorMessage;
             } catch (jsonParseError) {
-                 
                  errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
             }
@@ -1194,7 +1191,6 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
                  errorData = JSON.parse(errorBody); 
                  errorMessage = errorData?.message || errorBody || errorMessage;
              } catch (jsonParseError) {
-                  
                  errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
              }
@@ -1241,7 +1237,6 @@ export const deleteData = async (path: string): Promise<void> => {
                  errorData = JSON.parse(errorBody); 
                  errorMessage = errorData?.message || errorBody || errorMessage;
              } catch (jsonParseError) {
-                 
                  errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
              }

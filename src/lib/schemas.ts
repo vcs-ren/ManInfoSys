@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 import type { StudentStatus, EmploymentType, AdminRole, DepartmentType, CourseType, YearLevel } from "@/types"; // Import DepartmentType, CourseType, YearLevel
 
@@ -7,7 +8,7 @@ const genderEnum = ['Male', 'Female', 'Other'] as const;
 const employmentTypeEnum: [EmploymentType, ...EmploymentType[]] = ['Regular', 'Part Time'];
 const adminRoleEnum: [AdminRole, ...AdminRole[]] = ['Super Admin', 'Sub Admin'];
 const departmentEnum: [DepartmentType, ...DepartmentType[]] = ['Teaching', 'Administrative']; // Use DepartmentType
-const courseTypeEnum: [CourseType, ...CourseType[]] = ['Major', 'Minor']; // Define course types
+const courseTypeEnum: [CourseType, ...CourseType[]] = ['Major', 'Minor']; 
 const announcementAudienceEnum: ['Student', 'Faculty', 'All'] = ['Student', 'Faculty', 'All'];
 
 // Schema for Course Management (used for global courses and within programs)
@@ -16,8 +17,8 @@ export const courseSchema = z.object({
   name: z.string().min(1, "Course(subject) name is required"),
   description: z.string().optional().or(z.literal('')),
   type: z.enum(courseTypeEnum, { required_error: "Course type (Major/Minor) is required"}),
-  programId: z.array(z.string()).optional().default([]), // Array of Program IDs if type is Major
-  yearLevel: z.enum(yearLevelEnum).optional(), // Optional: Suggested year level
+  programId: z.array(z.string()).optional().default([]), 
+  yearLevel: z.enum(yearLevelEnum).optional(), 
 }).superRefine((data, ctx) => {
   if (data.type === 'Major' && (!data.programId || data.programId.length === 0)) {
     ctx.addIssue({
@@ -109,11 +110,8 @@ export const teacherSchema = z.object({
   username: z.string().optional(),
 });
 
-// Schema for adding a new admin (now based on Faculty)
-// No dedicated "add admin" form. Admin role is derived from Faculty's department.
-// This schema is more for type validation if an AdminUser object is handled directly.
 export const adminUserSchema = z.object({
-  id: z.number(), // Faculty ID
+  id: z.number(), 
   username: z.string().min(1, "Username is required."),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
@@ -171,7 +169,7 @@ export const teacherProfileSchema = z.object({
     lastName: z.string().min(1, "Last name is required"),
     middleName: z.string().optional().or(z.literal('')),
     suffix: z.string().optional().or(z.literal('')),
-    gender: z.enum(genderEnum).optional().or(z.literal('')), // Added gender
+    gender: z.enum(genderEnum).optional().or(z.literal('')), 
     birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')),
     address: z.string().optional().or(z.literal('')),
     email: z.string().email("Invalid email address").optional().or(z.literal('')),
@@ -193,7 +191,7 @@ export const assignAdviserSchema = z.object({
 export const announcementSchema = z.object({
   title: z.string().min(1, "Announcement title is required"),
   content: z.string().min(10, "Announcement content must be at least 10 characters"),
-  targetAudience: z.enum(announcementAudienceEnum).default('All'), // Added target audience
+  targetAudience: z.enum(announcementAudienceEnum).default('All'), 
   targetProgramId: z.string().optional(),
   targetYearLevel: z.string().optional(),
   targetSection: z.string().optional(),
@@ -223,10 +221,17 @@ export const loginSchema = z.object({
 
 // Schema for editing an existing Section (sectionCode/ID is not editable here)
 export const sectionSchema = z.object({
-    id: z.string().optional(), // This is the sectionCode, and is the PK. Not directly edited.
+    id: z.string().optional(), 
     programId: z.string().min(1, "Program is required."),
     yearLevel: z.enum(yearLevelEnum, { required_error: "Year level is required." }),
-    sectionCode: z.string().optional().or(z.literal('')), // For display in form, but derived from id
+    sectionCode: z.string().optional().or(z.literal('')), 
     adviserId: z.number().optional().nullable(),
+});
+
+// Schema for Assigning Courses to Program/Year
+export const assignCoursesToProgramSchema = z.object({
+  programId: z.string().min(1, "Program selection is required."),
+  yearLevel: z.enum(yearLevelEnum, { required_error: "Year level selection is required." }),
+  courseIds: z.array(z.string()).min(0), // Can be empty if no courses are selected for a year
 });
     

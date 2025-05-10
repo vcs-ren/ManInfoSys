@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, Megaphone, BookOpen, Trash2, Loader2, CalendarX, Settings2, Filter, Users, Briefcase } from "lucide-react";
+import { UserCheck, Megaphone, BookOpen, Trash2, Loader2, CalendarX, Settings2, Filter, Users, Briefcase, PlusCircle } from "lucide-react"; // Added PlusCircle
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -36,13 +36,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { assignAdviserSchema, announcementSchema } from "@/lib/schemas";
+import { assignAdviserSchema, announcementSchema, assignCoursesToProgramSchema } from "@/lib/schemas"; // Added assignCoursesToProgramSchema
 import { format } from 'date-fns';
 import { z } from 'zod';
-// ManageSubjectsModal is no longer needed as course assignment is now program-level
-// import { ManageSubjectsModal } from "@/components/manage-subjects-modal";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -52,14 +50,17 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { fetchData, postData, deleteData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, logActivity } from "@/lib/api";
+import { fetchData, postData, deleteData, putData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, logActivity } from "@/lib/api"; // Added putData
 import Link from "next/link";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 
 type AssignAdviserFormValues = z.infer<typeof assignAdviserSchema>;
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;
+type AssignCoursesToProgramFormValues = z.infer<typeof assignCoursesToProgramSchema>;
 
 const yearLevelOptions: { value: YearLevel; label: string }[] = ["1st Year", "2nd Year", "3rd Year", "4th Year"].map(y => ({ value: y, label: y }));
 const announcementAudienceOptions = [
@@ -80,11 +81,13 @@ export default function ScheduleAnnouncementsPage() {
   const [faculty, setFaculty] = React.useState<Faculty[]>([]);
   const [subjects, setSubjects] = React.useState<Course[]>([]); 
   const [programsList, setProgramsList] = React.useState<ProgramType[]>([]);
+  const [allCourses, setAllCourses] = React.useState<Course[]>([]);
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
   const [isAnnounceModalOpen, setIsAnnounceModalOpen] = React.useState(false);
+  const [isAssignProgramCoursesModalOpen, setIsAssignProgramCoursesModalOpen] = React.useState(false); // New state for assign courses modal
 
   const [selectedSection, setSelectedSection] = React.useState<Section | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -101,7 +104,7 @@ export default function ScheduleAnnouncementsPage() {
     defaultValues: {
       title: "",
       content: "",
-      targetAudience: "All", // Default to All
+      targetAudience: "All", 
       targetProgramId: "all",
       targetYearLevel: "all",
       targetSection: "all",
@@ -112,6 +115,25 @@ export default function ScheduleAnnouncementsPage() {
     control: announcementForm.control,
     name: 'targetAudience',
     defaultValue: "All"
+  });
+
+  // Form for assigning courses to program/year
+  const assignProgramCoursesForm = useForm<AssignCoursesToProgramFormValues>({
+    resolver: zodResolver(assignCoursesToProgramSchema),
+    defaultValues: {
+      programId: "",
+      yearLevel: "1st Year",
+      courseIds: [],
+    },
+  });
+
+  const watchedProgramIdForCourseAssignment = useWatch({
+    control: assignProgramCoursesForm.control,
+    name: 'programId',
+  });
+  const watchedYearLevelForCourseAssignment = useWatch({
+    control: assignProgramCoursesForm.control,
+    name: 'yearLevel',
   });
 
 
@@ -125,19 +147,22 @@ export default function ScheduleAnnouncementsPage() {
           setSubjects(mockCourses); 
           setAnnouncements(mockAnnouncements);
           setProgramsList(mockApiPrograms);
+          setAllCourses(mockCourses); // Ensure allCourses is populated for the modal
       } else {
-          const [sectionsData, facultyData, subjectsData, announcementsData, programsData] = await Promise.all([
-          fetchData<Section[]>('sections/read.php'),
-          fetchData<Faculty[]>('teachers/read.php'),
-          fetchData<Course[]>('courses/read.php'),
-          fetchData<Announcement[]>('announcements/read.php'),
-          fetchData<ProgramType[]>('programs/read.php')
+          const [sectionsData, facultyData, subjectsData, announcementsData, programsData, allCoursesData] = await Promise.all([
+            fetchData<Section[]>('sections/read.php'),
+            fetchData<Faculty[]>('teachers/read.php'),
+            fetchData<Course[]>('courses/read.php'), // This might be all system courses
+            fetchData<Announcement[]>('announcements/read.php'),
+            fetchData<ProgramType[]>('programs/read.php'),
+            fetchData<Course[]>('courses/read.php') // Fetch all courses for the new modal
           ]);
           setSections(sectionsData || []);
           setFaculty(facultyData || []);
           setSubjects(subjectsData || []); 
           setAnnouncements(announcementsData || []);
           setProgramsList(programsData || []);
+          setAllCourses(allCoursesData || []);
       }
     } catch (error: any) {
       console.error("Failed to fetch initial data:", error);
@@ -150,6 +175,20 @@ export default function ScheduleAnnouncementsPage() {
   React.useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Effect to update course checkboxes when program/year changes in assign courses modal
+  React.useEffect(() => {
+    if (watchedProgramIdForCourseAssignment && watchedYearLevelForCourseAssignment) {
+      const selectedProgram = programsList.find(p => p.id === watchedProgramIdForCourseAssignment);
+      if (selectedProgram) {
+        const assignedCourseIds = selectedProgram.courses[watchedYearLevelForCourseAssignment]?.map(c => c.id) || [];
+        assignProgramCoursesForm.setValue('courseIds', assignedCourseIds);
+      } else {
+        assignProgramCoursesForm.setValue('courseIds', []);
+      }
+    }
+  }, [watchedProgramIdForCourseAssignment, watchedYearLevelForCourseAssignment, programsList, assignProgramCoursesForm]);
+
 
   const handleOpenAssignModal = (section: Section) => {
     setSelectedSection(section);
@@ -206,7 +245,7 @@ export default function ScheduleAnnouncementsPage() {
       content: values.content,
       targetAudience: values.targetAudience,
       target: {
-        course: values.targetProgramId === 'all' ? null : values.targetProgramId, // Keep key as 'course'
+        course: values.targetProgramId === 'all' ? null : values.targetProgramId,
         yearLevel: values.targetYearLevel === 'all' ? null : values.targetYearLevel,
         section: values.targetSection === 'all' ? null : values.targetSection,
       }
@@ -238,6 +277,39 @@ export default function ScheduleAnnouncementsPage() {
                 setIsSubmitting(false);
         }
   };
+
+  const handleAssignCoursesToProgram = async (values: AssignCoursesToProgramFormValues) => {
+    setIsSubmitting(true);
+    const targetProgram = programsList.find(p => p.id === values.programId);
+    if (!targetProgram) {
+      toast({ variant: "destructive", title: "Error", description: "Selected program not found." });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const updatedCoursesForYear = allCourses.filter(course => values.courseIds.includes(course.id));
+    
+    const updatedProgramData: ProgramType = {
+      ...targetProgram,
+      courses: {
+        ...targetProgram.courses,
+        [values.yearLevel]: updatedCoursesForYear,
+      },
+    };
+
+    try {
+      await putData<ProgramType, ProgramType>(`programs/update.php/${values.programId}`, updatedProgramData);
+      toast({ title: "Courses Assigned", description: `Courses assigned to ${targetProgram.name} - ${values.yearLevel} successfully.` });
+      setIsAssignProgramCoursesModalOpen(false);
+      await loadData(); // Refresh programsList to reflect changes
+    } catch (error: any) {
+      console.error("Failed to assign courses:", error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign courses." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
 
   const assignedAdviserIds = React.useMemo(() =>
       sections.map(sec => sec.adviserId).filter((id): id is number => id !== undefined && id !== null),
@@ -288,7 +360,7 @@ export default function ScheduleAnnouncementsPage() {
              <AlertDialog>
                     <AlertDialogTrigger asChild>
                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isSubmitting}>
-                             <Trash2 className="h-4 w-4" /> 
+                             <CalendarX className="h-4 w-4" /> 
                          </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -426,18 +498,35 @@ export default function ScheduleAnnouncementsPage() {
   const programFilterOptions = React.useMemo(() => programsList.map(p => ({ value: p.id, label: p.name })), [programsList]);
   const yearFilterOptions = React.useMemo(() => yearLevelOptions, []);
 
+  // Filter available courses for the "Assign Courses to Program/Year" modal
+  const availableCoursesForAssignment = React.useMemo(() => {
+    if (!watchedProgramIdForCourseAssignment || !watchedYearLevelForCourseAssignment) return [];
+    const selectedProgram = programsList.find(p => p.id === watchedProgramIdForCourseAssignment);
+    if (!selectedProgram) return [];
+
+    return allCourses.filter(course => {
+      if (course.type === 'Minor') return true;
+      if (course.type === 'Major' && course.programId?.includes(selectedProgram.id)) return true;
+      return false;
+    });
+  }, [watchedProgramIdForCourseAssignment, watchedYearLevelForCourseAssignment, allCourses, programsList]);
+
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Schedule &amp; Announcements</h1>
 
         <Card>
-            <CardHeader>
-                <CardTitle>Class Sections</CardTitle>
-                <CardDescription>
-                    Manage sections and assign advisers. Sections are auto-generated based on student enrollment.
-                    Courses(subjects) are automatically assigned to sections based on the program's curriculum defined in <Link href="/admin/programs" className="text-primary hover:underline">Programs & Courses</Link>.
-                </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Class Sections</CardTitle>
+                    <CardDescription>
+                        Manage sections and assign advisers. Courses are automatically assigned based on the program's curriculum.
+                    </CardDescription>
+                </div>
+                <Button onClick={() => setIsAssignProgramCoursesModalOpen(true)} variant="outline">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Assign Courses to Program/Year
+                </Button>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
@@ -473,7 +562,7 @@ export default function ScheduleAnnouncementsPage() {
                         <Megaphone className="mr-2 h-4 w-4" /> Create Announcement
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-2xl"> {/* Increased width */}
+                    <DialogContent className="sm:max-w-2xl">
                         <DialogHeader>
                         <DialogTitle>Create New Announcement</DialogTitle>
                         <DialogDescription>Compose and target your announcement.</DialogDescription>
@@ -704,6 +793,106 @@ export default function ScheduleAnnouncementsPage() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Courses to Program/Year Modal */}
+      <Dialog open={isAssignProgramCoursesModalOpen} onOpenChange={setIsAssignProgramCoursesModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assign Courses to Program/Year</DialogTitle>
+            <DialogDescription>Select a program and year level, then choose the courses to assign.</DialogDescription>
+          </DialogHeader>
+          <Form {...assignProgramCoursesForm}>
+            <form onSubmit={assignProgramCoursesForm.handleSubmit(handleAssignCoursesToProgram)} className="space-y-4 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={assignProgramCoursesForm.control}
+                  name="programId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Program</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select Program" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {programsList.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.id})</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={assignProgramCoursesForm.control}
+                  name="yearLevel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Year Level</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select Year Level" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {yearLevelOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {watchedProgramIdForCourseAssignment && watchedYearLevelForCourseAssignment && (
+                <FormItem>
+                  <FormLabel className="text-base font-medium">Available Courses for {programsList.find(p=>p.id === watchedProgramIdForCourseAssignment)?.name} - {watchedYearLevelForCourseAssignment}</FormLabel>
+                  <p className="text-xs text-muted-foreground">Minor courses are available to all programs. Major courses are specific to the selected program.</p>
+                  <ScrollArea className="h-60 w-full rounded-md border p-4 mt-2">
+                    <div className="space-y-2">
+                      {availableCoursesForAssignment.length > 0 ? availableCoursesForAssignment.map(course => (
+                        <FormField
+                          key={course.id}
+                          control={assignProgramCoursesForm.control}
+                          name="courseIds"
+                          render={({ field }) => {
+                            return (
+                              <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(course.id)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...(field.value || []), course.id])
+                                        : field.onChange(
+                                          (field.value || []).filter(
+                                            (value) => value !== course.id
+                                          )
+                                        )
+                                    }}
+                                    disabled={isSubmitting}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal text-sm">
+                                  {course.name} ({course.id}) - <span className="text-xs italic text-muted-foreground">{course.type}</span>
+                                </FormLabel>
+                              </FormItem>
+                            )
+                          }}
+                        />
+                      )) : <p className="text-sm text-muted-foreground text-center">No courses available for assignment based on selection, or no courses in the system.</p>}
+                    </div>
+                  </ScrollArea>
+                  <FormMessage>{assignProgramCoursesForm.formState.errors.courseIds?.message}</FormMessage>
+                </FormItem>
+              )}
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsAssignProgramCoursesModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                <Button type="submit" disabled={isSubmitting || !watchedProgramIdForCourseAssignment || !watchedYearLevelForCourseAssignment}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                  Save Course Assignments
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
