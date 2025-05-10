@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -50,7 +49,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger, // Added AlertDialogTrigger import
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { fetchData, postData, deleteData, putData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, logActivity } from "@/lib/api"; // Added putData
 import Link from "next/link";
@@ -181,8 +180,8 @@ export default function ScheduleAnnouncementsPage() {
   React.useEffect(() => {
     if (watchedProgramIdForCourseAssignment && watchedYearLevelForCourseAssignment) {
       const selectedProgram = programsList.find(p => p.id === watchedProgramIdForCourseAssignment);
-      if (selectedProgram) {
-        const assignedCourseIds = selectedProgram.courses[watchedYearLevelForCourseAssignment]?.map(c => c.id) || [];
+      if (selectedProgram && selectedProgram.courses && selectedProgram.courses[watchedYearLevelForCourseAssignment]) {
+        const assignedCourseIds = selectedProgram.courses[watchedYearLevelForCourseAssignment].map(c => c.id) || [];
         assignProgramCoursesForm.setValue('courseIds', assignedCourseIds);
       } else {
         assignProgramCoursesForm.setValue('courseIds', []);
@@ -502,13 +501,24 @@ export default function ScheduleAnnouncementsPage() {
   // Filter available courses for the "Assign Courses to Program/Year" modal
   const availableCoursesForAssignment = React.useMemo(() => {
     if (!watchedProgramIdForCourseAssignment || !watchedYearLevelForCourseAssignment) return [];
-    const selectedProgram = programsList.find(p => p.id === watchedProgramIdForCourseAssignment);
-    if (!selectedProgram) return [];
+    const selectedProgramObject = programsList.find(p => p.id === watchedProgramIdForCourseAssignment);
+    if (!selectedProgramObject) return [];
 
     return allCourses.filter(course => {
-      if (course.type === 'Minor') return true;
-      if (course.type === 'Major' && course.programId?.includes(selectedProgram.id)) return true;
-      return false;
+      // Basic type filtering
+      if (course.type === 'Major' && !(course.programId?.includes(selectedProgramObject.id))) {
+          return false;
+      }
+
+      // Check if the course is already assigned to a *different* year level in the *current* program
+      for (const [year, assignedCoursesInYear] of Object.entries(selectedProgramObject.courses || {})) {
+        if (year as YearLevel !== watchedYearLevelForCourseAssignment) { // Don't check against the year level currently being edited
+          if (assignedCoursesInYear.some(assignedCourse => assignedCourse.id === course.id)) {
+            return false; // Course found in another year level of this program, exclude it
+          }
+        }
+      }
+      return true; // Course is available for assignment to the current year level
     });
   }, [watchedProgramIdForCourseAssignment, watchedYearLevelForCourseAssignment, allCourses, programsList]);
 
@@ -842,7 +852,7 @@ export default function ScheduleAnnouncementsPage() {
               {watchedProgramIdForCourseAssignment && watchedYearLevelForCourseAssignment && (
                 <FormItem>
                   <FormLabel className="text-base font-medium">Available Courses for {programsList.find(p=>p.id === watchedProgramIdForCourseAssignment)?.name} - {watchedYearLevelForCourseAssignment}</FormLabel>
-                  <p className="text-xs text-muted-foreground">Minor courses are available to all programs. Major courses are specific to the selected program.</p>
+                  <p className="text-xs text-muted-foreground">Minor courses are available to all programs. Major courses are specific to the selected program. Courses assigned to other year levels in this program are not shown.</p>
                   <ScrollArea className="h-60 w-full rounded-md border p-4 mt-2">
                     <div className="space-y-2">
                       {availableCoursesForAssignment.length > 0 ? availableCoursesForAssignment.map(course => (
@@ -897,4 +907,3 @@ export default function ScheduleAnnouncementsPage() {
     </div>
   );
 }
-
