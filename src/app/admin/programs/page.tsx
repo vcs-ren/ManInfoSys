@@ -61,7 +61,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockCourses } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+// import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; // Accordion removed
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -88,12 +88,12 @@ export default function ProgramsCoursesPage() {
   const [isCourseModalOpen, setIsCourseModalOpen] = React.useState(false);
   const [isEditCourseMode, setIsEditCourseMode] = React.useState(false);
   const [selectedCourse, setSelectedCourse] = React.useState<Course | null>(null);
-  const [courseModalContext, setCourseModalContext] = React.useState<{ programId?: string; yearLevel?: YearLevel } | null>(null);
+  // const [courseModalContext, setCourseModalContext] = React.useState<{ programId?: string; yearLevel?: YearLevel } | null>(null); // Commented out, tied to accordion
 
 
   const programForm = useForm<ProgramFormValues>({ resolver: zodResolver(programSchema) });
   const courseForm = useForm<CourseFormValues>({ resolver: zodResolver(courseSchema), defaultValues: { programId: [] } });
-  const addCourseToProgramForm = useForm<{ courseId: string; yearLevel: YearLevel }>({ resolver: zodResolver(z.object({ courseId: z.string().min(1, "Please select a course."), yearLevel: z.enum(yearLevels) })) });
+  // const addCourseToProgramForm = useForm<{ courseId: string; yearLevel: YearLevel }>({ resolver: zodResolver(z.object({ courseId: z.string().min(1, "Please select a course."), yearLevel: z.enum(yearLevels) })) }); // Commented out
 
 
   const loadData = React.useCallback(async () => {
@@ -169,16 +169,18 @@ export default function ProgramsCoursesPage() {
     }
   };
 
-  const handleOpenCourseModal = (course?: Course, context?: { programId?: string; yearLevel?: YearLevel }) => {
-    setCourseModalContext(context || null);
+  const handleOpenCourseModal = (course?: Course /*, context?: { programId?: string; yearLevel?: YearLevel } */) => { // Context removed
+    // setCourseModalContext(context || null); // Commented out
     if (course) {
       setSelectedCourse(course);
       setIsEditCourseMode(true);
-      courseForm.reset({...course, programId: Array.isArray(course.programId) ? course.programId : (course.programId ? [course.programId] : []) });
+      // Ensure programId is an array for the form
+      const programIdArray = Array.isArray(course.programId) ? course.programId : (course.programId ? [String(course.programId)] : []);
+      courseForm.reset({...course, programId: programIdArray });
     } else {
       setSelectedCourse(null);
       setIsEditCourseMode(false);
-      courseForm.reset({ id: "", name: "", description: "", type: context?.programId ? "Major" : "Minor", programId: context?.programId ? [context.programId] : [], yearLevel: context?.yearLevel});
+      courseForm.reset({ id: "", name: "", description: "", type: "Minor", programId: [] /* context?.programId ? [context.programId] : [] */, /*yearLevel: context?.yearLevel */}); // Context removed
     }
     setIsCourseModalOpen(true);
   };
@@ -194,14 +196,15 @@ export default function ProgramsCoursesPage() {
       } else {
         const savedCourse = await postData<typeof payload, Course>('courses/create.php', payload);
         toast({ title: "Course Added", description: `${savedCourse.name} added to system courses.` });
-        if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.programId?.includes(courseModalContext.programId)) {
-            await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
-        } else if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.type === 'Minor') {
-             await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
-        }
+        // Course assignment logic was here, tied to courseModalContext, now removed/needs rethinking
+        // if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.programId?.includes(courseModalContext.programId)) {
+        //     await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
+        // } else if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.type === 'Minor') {
+        //      await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
+        // }
       }
       setIsCourseModalOpen(false);
-      setCourseModalContext(null);
+      // setCourseModalContext(null); // Commented out
       await loadData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save course." });
@@ -223,36 +226,36 @@ export default function ProgramsCoursesPage() {
     }
   };
 
-  const handleAssignCourseToProgram = async (programId: string, courseId: string, yearLevel: YearLevel) => {
-    setIsSubmitting(true);
-    try {
-      await postData<any, Program>(`programs/${programId}/courses/assign.php`, { courseId, yearLevel });
-      const course = allCourses.find(c => c.id === courseId);
-      const program = programs.find(p => p.id === programId);
-      toast({ title: "Course Assigned", description: `${course?.name || 'Course'} assigned to ${program?.name || 'Program'} - ${yearLevel}.` });
-      addCourseToProgramForm.reset({ courseId: "", yearLevel: yearLevel});
-      await loadData();
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign course." });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // const handleAssignCourseToProgram = async (programId: string, courseId: string, yearLevel: YearLevel) => { // Commented out
+  //   setIsSubmitting(true);
+  //   try {
+  //     await postData<any, Program>(`programs/${programId}/courses/assign.php`, { courseId, yearLevel });
+  //     const course = allCourses.find(c => c.id === courseId);
+  //     const program = programs.find(p => p.id === programId);
+  //     toast({ title: "Course Assigned", description: `${course?.name || 'Course'} assigned to ${program?.name || 'Program'} - ${yearLevel}.` });
+  //     addCourseToProgramForm.reset({ courseId: "", yearLevel: yearLevel});
+  //     await loadData();
+  //   } catch (error: any) {
+  //     toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign course." });
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
 
-  const handleRemoveCourseFromProgram = async (programId: string, courseId: string, yearLevel: YearLevel) => {
-    setIsSubmitting(true);
-    try {
-      await deleteData(`programs/${programId}/courses/remove.php/${yearLevel}/${courseId}`);
-      const course = allCourses.find(c => c.id === courseId);
-      const program = programs.find(p => p.id === programId);
-      toast({ title: "Course Removed", description: `${course?.name || 'Course'} removed from ${program?.name || 'Program'} - ${yearLevel}.` });
-      await loadData();
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove course." });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // const handleRemoveCourseFromProgram = async (programId: string, courseId: string, yearLevel: YearLevel) => { // Commented out
+  //   setIsSubmitting(true);
+  //   try {
+  //     await deleteData(`programs/${programId}/courses/remove.php/${yearLevel}/${courseId}`);
+  //     const course = allCourses.find(c => c.id === courseId);
+  //     const program = programs.find(p => p.id === programId);
+  //     toast({ title: "Course Removed", description: `${course?.name || 'Course'} removed from ${program?.name || 'Program'} - ${yearLevel}.` });
+  //     await loadData();
+  //   } catch (error: any) {
+  //     toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove course." });
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
 
 
   const programColumns: ColumnDef<Program>[] = React.useMemo(() => [
@@ -274,8 +277,12 @@ export default function ProgramsCoursesPage() {
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => handleOpenProgramModal(program)}>
-                    <Edit3 className="mr-2 h-4 w-4" /> Edit Program
+                    <Edit3 className="mr-2 h-4 w-4" /> Edit Program Details
                 </DropdownMenuItem>
+                {/* Add a new "Manage Courses" action here if needed in future */}
+                {/* <DropdownMenuItem onClick={() => openManageProgramCoursesModal(program)}>
+                    <BookOpen className="mr-2 h-4 w-4" /> Manage Program Courses
+                </DropdownMenuItem> */}
                 <DropdownMenuSeparator />
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -397,120 +404,8 @@ export default function ProgramsCoursesPage() {
             )}
           </div>
 
-          {programs.map(program => (
-            <Accordion key={program.id} type="single" collapsible className="w-full border rounded-lg p-4 shadow-md">
-              <AccordionItem value={program.id}>
-                <AccordionTrigger className="text-xl font-semibold hover:bg-accent/50 p-3 rounded-md">
-                  <div className="flex items-center justify-between w-full">
-                    <span>{program.name} ({program.id})</span>
-                     <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); handleOpenProgramModal(program); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') {e.stopPropagation(); handleOpenProgramModal(program);} }}
-                        className={cn(
-                            buttonVariants({ variant: 'outline', size: 'sm' }),
-                            "text-xs"
-                        )}
-                      >
-                        <Edit3 className="mr-1 h-3 w-3" /> Edit Program
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="p-4 space-y-4">
-                  <p className="text-sm text-muted-foreground">{program.description || "No description."}</p>
-                  <div className="space-y-3">
-                    {yearLevels.map(year => {
-                      const assignedCourses = program.courses?.[year] || [];
-                      const availableCoursesForAssignment = allCourses.filter(course => {
-                        if (assignedCourses.some(ac => ac.id === course.id)) return false;
-                        if (course.type === 'Major') {
-                            return Array.isArray(course.programId) && course.programId.includes(program.id);
-                        }
-                        return true; // Minor courses are always available
-                      });
+          {/* Removed Accordion section for program course management */}
 
-                      return (
-                        <div key={year} className="border p-3 rounded-md bg-background shadow-sm">
-                          <h4 className="font-medium text-md mb-2 flex items-center justify-between">
-                            {year} Courses
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="text-xs text-primary hover:bg-primary/10">
-                                        <PlusCircle className="mr-1 h-3 w-3" /> Assign/Add Course
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                    <DialogHeader>
-                                        <DialogTitle>Assign/Add Course to {program.name} - {year}</DialogTitle>
-                                        <DialogDescription>Select an existing course or create a new one for this year level.</DialogDescription>
-                                    </DialogHeader>
-                                    <Form {...addCourseToProgramForm}>
-                                    <form onSubmit={addCourseToProgramForm.handleSubmit(data => handleAssignCourseToProgram(program.id, data.courseId, year))} className="space-y-3 py-2">
-                                        <Controller
-                                            control={addCourseToProgramForm.control}
-                                            name="yearLevel"
-                                            defaultValue={year}
-                                            render={() => null}
-                                        />
-                                        <FormField
-                                            control={addCourseToProgramForm.control}
-                                            name="courseId"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                <FormLabel>Select Existing Course</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value || ""} disabled={isSubmitting}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Choose a course..." /></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        {availableCoursesForAssignment.length > 0 ?
-                                                            availableCoursesForAssignment.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.id}) - <Badge variant={c.type === 'Major' ? 'default' : 'secondary'}>{c.type}</Badge></SelectItem>) :
-                                                            <SelectItem value="none" disabled>No suitable courses available</SelectItem>
-                                                        }
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <Button type="submit" disabled={isSubmitting || availableCoursesForAssignment.length === 0}>Assign Selected Course</Button>
-                                    </form>
-                                    </Form>
-                                    <div className="my-2 text-center text-sm text-muted-foreground">OR</div>
-                                    <Button variant="outline" className="w-full" onClick={() => handleOpenCourseModal(undefined, { programId: program.id, yearLevel: year })} disabled={isSubmitting}>
-                                        <PackagePlus className="mr-2 h-4 w-4" /> Create New Course for this Program/Year
-                                    </Button>
-                                </DialogContent>
-                            </Dialog>
-                          </h4>
-                          {assignedCourses.length > 0 ? (
-                            <ul className="list-disc list-inside pl-2 space-y-1 text-sm">
-                              {assignedCourses.map(course => (
-                                <li key={course.id} className="flex justify-between items-center p-1.5 rounded hover:bg-muted/50">
-                                  <span>{course.name} ({course.id}) - <Badge variant={course.type === 'Major' ? 'default' : 'secondary'} className="text-xs">{course.type}</Badge></span>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-destructive/70 hover:text-destructive"
-                                    onClick={() => handleRemoveCourseFromProgram(program.id, course.id, year)}
-                                    disabled={isSubmitting}
-                                    aria-label={`Remove ${course.name}`}
-                                  >
-                                    <XCircle className="h-4 w-4" />
-                                  </Button>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">No courses assigned for this year.</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          ))}
         </div>
       )}
 
@@ -540,10 +435,10 @@ export default function ProgramsCoursesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCourseModalOpen} onOpenChange={(open) => { setIsCourseModalOpen(open); if(!open) setCourseModalContext(null);}}>
+      <Dialog open={isCourseModalOpen} onOpenChange={(open) => { setIsCourseModalOpen(open); /* if(!open) setCourseModalContext(null); */}}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isEditCourseMode ? "Edit Course" : (courseModalContext?.programId ? `Add New Course to ${programs.find(p=>p.id === courseModalContext.programId)?.name || 'Program'} - ${courseModalContext.yearLevel}` : "Add New System Course")}</DialogTitle>
+            <DialogTitle>{isEditCourseMode ? "Edit Course" : ( /* courseModalContext?.programId ? `Add New Course to ${programs.find(p=>p.id === courseModalContext.programId)?.name || 'Program'} - ${courseModalContext.yearLevel}` : */ "Add New System Course")}</DialogTitle>
             <DialogDescription>{isEditCourseMode ? "Update the course details." : "Enter details for a new course."}</DialogDescription>
           </DialogHeader>
           <Form {...courseForm}>
@@ -606,7 +501,7 @@ export default function ProgramsCoursesPage() {
                     </FormItem>
                   )}
                 />
-                {courseModalContext?.yearLevel && (
+                {/* {courseModalContext?.yearLevel && ( // Commented out
                      <FormField
                         control={courseForm.control}
                         name="yearLevel"
@@ -624,9 +519,9 @@ export default function ProgramsCoursesPage() {
                             </FormItem>
                         )}
                      />
-                )}
+                )} */}
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => {setIsCourseModalOpen(false); setCourseModalContext(null);}} disabled={isSubmitting}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => {setIsCourseModalOpen(false); /* setCourseModalContext(null); */}} disabled={isSubmitting}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{isEditCourseMode ? "Save Changes" : "Add Course"}</Button>
               </DialogFooter>
             </form>
