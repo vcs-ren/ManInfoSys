@@ -1,9 +1,8 @@
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, Megaphone, BookOpen, Trash2, Loader2, CalendarX, Settings2, Filter, Users, Briefcase, PlusCircle } from "lucide-react"; // Added PlusCircle
+import { UserCheck, Megaphone, BookOpen, Loader2, CalendarX, Settings2, Filter, Users, Briefcase, PlusCircle, Eye } from "lucide-react"; // Added Eye
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -38,7 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { assignAdviserSchema, announcementSchema, assignCoursesToProgramSchema } from "@/lib/schemas"; // Added assignCoursesToProgramSchema
+import { assignAdviserSchema, announcementSchema, assignCoursesToProgramSchema, sectionSchema } from "@/lib/schemas"; // Added assignCoursesToProgramSchema
 import { format } from 'date-fns';
 import { z } from 'zod';
 import {
@@ -54,6 +53,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { fetchData, postData, deleteData, putData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, logActivity } from "@/lib/api"; // Added putData
 import Link from "next/link";
+import { useRouter } from 'next/navigation'; // Import useRouter
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -94,6 +94,7 @@ export default function ScheduleAnnouncementsPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const { toast } = useToast();
+  const router = useRouter(); // Initialize router
 
   const assignAdviserForm = useForm<AssignAdviserFormValues>({
     resolver: zodResolver(assignAdviserSchema),
@@ -197,19 +198,10 @@ export default function ScheduleAnnouncementsPage() {
     setIsAssignModalOpen(true);
   };
 
-  const handleDeleteSection = async (sectionId: string, sectionCode: string) => {
-        setIsSubmitting(true);
-        try {
-            await deleteData(`sections/delete.php/${sectionId}`);
-            setSections(prev => prev.filter(s => s.id !== sectionId));
-            toast({ title: "Section Deleted", description: `Section ${sectionCode} deleted.` });
-            logActivity("Deleted Section", `Section ${sectionCode} removed.`, "Admin", sectionId, "section");
-        } catch (error: any) {
-             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete section." });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+  const handleNavigateToSectionDetails = (sectionId: string) => {
+    router.push(`/admin/sections/${sectionId}`);
+  };
+
 
   const handleAssignAdviser = async (values: AssignAdviserFormValues) => {
     if (!selectedSection) return;
@@ -358,37 +350,19 @@ export default function ScheduleAnnouncementsPage() {
                 >
                 <UserCheck className="mr-2 h-4 w-4" /> Assign Adviser
             </Button>
-             <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                         <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isSubmitting}>
-                             <CalendarX className="h-4 w-4" />
-                         </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                         <AlertDialogHeader>
-                             <AlertDialogTitle>Delete Section {row.original.sectionCode}?</AlertDialogTitle>
-                             <AlertDialogDescription>
-                                 This action cannot be undone. All student enrollments for this section will be affected. Assigned courses will remain in the program.
-                             </AlertDialogDescription>
-                         </AlertDialogHeader>
-                         <AlertDialogFooter>
-                             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                             <AlertDialogAction
-                                 onClick={() => handleDeleteSection(row.original.id, row.original.sectionCode)}
-                                 className={buttonVariants({ variant: "destructive" })}
-                                 disabled={isSubmitting}
-                             >
-                                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                 Yes, delete section
-                             </AlertDialogAction>
-                         </AlertDialogFooter>
-                    </AlertDialogContent>
-            </AlertDialog>
+             <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleNavigateToSectionDetails(row.original.id)}
+                className="text-primary hover:bg-primary/10"
+            >
+                <Eye className="mr-2 h-4 w-4" /> View Details
+            </Button>
          </div>
       ),
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [assignedAdviserIds, teachingFaculty, isSubmitting, programsList]);
+  ], [assignedAdviserIds, teachingFaculty, isSubmitting, programsList, router]);
 
   const announcementColumns: ColumnDef<Announcement>[] = React.useMemo(() => [
         {
@@ -465,7 +439,7 @@ export default function ScheduleAnnouncementsPage() {
                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
                              disabled={isSubmitting}
                          >
-                             <Trash2 className="h-4 w-4" />
+                             <CalendarX className="h-4 w-4" />
                          </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -914,3 +888,4 @@ export default function ScheduleAnnouncementsPage() {
     </div>
   );
 }
+
