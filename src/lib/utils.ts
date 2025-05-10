@@ -6,34 +6,43 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Helper function to generate student ID (e.g., 101)
+// Helper function to generate 4 random digits as a string
+function generateFourRandomDigits(): string {
+  return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+}
+
+// Helper function to generate student ID (e.g., 101XXXX)
 export function generateStudentId(dbId: number): string {
-    return `${100 + dbId}`; // Example: if dbId=1, studentId='101'
+    const baseId = (100 + dbId).toString();
+    return `${baseId}${generateFourRandomDigits()}`; 
 }
 
-// Helper function to generate student username (e.g., s101)
+// Helper function to generate student username (e.g., s101XXXX)
 export function generateStudentUsername(studentId: string): string {
-    return `s${studentId}`; // Example: if studentId='101', username='s101'
+    // studentId here is the full ID like "101XXXX"
+    return `s${studentId}`; 
 }
 
-// Helper function to generate faculty ID (numeric, e.g., 1001)
+// Helper function to generate faculty ID (e.g., 1001YYYY)
 export function generateTeacherId(dbId: number): string {
-    // IDs are simple numeric like 1001, 1002, based on DB auto-increment + 1000
-    return `${1000 + dbId}`;
+    // IDs are base (1000 + dbId) + 4 random digits
+    const baseId = (1000 + dbId).toString();
+    return `${baseId}${generateFourRandomDigits()}`;
 }
 
-// Helper function to generate faculty username based on department (e.g., t1001 or a1002)
+// Helper function to generate faculty username based on department (e.g., t1001YYYY or a1002ZZZZ)
 export function generateTeacherUsername(teacherId: string, department: DepartmentType): string {
      const prefix = department === 'Teaching' ? 't' : 'a';
-     // Username combines prefix with the numeric part of teacherId
-     return `${prefix}${teacherId}`; // Example: t1001 or a1002
+     // Username combines prefix with the full teacherId (which now includes random digits)
+     return `${prefix}${teacherId}`; 
 }
 
-// Helper function to generate admin username (e.g., a1001)
+// Helper function to generate admin username (e.g., a1001BBBB)
 // Note: This is for sub-admins derived from faculty. Super admin is 'admin'.
 export function generateAdminUsername(dbId: number): string {
     // Admin usernames (for sub-admins) might follow a similar pattern to administrative faculty
-    return `a${1000 + dbId}`;
+    const baseId = (1000 + dbId).toString(); // Using same base as faculty for consistency
+    return `a${baseId}${generateFourRandomDigits()}`;
 }
 
 // Helper function to generate section code (e.g., CS1A, IT2B)
@@ -51,3 +60,4 @@ export function generateSectionCode(programId: string, year: YearLevel, existing
     const letterIndex = existingSectionCountForYearAndProgram % letters.length;
     return `${programId.toUpperCase()}${yearNum}${letters[letterIndex]}`;
 }
+
