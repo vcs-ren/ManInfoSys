@@ -50,6 +50,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger, // Added AlertDialogTrigger import
 } from "@/components/ui/alert-dialog";
 import { fetchData, postData, deleteData, putData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, logActivity } from "@/lib/api"; // Added putData
 import Link from "next/link";
@@ -79,7 +80,7 @@ const getDistinctValues = (data: any[], key: string): { value: string; label: st
 export default function ScheduleAnnouncementsPage() {
   const [sections, setSections] = React.useState<Section[]>([]);
   const [faculty, setFaculty] = React.useState<Faculty[]>([]);
-  const [subjects, setSubjects] = React.useState<Course[]>([]); 
+  const [subjects, setSubjects] = React.useState<Course[]>([]);
   const [programsList, setProgramsList] = React.useState<ProgramType[]>([]);
   const [allCourses, setAllCourses] = React.useState<Course[]>([]);
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
@@ -104,13 +105,13 @@ export default function ScheduleAnnouncementsPage() {
     defaultValues: {
       title: "",
       content: "",
-      targetAudience: "All", 
+      targetAudience: "All",
       targetProgramId: "all",
       targetYearLevel: "all",
       targetSection: "all",
     },
   });
-  
+
   const watchedTargetAudience = useWatch({
     control: announcementForm.control,
     name: 'targetAudience',
@@ -144,7 +145,7 @@ export default function ScheduleAnnouncementsPage() {
           await new Promise(resolve => setTimeout(resolve, 300));
           setSections(mockSections.map(s => ({...s, programName: mockApiPrograms.find(p => p.id === s.programId)?.name || s.programId })));
           setFaculty(mockFaculty);
-          setSubjects(mockCourses); 
+          setSubjects(mockCourses);
           setAnnouncements(mockAnnouncements);
           setProgramsList(mockApiPrograms);
           setAllCourses(mockCourses); // Ensure allCourses is populated for the modal
@@ -159,7 +160,7 @@ export default function ScheduleAnnouncementsPage() {
           ]);
           setSections(sectionsData || []);
           setFaculty(facultyData || []);
-          setSubjects(subjectsData || []); 
+          setSubjects(subjectsData || []);
           setAnnouncements(announcementsData || []);
           setProgramsList(programsData || []);
           setAllCourses(allCoursesData || []);
@@ -217,7 +218,7 @@ export default function ScheduleAnnouncementsPage() {
 
     try {
         const updatedSectionData = await postData<{ sectionId: string, adviserId: number | null }, Section>(
-            `sections/adviser/update.php`, 
+            `sections/adviser/update.php`,
             { sectionId: selectedSection.id, adviserId: adviserIdToAssign }
         );
 
@@ -288,7 +289,7 @@ export default function ScheduleAnnouncementsPage() {
     }
 
     const updatedCoursesForYear = allCourses.filter(course => values.courseIds.includes(course.id));
-    
+
     const updatedProgramData: ProgramType = {
       ...targetProgram,
       courses: {
@@ -360,7 +361,7 @@ export default function ScheduleAnnouncementsPage() {
              <AlertDialog>
                     <AlertDialogTrigger asChild>
                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isSubmitting}>
-                             <CalendarX className="h-4 w-4" /> 
+                             <CalendarX className="h-4 w-4" />
                          </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -396,7 +397,7 @@ export default function ScheduleAnnouncementsPage() {
              cell: ({ row }) => {
                  try {
                      const dateValue = row.original.date instanceof Date ? row.original.date : new Date(row.original.date);
-                     return format(dateValue, "PPpp"); 
+                     return format(dateValue, "PPpp");
                  } catch (e) {
                      return "Invalid Date";
                  }
@@ -417,9 +418,9 @@ export default function ScheduleAnnouncementsPage() {
             cell: ({ row }) => {
                  const target = row.original.target || {};
                  const audience = row.original.targetAudience || 'All';
-                 const { course: programId, yearLevel, section } = target; 
+                 const { course: programId, yearLevel, section } = target;
                  const programName = programsList.find(p => p.id === programId)?.name;
-                 
+
                  let targetParts = [`Audience: ${audience}`];
                  if (audience === 'Student' || audience === 'All') {
                     if (programId && programId !== 'all') targetParts.push(`Program: ${programName || programId}`);
@@ -431,7 +432,7 @@ export default function ScheduleAnnouncementsPage() {
                  }
                  return targetParts.join('; ');
             },
-             filterFn: (row, id, value) => { 
+             filterFn: (row, id, value) => {
                 const target = row.original.target || {};
                 const audience = row.original.targetAudience || 'All';
                 const programId = target.course;
@@ -441,7 +442,7 @@ export default function ScheduleAnnouncementsPage() {
                 if (value.includes('All Users')) return audience === 'All';
                 if (value.includes('Students Only')) return audience === 'Student';
                 if (value.includes('Faculty Only')) return audience === 'Faculty';
-                
+
                 if (programId && value.includes(programId)) return true;
                 if (yearLevel && value.includes(yearLevel)) return true;
                 if (section && value.includes(section)) return true;
