@@ -1,6 +1,6 @@
 'use client';
 
-import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry, EmploymentType } from '@/types';
+import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry, EmploymentType, StudentStatus } from '@/types';
 import { generateStudentUsername, generateTeacherId, generateSectionCode, generateAdminUsername, generateTeacherUsername, generateStudentId } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -34,7 +34,7 @@ let mockApiPrograms: Program[] = [
 
 let mockStudents: Student[] = [
   { id: 1, studentId: "101", username: "s101", firstName: "Alice", lastName: "Smith", course: "CS", status: "Returnee", year: "2nd Year", section: "CS2A", email: "alice@example.com", phone: "123-456-7890", emergencyContactName: "John Smith", emergencyContactRelationship: "Father", emergencyContactPhone: "111-222-3333", emergencyContactAddress: "123 Main St", lastAccessed: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 2, studentId: "102", username: "s102", firstName: "Bob", lastName: "Johnson", course: "IT", status: "New", year: "1st Year", section: "IT1B", email: "bob@example.com", phone: "987-654-3210", lastAccessed: null },
+  { id: 2, studentId: "102", username: "s102", firstName: "Bob", lastName: "Johnson", course: "IT", status: "New", year: "1st Year", section: "IT1A", email: "bob@example.com", phone: "987-654-3210", lastAccessed: null },
 ];
 
 let mockFaculty: Faculty[] = [
@@ -46,12 +46,12 @@ let mockFaculty: Faculty[] = [
 let mockSections: Section[] = [
     { id: "CS1A", sectionCode: "CS1A", programId: "CS", programName: "Computer Science", yearLevel: "1st Year", adviserId: 1, adviserName: "David Lee", studentCount: 0 },
     { id: "CS2A", sectionCode: "CS2A", programId: "CS", programName: "Computer Science", yearLevel: "2nd Year", adviserId: 1, adviserName: "David Lee", studentCount: 1 },
-    { id: "IT1B", sectionCode: "IT1B", programId: "IT", programName: "Information Technology", yearLevel: "1st Year", studentCount: 1 },
+    { id: "IT1A", sectionCode: "IT1A", programId: "IT", programName: "Information Technology", yearLevel: "1st Year", studentCount: 1 }, // Bob Johnson is in IT1A
 ];
 
 let mockSectionAssignments: SectionSubjectAssignment[] = [
     { id: "CS2A-CS201", sectionId: "CS2A", subjectId: "CS201", subjectName: "Data Structures", teacherId: 1, teacherName: "David Lee" },
-    { id: "IT1B-IT101", sectionId: "IT1B", subjectId: "IT101", subjectName: "IT Fundamentals", teacherId: 2, teacherName: "Eve Davis" },
+    { id: "IT1A-IT101", sectionId: "IT1A", subjectId: "IT101", subjectName: "IT Fundamentals", teacherId: 1, teacherName: "David Lee" }, // Changed teacher to David Lee for IT1A
 ];
 
 let mockAnnouncements: Announcement[] = [
@@ -59,8 +59,8 @@ let mockAnnouncements: Announcement[] = [
 ];
 
 let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[] = [
-    { assignmentId: "1-CS201", studentId: 1, studentName: "Alice Smith", subjectId: "CS201", subjectName: "Data Structures", section: "CS2A", year: "2nd Year", prelimGrade: 85, prelimRemarks: "Good start", midtermGrade: 90, midtermRemarks: "Excellent", finalGrade: 88, finalRemarks: "Very Good", status: "Complete" },
-    { assignmentId: "2-IT101", studentId: 2, studentName: "Bob Johnson", subjectId: "IT101", subjectName: "IT Fundamentals", section: "IT1B", year: "1st Year", prelimGrade: null, prelimRemarks: "", midtermGrade: null, midtermRemarks: "", finalGrade: null, finalRemarks: "", status: "Not Submitted" },
+    { assignmentId: "CS2A-CS201-1", studentId: 1, studentName: "Alice Smith", subjectId: "CS201", subjectName: "Data Structures", section: "CS2A", year: "2nd Year", prelimGrade: 85, prelimRemarks: "Good start", midtermGrade: 90, midtermRemarks: "Excellent", finalGrade: 88, finalRemarks: "Very Good", status: "Complete" },
+    { assignmentId: "IT1A-IT101-2", studentId: 2, studentName: "Bob Johnson", subjectId: "IT101", subjectName: "IT Fundamentals", section: "IT1A", year: "1st Year", prelimGrade: null, prelimRemarks: "", midtermGrade: null, midtermRemarks: "", finalGrade: null, finalRemarks: "", status: "Not Submitted" },
 ];
 
 let mockApiAdmins: AdminUser[] = [
@@ -119,16 +119,16 @@ recalculateDashboardStats();
 
 let mockTestUsers = [
     { username: "admin", password: "defadmin", role: "Admin" as const, userId: 0 },
-    { username: "s1001", password: "password", role: "Student" as const, userId: 1 },
-    { username: "s1002", password: "password", role: "Student" as const, userId: 2 },
-    { username: "t1001", password: "password", role: "Teacher" as const, userId: 1 },
-    { username: "a1002", password: "password", role: "Teacher" as const, userId: 2 }, // Eve Davis, can also be admin
+    { username: "s101", password: "password", role: "Student" as const, userId: 1 }, // Updated from s1001 to s101 to match mockStudents
+    { username: "s102", password: "password", role: "Student" as const, userId: 2 }, // Added for Bob Johnson
+    { username: "t1001", password: "password", role: "Teacher" as const, userId: 1 }, // David Lee
+    { username: "a1002", password: "password", role: "Teacher" as const, userId: 2 }, // Eve Davis, can also be admin if department is Administrative
     { username: "a1001", password: "password", role: "Admin" as const, userId: 1001 }, // Test SubAdmin
 ];
 
 
 // --- API CONFIGURATION ---
-export const USE_MOCK_API = true;
+export const USE_MOCK_API = true; // Ensure this is true for mock data
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 const getApiUrl = (path: string): string => {
@@ -201,11 +201,18 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
         if (phpPath === 'programs/read.php') return [...mockApiPrograms] as T;
         if (phpPath === 'courses/read.php') return [...mockCourses] as T;
         if (phpPath === 'sections/read.php') {
-             return [...mockSections.map(s => ({
-                 ...s,
-                 programName: mockApiPrograms.find(p => p.id === s.programId)?.name || s.programId,
-                 adviserName: s.adviserId ? mockFaculty.find(f=>f.id === s.adviserId)?.firstName + " " + mockFaculty.find(f=>f.id === s.adviserId)?.lastName : undefined,
-             }))] as T;
+            const sectionsWithCounts = mockSections.map(section => {
+                const count = mockStudents.filter(student => student.section === section.id).length;
+                return {
+                    ...section,
+                    studentCount: count,
+                    programName: mockApiPrograms.find(p => p.id === section.programId)?.name || section.programId,
+                    adviserName: section.adviserId ? mockFaculty.find(f=>f.id === section.adviserId)?.firstName + " " + mockFaculty.find(f=>f.id === section.adviserId)?.lastName : undefined,
+                };
+            });
+            // Filter sections to only include those with enrolled students.
+            const activeSections = sectionsWithCounts.filter(section => section.studentCount > 0);
+            return activeSections as T;
         }
         if (phpPath === 'announcements/read.php' || phpPath === 'student/announcements/read.php' || phpPath === 'teacher/announcements/read.php') {
             return [...mockAnnouncements].sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
@@ -373,17 +380,60 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
         }
          if (phpPath === 'students/create.php') {
             const newStudentData = data as unknown as Omit<Student, 'id' | 'studentId' | 'section' | 'username' | 'lastAccessed'>;
+            
+            const studentProgramId = newStudentData.course; // 'course' from form is programId
+            const studentStatus = newStudentData.status;
+            let studentYearLevel = newStudentData.year;
+
+            if (studentStatus === 'New') {
+                studentYearLevel = '1st Year';
+            } else if (!studentYearLevel && (studentStatus === 'Transferee' || studentStatus === 'Returnee')) {
+                 throw new Error("Year level is required for Transferee or Returnee status.");
+            }
+            if (!studentProgramId || !studentYearLevel) {
+                throw new Error("Program and Year Level are required to assign a section.");
+            }
+            
+            let assignedSectionCode: string | undefined = undefined;
+            const relevantSections = mockSections
+                .filter(s => s.programId === studentProgramId && s.yearLevel === studentYearLevel)
+                .sort((a, b) => a.sectionCode.localeCompare(b.sectionCode));
+
+            for (const section of relevantSections) {
+                const count = mockStudents.filter(st => st.section === section.id).length;
+                if (count < 30) {
+                    assignedSectionCode = section.id;
+                    break;
+                }
+            }
+
+            if (!assignedSectionCode) {
+                const existingSectionCountForProgramAndYear = relevantSections.length;
+                assignedSectionCode = generateSectionCode(studentProgramId, studentYearLevel, existingSectionCountForProgramAndYear);
+                if (!mockSections.some(s => s.id === assignedSectionCode)) {
+                    const program = mockApiPrograms.find(p => p.id === studentProgramId);
+                    mockSections.push({
+                        id: assignedSectionCode,
+                        sectionCode: assignedSectionCode,
+                        programId: studentProgramId,
+                        programName: program?.name || studentProgramId,
+                        yearLevel: studentYearLevel,
+                        studentCount: 0, 
+                    });
+                    logActivity("Auto-Added Section", `Section ${assignedSectionCode} for ${studentProgramId} - ${studentYearLevel} due to enrollment.`, "System", assignedSectionCode, "section");
+                }
+            }
+
             const nextId = nextStudentDbId++;
             const studentIdStr = generateStudentId(nextId);
             const username = generateStudentUsername(studentIdStr);
-            const section = generateSectionCode(newStudentData.course, newStudentData.year || '1st Year', mockStudents.filter(s => s.course === newStudentData.course && s.year === (newStudentData.year || '1st Year')).length);
-
             const student: Student = {
                 ...newStudentData,
                 id: nextId,
                 studentId: studentIdStr,
                 username: username,
-                section: section,
+                section: assignedSectionCode,
+                year: studentYearLevel, // Ensure year is set
                 lastAccessed: null,
             };
             mockStudents.push(student);
@@ -442,25 +492,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
              });
              mockApiPrograms.push(newProgram);
              logActivity("Added Program", newProgram.name, "Admin", newProgram.id, "program");
-
-              // Auto-create sections for the new program
-              const yearLevels: YearLevel[] = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
-              yearLevels.forEach(year => {
-                  const sectionCode = generateSectionCode(newProgram.id, year, 0); // Assume 0 existing sections for this new program year
-                  const newSection: Section = {
-                      id: sectionCode,
-                      sectionCode: sectionCode,
-                      programId: newProgram.id,
-                      yearLevel: year,
-                      programName: newProgram.name,
-                      studentCount: 0,
-                  };
-                  if (!mockSections.some(s => s.id === sectionCode)) {
-                      mockSections.push(newSection);
-                      logActivity("Auto-Added Section", `Section ${sectionCode} for ${newProgram.name} - ${year}`, "System", sectionCode, "section");
-                  }
-              });
-
+            // Sections are no longer auto-created here. They are created when students enroll.
              return newProgram as ResponseData;
          }
          if (phpPath === 'courses/create.php') {
@@ -748,7 +780,16 @@ const mockPutData = async <Payload, ResponseData>(path: string, data: Payload): 
             const id = parseInt(idStr, 10);
             const studentIndex = mockStudents.findIndex(s => s.id === id);
             if (studentIndex > -1) {
-                mockStudents[studentIndex] = { ...mockStudents[studentIndex], ...(data as unknown as Partial<Student>) };
+                // Preserve existing section unless program/year changed and requires re-sectioning
+                // For mock simplicity, if program/year changes, we are not re-sectioning here.
+                // A real backend would handle this more robustly.
+                const updatedStudentData = { ...mockStudents[studentIndex], ...(data as unknown as Partial<Student>) };
+                
+                // If program or year was part of the update AND changed, ideally re-sectioning logic here.
+                // For mock, if they change, section might become invalid. This is a limitation of the mock.
+                // The student form does allow editing these, so it's a potential inconsistency point for the mock.
+                
+                mockStudents[studentIndex] = updatedStudentData;
                 logActivity("Updated Student", `${mockStudents[studentIndex].firstName} ${mockStudents[studentIndex].lastName}`, "Admin", id, "student");
                 recalculateDashboardStats();
                 return { ...mockStudents[studentIndex] } as ResponseData;
@@ -1027,12 +1068,13 @@ export const fetchData = async <T>(path: string): Promise<T> => {
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
         try {
-            const errorBody = await response.text();
+            const errorBody = await response.text(); // Read body once as text
+            console.error("API Error Response Text:", errorBody); // Log the raw text body
             try {
-                 errorData = JSON.parse(errorBody);
+                 errorData = JSON.parse(errorBody); // Try parsing the text
                  errorMessage = errorData?.message || errorBody || errorMessage;
             } catch (parseError) {
-                 console.error("API Error Response Text (fetchData):", errorBody); // Log non-JSON error body
+                 // If JSON parsing fails, use the raw text as the message
                  errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
             }
@@ -1063,6 +1105,7 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json', // Added Accept header
             },
             body: JSON.stringify(data),
         });
@@ -1074,12 +1117,13 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
         try {
-            const errorBody = await response.text();
+            const errorBody = await response.text(); // Read body once as text
+            console.error("API Error Response Text (postData):", errorBody); // Log non-JSON error body
             try {
-                 errorData = JSON.parse(errorBody);
+                 errorData = JSON.parse(errorBody); // Try parsing the text
                  errorMessage = errorData?.message || errorBody || errorMessage;
             } catch (jsonParseError) {
-                 console.error("API Error Response Text (postData):", errorBody); // Log non-JSON error body
+                 // If JSON parsing fails, use the raw text as the message
                  errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
             }
@@ -1118,7 +1162,7 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
     try {
         response = await fetch(url, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify(data),
         });
     } catch (networkError: any) {
@@ -1129,12 +1173,13 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
          try {
-             const errorBody = await response.text();
+             const errorBody = await response.text(); // Read body once as text
+             console.error("API Error Response Text (putData):", errorBody); // Log non-JSON error body
              try {
-                 errorData = JSON.parse(errorBody);
+                 errorData = JSON.parse(errorBody); // Try parsing the text
                  errorMessage = errorData?.message || errorBody || errorMessage;
              } catch (jsonParseError) {
-                  console.error("API Error Response Text (putData):", errorBody); // Log non-JSON error body
+                  // If JSON parsing fails, use the raw text as the message
                  errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
              }
@@ -1166,7 +1211,7 @@ export const deleteData = async (path: string): Promise<void> => {
     const url = getApiUrl(path);
     let response: Response;
     try {
-        response = await fetch(url, { method: 'DELETE' });
+        response = await fetch(url, { method: 'DELETE', headers: { 'Accept': 'application/json'} });
     } catch (networkError: any) {
          return handleFetchError(networkError, path, 'DELETE', true);
     }
@@ -1175,12 +1220,13 @@ export const deleteData = async (path: string): Promise<void> => {
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
          try {
-             const errorBody = await response.text();
+             const errorBody = await response.text(); // Read body once as text
+             console.error("API Error Response Text (deleteData):", errorBody); // Log non-JSON error body
              try {
-                 errorData = JSON.parse(errorBody);
+                 errorData = JSON.parse(errorBody); // Try parsing the text
                  errorMessage = errorData?.message || errorBody || errorMessage;
              } catch (jsonParseError) {
-                 console.error("API Error Response Text (deleteData):", errorBody); // Log non-JSON error body
+                 // If JSON parsing fails, use the raw text as the message
                  errorMessage = errorBody || errorMessage;
                  errorData = { message: errorMessage };
              }

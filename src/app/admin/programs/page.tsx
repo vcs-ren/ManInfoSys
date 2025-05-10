@@ -88,12 +88,10 @@ export default function ProgramsCoursesPage() {
   const [isCourseModalOpen, setIsCourseModalOpen] = React.useState(false);
   const [isEditCourseMode, setIsEditCourseMode] = React.useState(false);
   const [selectedCourse, setSelectedCourse] = React.useState<Course | null>(null);
-  // const [courseModalContext, setCourseModalContext] = React.useState<{ programId?: string; yearLevel?: YearLevel } | null>(null); // Commented out, tied to accordion
 
 
   const programForm = useForm<ProgramFormValues>({ resolver: zodResolver(programSchema) });
   const courseForm = useForm<CourseFormValues>({ resolver: zodResolver(courseSchema), defaultValues: { programId: [] } });
-  // const addCourseToProgramForm = useForm<{ courseId: string; yearLevel: YearLevel }>({ resolver: zodResolver(z.object({ courseId: z.string().min(1, "Please select a course."), yearLevel: z.enum(yearLevels) })) }); // Commented out
 
 
   const loadData = React.useCallback(async () => {
@@ -169,18 +167,16 @@ export default function ProgramsCoursesPage() {
     }
   };
 
-  const handleOpenCourseModal = (course?: Course /*, context?: { programId?: string; yearLevel?: YearLevel } */) => { // Context removed
-    // setCourseModalContext(context || null); // Commented out
+  const handleOpenCourseModal = (course?: Course) => {
     if (course) {
       setSelectedCourse(course);
       setIsEditCourseMode(true);
-      // Ensure programId is an array for the form
       const programIdArray = Array.isArray(course.programId) ? course.programId : (course.programId ? [String(course.programId)] : []);
       courseForm.reset({...course, programId: programIdArray });
     } else {
       setSelectedCourse(null);
       setIsEditCourseMode(false);
-      courseForm.reset({ id: "", name: "", description: "", type: "Minor", programId: [] /* context?.programId ? [context.programId] : [] */, /*yearLevel: context?.yearLevel */}); // Context removed
+      courseForm.reset({ id: "", name: "", description: "", type: "Minor", programId: []});
     }
     setIsCourseModalOpen(true);
   };
@@ -196,15 +192,8 @@ export default function ProgramsCoursesPage() {
       } else {
         const savedCourse = await postData<typeof payload, Course>('courses/create.php', payload);
         toast({ title: "Course Added", description: `${savedCourse.name} added to system courses.` });
-        // Course assignment logic was here, tied to courseModalContext, now removed/needs rethinking
-        // if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.programId?.includes(courseModalContext.programId)) {
-        //     await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
-        // } else if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.type === 'Minor') {
-        //      await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
-        // }
       }
       setIsCourseModalOpen(false);
-      // setCourseModalContext(null); // Commented out
       await loadData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save course." });
@@ -225,37 +214,6 @@ export default function ProgramsCoursesPage() {
       setIsSubmitting(false);
     }
   };
-
-  // const handleAssignCourseToProgram = async (programId: string, courseId: string, yearLevel: YearLevel) => { // Commented out
-  //   setIsSubmitting(true);
-  //   try {
-  //     await postData<any, Program>(`programs/${programId}/courses/assign.php`, { courseId, yearLevel });
-  //     const course = allCourses.find(c => c.id === courseId);
-  //     const program = programs.find(p => p.id === programId);
-  //     toast({ title: "Course Assigned", description: `${course?.name || 'Course'} assigned to ${program?.name || 'Program'} - ${yearLevel}.` });
-  //     addCourseToProgramForm.reset({ courseId: "", yearLevel: yearLevel});
-  //     await loadData();
-  //   } catch (error: any) {
-  //     toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign course." });
-  //   } finally {
-  //     setIsSubmitting(false);
-  //   }
-  // };
-
-  // const handleRemoveCourseFromProgram = async (programId: string, courseId: string, yearLevel: YearLevel) => { // Commented out
-  //   setIsSubmitting(true);
-  //   try {
-  //     await deleteData(`programs/${programId}/courses/remove.php/${yearLevel}/${courseId}`);
-  //     const course = allCourses.find(c => c.id === courseId);
-  //     const program = programs.find(p => p.id === programId);
-  //     toast({ title: "Course Removed", description: `${course?.name || 'Course'} removed from ${program?.name || 'Program'} - ${yearLevel}.` });
-  //     await loadData();
-  //   } catch (error: any) {
-  //     toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove course." });
-  //   } finally {
-  //     setIsSubmitting(false);
-  //   }
-  // };
 
 
   const programColumns: ColumnDef<Program>[] = React.useMemo(() => [
@@ -279,10 +237,6 @@ export default function ProgramsCoursesPage() {
                 <DropdownMenuItem onClick={() => handleOpenProgramModal(program)}>
                     <Edit3 className="mr-2 h-4 w-4" /> Edit Program Details
                 </DropdownMenuItem>
-                {/* Add a new "Manage Courses" action here if needed in future */}
-                {/* <DropdownMenuItem onClick={() => openManageProgramCoursesModal(program)}>
-                    <BookOpen className="mr-2 h-4 w-4" /> Manage Program Courses
-                </DropdownMenuItem> */}
                 <DropdownMenuSeparator />
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -403,9 +357,6 @@ export default function ProgramsCoursesPage() {
               <p className="text-muted-foreground">No system courses found. Add courses to assign them to programs.</p>
             )}
           </div>
-
-          {/* Removed Accordion section for program course management */}
-
         </div>
       )}
 
@@ -435,10 +386,10 @@ export default function ProgramsCoursesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCourseModalOpen} onOpenChange={(open) => { setIsCourseModalOpen(open); /* if(!open) setCourseModalContext(null); */}}>
+      <Dialog open={isCourseModalOpen} onOpenChange={(open) => { setIsCourseModalOpen(open);}}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isEditCourseMode ? "Edit Course" : ( /* courseModalContext?.programId ? `Add New Course to ${programs.find(p=>p.id === courseModalContext.programId)?.name || 'Program'} - ${courseModalContext.yearLevel}` : */ "Add New System Course")}</DialogTitle>
+            <DialogTitle>{isEditCourseMode ? "Edit Course" : "Add New System Course"}</DialogTitle>
             <DialogDescription>{isEditCourseMode ? "Update the course details." : "Enter details for a new course."}</DialogDescription>
           </DialogHeader>
           <Form {...courseForm}>
@@ -501,27 +452,8 @@ export default function ProgramsCoursesPage() {
                     </FormItem>
                   )}
                 />
-                {/* {courseModalContext?.yearLevel && ( // Commented out
-                     <FormField
-                        control={courseForm.control}
-                        name="yearLevel"
-                        defaultValue={courseModalContext.yearLevel}
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Year Level (for Program Assignment)</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || courseModalContext.yearLevel} disabled>
-                                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                     <SelectContent>
-                                         <SelectItem value={courseModalContext.yearLevel!}>{courseModalContext.yearLevel}</SelectItem>
-                                     </SelectContent>
-                                </Select>
-                                <FormMessage/>
-                            </FormItem>
-                        )}
-                     />
-                )} */}
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => {setIsCourseModalOpen(false); /* setCourseModalContext(null); */}} disabled={isSubmitting}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => {setIsCourseModalOpen(false);}} disabled={isSubmitting}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{isEditCourseMode ? "Save Changes" : "Add Course"}</Button>
               </DialogFooter>
             </form>
