@@ -1,13 +1,12 @@
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, PlusCircle, Megaphone, BookOpen, Trash2, Loader2, Info } from "lucide-react";
+import { UserCheck, PlusCircle, Megaphone, BookOpen, Trash2, Loader2, Info, Edit, CalendarPlus, CalendarX, Settings2 } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
-import type { Section, Faculty, Announcement, Subject, SectionSubjectAssignment, Program as ProgramType } from "@/types";
+import type { Section, Faculty, Announcement, Subject, SectionSubjectAssignment, Program as ProgramType, YearLevel } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -38,7 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { assignAdviserSchema, announcementSchema } from "@/lib/schemas";
+import { assignAdviserSchema, announcementSchema, sectionSchema } from "@/lib/schemas";
 import { format } from 'date-fns';
 import { z } from 'zod';
 import { ManageSubjectsModal } from "@/components/manage-subjects-modal";
@@ -52,10 +51,15 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { fetchData, postData, deleteData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments } from "@/lib/api"; // Added mock imports for initial data
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments, logActivity } from "@/lib/api";
+import { generateSectionCode } from "@/lib/utils";
 
 type AssignAdviserFormValues = z.infer<typeof assignAdviserSchema>;
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;
+type SectionFormValues = z.infer<typeof sectionSchema>;
+
+const yearLevelOptions: { value: YearLevel; label: string }[] = ["1st Year", "2nd Year", "3rd Year", "4th Year"].map(y => ({ value: y, label: y }));
+
 
 // Helper to get distinct values for filtering
 const getDistinctValues = (data: any[], key: string): { value: string; label: string }[] => {
@@ -64,16 +68,20 @@ const getDistinctValues = (data: any[], key: string): { value: string; label: st
     return distinct.map(value => ({ value, label: value }));
 }
 
-export default function AssignmentsAnnouncementsPage() {
+export default function ScheduleAnnouncementsPage() {
   const [sections, setSections] = React.useState<Section[]>([]);
   const [faculty, setFaculty] = React.useState<Faculty[]>([]);
   const [subjects, setSubjects] = React.useState<Subject[]>([]);
-  const [programsList, setProgramsList] = React.useState<ProgramType[]>([]); // State for programs
+  const [programsList, setProgramsList] = React.useState<ProgramType[]>([]);
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
   const [isAnnounceModalOpen, setIsAnnounceModalOpen] = React.useState(false);
+  const [isSectionModalOpen, setIsSectionModalOpen] = React.useState(false);
+  const [isEditSectionMode, setIsEditSectionMode] = React.useState(false);
   const [isManageSubjectsModalOpen, setIsManageSubjectsModalOpen] = React.useState(false);
+
   const [selectedSection, setSelectedSection] = React.useState<Section | null>(null);
   const [selectedSectionAssignments, setSelectedSectionAssignments] = React.useState<SectionSubjectAssignment[]>([]);
   const [isLoadingAssignments, setIsLoadingAssignments] = React.useState(false);
@@ -97,40 +105,50 @@ export default function AssignmentsAnnouncementsPage() {
     },
   });
 
-  React.useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        if (USE_MOCK_API) {
-            await new Promise(resolve => setTimeout(resolve, 300));
-            setSections(mockSections.map(s => ({...s, programName: mockApiPrograms.find(p => p.id === s.programId)?.name || s.programId })));
-            setFaculty(mockFaculty);
-            setSubjects(mockCourses); // Assuming mockCourses are the subjects
-            setAnnouncements(mockAnnouncements);
-            setProgramsList(mockApiPrograms); // Set programs list from mock
-        } else {
-            const [sectionsData, facultyData, subjectsData, announcementsData, programsData] = await Promise.all([
-            fetchData<Section[]>('sections/read.php'),
-            fetchData<Faculty[]>('teachers/read.php'),
-            fetchData<Subject[]>('subjects/read.php'), // Endpoint for subjects
-            fetchData<Announcement[]>('announcements/read.php'),
-            fetchData<ProgramType[]>('programs/read.php') // Fetch programs
-            ]);
-            setSections(sectionsData || []);
-            setFaculty(facultyData || []);
-            setSubjects(subjectsData || []);
-            setAnnouncements(announcementsData || []);
-            setProgramsList(programsData || []); // Set programs list from API
-        }
-      } catch (error: any) {
-        console.error("Failed to fetch initial data:", error);
-        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load page data. Please refresh." });
-      } finally {
-        setIsLoading(false);
+  const sectionForm = useForm<SectionFormValues>({
+    resolver: zodResolver(sectionSchema),
+    defaultValues: {
+        programId: "",
+        yearLevel: "1st Year",
+        sectionCode: "", // Will be auto-generated or manually input
+    },
+  });
+
+  const loadData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      if (USE_MOCK_API) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          setSections(mockSections.map(s => ({...s, programName: mockApiPrograms.find(p => p.id === s.programId)?.name || s.programId })));
+          setFaculty(mockFaculty);
+          setSubjects(mockCourses);
+          setAnnouncements(mockAnnouncements);
+          setProgramsList(mockApiPrograms);
+      } else {
+          const [sectionsData, facultyData, subjectsData, announcementsData, programsData] = await Promise.all([
+          fetchData<Section[]>('sections/read.php'),
+          fetchData<Faculty[]>('teachers/read.php'),
+          fetchData<Subject[]>('courses/read.php'), // Use courses/read.php for subjects
+          fetchData<Announcement[]>('announcements/read.php'),
+          fetchData<ProgramType[]>('programs/read.php')
+          ]);
+          setSections(sectionsData || []);
+          setFaculty(facultyData || []);
+          setSubjects(subjectsData || []);
+          setAnnouncements(announcementsData || []);
+          setProgramsList(programsData || []);
       }
-    };
-    loadData();
+    } catch (error: any) {
+      console.error("Failed to fetch initial data:", error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load page data. Please refresh." });
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
+
+  React.useEffect(() => {
+    loadData();
+  }, [loadData]);
 
     React.useEffect(() => {
         if (isManageSubjectsModalOpen && selectedSection) {
@@ -167,10 +185,65 @@ export default function AssignmentsAnnouncementsPage() {
     setIsAssignModalOpen(true);
   };
 
+  const handleOpenSectionModal = (section?: Section) => {
+      if (section) {
+          setSelectedSection(section);
+          setIsEditSectionMode(true);
+          sectionForm.reset(section);
+      } else {
+          setSelectedSection(null);
+          setIsEditSectionMode(false);
+          sectionForm.reset({ programId: "", yearLevel: "1st Year", sectionCode: "" });
+      }
+      setIsSectionModalOpen(true);
+  };
+
     const handleOpenManageSubjectsModal = (section: Section) => {
         setSelectedSection(section);
         setIsManageSubjectsModalOpen(true);
     };
+
+    const handleSaveSection = async (values: SectionFormValues) => {
+        setIsSubmitting(true);
+        let sectionPayload: Partial<Section> = {
+            ...values,
+            sectionCode: values.sectionCode || generateSectionCode(values.yearLevel, sections.filter(s => s.programId === values.programId && s.yearLevel === values.yearLevel).length)
+        };
+
+        try {
+            if (isEditSectionMode && selectedSection) {
+                const updatedSection = await putData<Partial<Section>, Section>(`sections/update.php/${selectedSection.id}`, sectionPayload);
+                setSections(prev => prev.map(s => s.id === updatedSection.id ? { ...updatedSection, programName: programsList.find(p=>p.id === updatedSection.programId)?.name } : s));
+                toast({ title: "Section Updated", description: `Section ${updatedSection.sectionCode} updated successfully.` });
+                logActivity("Updated Section", `Section ${updatedSection.sectionCode} details modified.`, "Admin", updatedSection.id, "section");
+            } else {
+                const newSection = await postData<Partial<Section>, Section>('sections/create.php', sectionPayload);
+                setSections(prev => [...prev, { ...newSection, programName: programsList.find(p=>p.id === newSection.programId)?.name }]);
+                toast({ title: "Section Added", description: `Section ${newSection.sectionCode} added successfully.` });
+                logActivity("Added Section", `Section ${newSection.sectionCode} for program ${programsList.find(p=>p.id === newSection.programId)?.name} created.`, "Admin", newSection.id, "section");
+            }
+            setIsSectionModalOpen(false);
+        } catch (error:any) {
+            toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save section." });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteSection = async (sectionId: string, sectionCode: string) => {
+        setIsSubmitting(true);
+        try {
+            await deleteData(`sections/delete.php/${sectionId}`);
+            setSections(prev => prev.filter(s => s.id !== sectionId));
+            toast({ title: "Section Deleted", description: `Section ${sectionCode} deleted.` });
+            logActivity("Deleted Section", `Section ${sectionCode} removed.`, "Admin", sectionId, "section");
+        } catch (error: any) {
+             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete section." });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
 
     const handleAddSubjectAssignment = async (sectionId: string, subjectId: string, teacherId: number) => {
         if (!selectedSection) return;
@@ -225,7 +298,7 @@ export default function AssignmentsAnnouncementsPage() {
         setSections(prev =>
             prev.map(sec =>
                 sec.id === selectedSection.id
-                ? updatedSectionData
+                ? {...updatedSectionData, programName: programsList.find(p => p.id === updatedSectionData.programId)?.name }
                 : sec
             )
         );
@@ -287,7 +360,7 @@ export default function AssignmentsAnnouncementsPage() {
   const sectionColumns: ColumnDef<Section>[] = React.useMemo(() => [
     {
       accessorKey: "sectionCode",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Section" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Section Code" />,
     },
     {
       accessorKey: "programName",
@@ -309,6 +382,13 @@ export default function AssignmentsAnnouncementsPage() {
              <Button
                 variant="outline"
                 size="sm"
+                onClick={() => handleOpenSectionModal(row.original)}
+                >
+                <Settings2 className="mr-2 h-4 w-4" /> Edit Section
+            </Button>
+             <Button
+                variant="outline"
+                size="sm"
                 onClick={() => handleOpenAssignModal(row.original)}
                 >
                 <UserCheck className="mr-2 h-4 w-4" /> Assign Adviser
@@ -320,10 +400,37 @@ export default function AssignmentsAnnouncementsPage() {
                 >
                  <BookOpen className="mr-2 h-4 w-4" /> Manage Courses(subjects)
             </Button>
+             <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                         <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isSubmitting}>
+                             <CalendarX className="h-4 w-4" />
+                         </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                         <AlertDialogHeader>
+                             <AlertDialogTitle>Delete Section {row.original.sectionCode}?</AlertDialogTitle>
+                             <AlertDialogDescription>
+                                 This action cannot be undone. All student enrollments and course assignments for this section will be affected.
+                             </AlertDialogDescription>
+                         </AlertDialogHeader>
+                         <AlertDialogFooter>
+                             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                             <AlertDialogAction
+                                 onClick={() => handleDeleteSection(row.original.id, row.original.sectionCode)}
+                                 className={buttonVariants({ variant: "destructive" })}
+                                 disabled={isSubmitting}
+                             >
+                                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                 Yes, delete section
+                             </AlertDialogAction>
+                         </AlertDialogFooter>
+                    </AlertDialogContent>
+            </AlertDialog>
          </div>
       ),
     },
-  ], [assignedAdviserIds, faculty]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [assignedAdviserIds, faculty, isSubmitting, programsList]);
 
     const announcementColumns: ColumnDef<Announcement>[] = React.useMemo(() => [
         {
@@ -352,7 +459,7 @@ export default function AssignmentsAnnouncementsPage() {
             header: "Target Audience",
             cell: ({ row }) => {
                  const target = row.original.target || {};
-                 const { course: programId, yearLevel, section } = target; // 'course' key for programId
+                 const { course: programId, yearLevel, section } = target;
                  const programName = programsList.find(p => p.id === programId)?.name;
                  const targetParts = [];
                  if (programId && programId !== 'all') targetParts.push(`Program: ${programName || programId}`);
@@ -402,145 +509,150 @@ export default function AssignmentsAnnouncementsPage() {
                  </AlertDialog>
              ),
          },
-    ], [isSubmitting, programsList]); // Added programsList dependency
+    ], [isSubmitting, programsList]);
 
-  const programOptions = React.useMemo(() => [{ value: 'all', label: 'All Programs' }, ...programsList.map(p => ({ value: p.id, label: p.name }))], [programsList]);
-  const yearLevelOptions = React.useMemo(() => [{ value: 'all', label: 'All Year Levels' }, ...getDistinctValues(sections, 'yearLevel')], [sections]);
-  const sectionOptions = React.useMemo(() => [{ value: 'all', label: 'All Sections' }, ...getDistinctValues(sections, 'sectionCode')], [sections]);
+  const programOptionsForTargeting = React.useMemo(() => [{ value: 'all', label: 'All Programs' }, ...programsList.map(p => ({ value: p.id, label: p.name }))], [programsList]);
+  const yearLevelOptionsForTargeting = React.useMemo(() => [{ value: 'all', label: 'All Year Levels' }, ...getDistinctValues(sections, 'yearLevel')], [sections]);
+  const sectionOptionsForTargeting = React.useMemo(() => [{ value: 'all', label: 'All Sections' }, ...getDistinctValues(sections, 'sectionCode')], [sections]);
 
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Section Management & Announcements</h1>
-         <Dialog open={isAnnounceModalOpen} onOpenChange={setIsAnnounceModalOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                <Megaphone className="mr-2 h-4 w-4" /> Create Announcement
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[525px]">
-                <DialogHeader>
-                <DialogTitle>Create New Announcement</DialogTitle>
-                <DialogDescription>Compose and target your announcement.</DialogDescription>
-                </DialogHeader>
-                <Form {...announcementForm}>
-                <form onSubmit={announcementForm.handleSubmit(handleCreateAnnouncement)} className="space-y-4 py-4">
-                     <FormField
-                        control={announcementForm.control}
-                        name="title"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Title</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Enter announcement title" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={announcementForm.control}
-                        name="content"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Content</FormLabel>
-                            <FormControl>
-                            <Textarea placeholder="Enter announcement content..." {...field} rows={5} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <h1 className="text-3xl font-bold">Schedule &amp; Announcements</h1>
+         <div className="flex gap-2">
+            <Button onClick={() => handleOpenSectionModal()}>
+                 <CalendarPlus className="mr-2 h-4 w-4" /> Add New Section
+            </Button>
+            <Dialog open={isAnnounceModalOpen} onOpenChange={setIsAnnounceModalOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                    <Megaphone className="mr-2 h-4 w-4" /> Create Announcement
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[525px]">
+                    <DialogHeader>
+                    <DialogTitle>Create New Announcement</DialogTitle>
+                    <DialogDescription>Compose and target your announcement.</DialogDescription>
+                    </DialogHeader>
+                    <Form {...announcementForm}>
+                    <form onSubmit={announcementForm.handleSubmit(handleCreateAnnouncement)} className="space-y-4 py-4">
                         <FormField
                             control={announcementForm.control}
-                            name="targetProgramId"
+                            name="title"
                             render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Target Program</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select Program" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                    {programOptions.map(option => (
-                                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                    ))}
-                                    </SelectContent>
-                                </Select>
+                            <FormItem>
+                                <FormLabel>Title</FormLabel>
+                                <FormControl>
+                                <Input placeholder="Enter announcement title" {...field} />
+                                </FormControl>
                                 <FormMessage />
-                                </FormItem>
+                            </FormItem>
                             )}
-                            />
-                         <FormField
+                        />
+                        <FormField
                             control={announcementForm.control}
-                            name="targetYearLevel"
+                            name="content"
                             render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Target Year Level</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
-                                     <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select Year Level" />
-                                    </SelectTrigger>
-                                     </FormControl>
-                                    <SelectContent>
-                                    {yearLevelOptions.map(option => (
-                                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                    ))}
-                                    </SelectContent>
-                                </Select>
+                            <FormItem>
+                                <FormLabel>Content</FormLabel>
+                                <FormControl>
+                                <Textarea placeholder="Enter announcement content..." {...field} rows={5} />
+                                </FormControl>
                                 <FormMessage />
-                                </FormItem>
+                            </FormItem>
                             )}
-                            />
-                         <FormField
-                            control={announcementForm.control}
-                            name="targetSection"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Target Section</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select Section" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                    {sectionOptions.map(option => (
-                                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                                    ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                            />
-                    </div>
+                        />
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <FormField
+                                control={announcementForm.control}
+                                name="targetProgramId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Target Program</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Program" />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                        {programOptionsForTargeting.map(option => (
+                                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                        ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                            <FormField
+                                control={announcementForm.control}
+                                name="targetYearLevel"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Target Year Level</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Year Level" />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                        {yearLevelOptionsForTargeting.map(option => (
+                                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                        ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                            <FormField
+                                control={announcementForm.control}
+                                name="targetSection"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Target Section</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value || "all"}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Section" />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                        {sectionOptionsForTargeting.map(option => (
+                                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                        ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                        </div>
 
 
-                    <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsAnnounceModalOpen(false)} disabled={isSubmitting}>
-                        Cancel
-                    </Button>
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Posting...</> : 'Post Announcement'}
-                    </Button>
-                    </DialogFooter>
-                </form>
-                </Form>
-            </DialogContent>
-            </Dialog>
+                        <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsAnnounceModalOpen(false)} disabled={isSubmitting}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Posting...</> : 'Post Announcement'}
+                        </Button>
+                        </DialogFooter>
+                    </form>
+                    </Form>
+                </DialogContent>
+                </Dialog>
+            </div>
       </div>
 
         <Card>
             <CardHeader>
-                <CardTitle>Section Assignments</CardTitle>
-                <CardDescription>Assign advisers and manage courses for class sections.</CardDescription>
+                <CardTitle>Class Sections</CardTitle>
+                <CardDescription>Manage sections, assign advisers, and set course schedules.</CardDescription>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
@@ -548,9 +660,9 @@ export default function AssignmentsAnnouncementsPage() {
                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" /> Loading sections...
                     </div>
                 ) : sections.length > 0 ? (
-                    <DataTable columns={sectionColumns} data={sections} />
+                    <DataTable columns={sectionColumns} data={sections} searchColumnId="sectionCode" searchPlaceholder="Search by section code..." />
                 ) : (
-                    <p className="text-center text-muted-foreground py-4">No sections found.</p>
+                    <p className="text-center text-muted-foreground py-4">No sections found. Click 'Add New Section' to begin.</p>
                 )}
             </CardContent>
         </Card>
@@ -637,22 +749,90 @@ export default function AssignmentsAnnouncementsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Add/Edit Section Modal */}
+        <Dialog open={isSectionModalOpen} onOpenChange={setIsSectionModalOpen}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{isEditSectionMode ? "Edit Section" : "Add New Section"}</DialogTitle>
+                    <DialogDescription>
+                        {isEditSectionMode ? `Update details for ${selectedSection?.sectionCode}.` : "Enter new section details. Section code can be auto-generated or manually set."}
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...sectionForm}>
+                    <form onSubmit={sectionForm.handleSubmit(handleSaveSection)} className="space-y-4 py-4">
+                        <FormField
+                            control={sectionForm.control}
+                            name="programId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Program</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select program" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {programsList.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={sectionForm.control}
+                            name="yearLevel"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Year Level</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select year level" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {yearLevelOptions.map(y => <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={sectionForm.control}
+                            name="sectionCode"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Section Code (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="e.g., CS-1A (auto if empty)" {...field} disabled={isSubmitting} />
+                                    </FormControl>
+                                     <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsSectionModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (isEditSectionMode ? "Save Changes" : "Add Section")}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+
         {/* Manage Subjects Modal */}
          {selectedSection && (
             <ManageSubjectsModal
                 isOpen={isManageSubjectsModalOpen}
                 onOpenChange={setIsManageSubjectsModalOpen}
                 section={selectedSection}
-                subjects={subjects}
+                subjects={subjects} // System-wide courses
                 teachers={faculty}
                 assignments={selectedSectionAssignments}
                 onAddAssignment={handleAddSubjectAssignment}
                 onDeleteAssignment={handleDeleteSubjectAssignment}
                 isLoadingAssignments={isLoadingAssignments}
-                isLoadingSubjects={isLoading}
-                isLoadingTeachers={isLoading}
+                isLoadingSubjects={isLoading} // Use the main isLoading for subjects
+                isLoadingTeachers={isLoading} // Use the main isLoading for faculty
             />
          )}
     </div>
   );
 }
+

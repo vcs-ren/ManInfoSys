@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 import type { StudentStatus, EmploymentType, AdminRole, DepartmentType, CourseType, YearLevel } from "@/types"; // Import DepartmentType, CourseType, YearLevel
 
@@ -30,7 +29,6 @@ export const courseSchema = z.object({
     // Minors should not have programId set, as they are general.
     // Or, if they can be suggested for programs, this logic might change.
     // For now, let's assume minors don't have specific program associations at the course definition level.
-    // This can be handled by setting programId to an empty array or undefined for Minors.
     // If data.programId is an empty array for minors, it's fine.
   }
 });
@@ -66,7 +64,7 @@ export const studentSchema = z.object({
   // Enrollment Info
   status: z.enum(studentStatusEnum, { required_error: "Status is required"}),
   year: z.enum(yearLevelEnum).optional(),
-  course: z.string().min(1, "Program is required"), // References Program ID/Name - Keep key as 'course' for backend
+  course: z.string().min(1, "Program is required"), // References Program ID/Name
   // Contact / Account Info
   email: z.string().email("Invalid email address").optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
@@ -89,7 +87,7 @@ export const studentSchema = z.object({
     }
 });
 
-// Schema for adding/editing a faculty member (updated comments)
+// Schema for adding/editing a faculty member
 export const teacherSchema = z.object({
   id: z.number().optional(),
   // Personal Info
@@ -102,7 +100,7 @@ export const teacherSchema = z.object({
   address: z.string().optional().or(z.literal('')),
   // Employee Info
   employmentType: z.enum(employmentTypeEnum, { required_error: "Employment type is required"}),
-  department: z.enum(departmentEnum, { required_error: "Department is required"}), // Use departmentEnum
+  department: z.enum(departmentEnum, { required_error: "Department is required"}),
   // Contact / Account Info
   email: z.string().email("Invalid email address").optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
@@ -112,18 +110,18 @@ export const teacherSchema = z.object({
   emergencyContactPhone: z.string().optional().or(z.literal('')),
   emergencyContactAddress: z.string().optional().or(z.literal('')),
   // Generated fields
-  teacherId: z.string().optional(), // Keep backend key as teacherId
+  teacherId: z.string().optional(),
   username: z.string().optional(),
 });
 
 // Schema for adding a new admin
 export const adminUserSchema = z.object({
-  id: z.number().optional(), // Will be faculty ID if derived
-  username: z.string().min(1, "Username is required."), // For manually added admins or display for faculty-admins
-  email: z.string().email("Valid email is required.").optional().or(z.literal('')), // Email is optional
+  id: z.number().optional(),
+  username: z.string().min(1, "Username is required."),
+  email: z.string().email("Valid email is required.").optional().or(z.literal('')),
   role: z.enum(adminRoleEnum, { required_error: "Admin role is required" }),
-  firstName: z.string().optional().or(z.literal('')), // Optional first name
-  lastName: z.string().optional().or(z.literal('')),  // Optional last name
+  firstName: z.string().optional().or(z.literal('')),
+  lastName: z.string().optional().or(z.literal('')),
 });
 
 
@@ -168,7 +166,7 @@ export const studentProfileSchema = z.object({
    emergencyContactAddress: z.string().optional().or(z.literal('')),
 });
 
-// Schema for Profile Editing (Faculty) - updated comments
+// Schema for Profile Editing (Faculty)
 export const teacherProfileSchema = z.object({
     id: z.number(),
     firstName: z.string().min(1, "First name is required"),
@@ -215,7 +213,7 @@ export const passwordChangeSchema = z.object({
 // Schema for Assigning a Subject/Course and Faculty member in Manage Courses Modal
 export const assignSubjectSchema = z.object({
   subjectId: z.string().min(1, "Please select a course(subject)."),
-  teacherId: z.coerce.number({ invalid_type_error: "Please select a faculty member." }).min(1, "Please select a faculty member."), // Keep key as teacherId
+  teacherId: z.coerce.number({ invalid_type_error: "Please select a faculty member." }).min(1, "Please select a faculty member."),
 });
 
 // Schema for Login
@@ -224,4 +222,12 @@ export const loginSchema = z.object({
   password: z.string().min(1, { message: "Password is required" }),
 });
 
+// Schema for creating/editing a Section
+export const sectionSchema = z.object({
+    id: z.string().optional(), // Optional for creation, present for editing
+    programId: z.string().min(1, "Program is required."),
+    yearLevel: z.enum(yearLevelEnum, { required_error: "Year level is required." }),
+    sectionCode: z.string().optional().or(z.literal('')), // e.g., CS-1A, can be auto-generated
+    adviserId: z.number().optional().nullable(),
+});
     

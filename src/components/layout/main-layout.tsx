@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -31,9 +30,8 @@ const allNavItems: NavItemGroup[] = [
             { href: '/admin/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
             { href: '/admin/students', label: 'Manage Students', icon: 'Users' },
             { href: '/admin/teachers', label: 'Manage Faculty', icon: 'UserCog' },
-            { href: '/admin/programs', label: 'Programs & Courses', icon: 'Library' }, // Changed label
-            { href: '/admin/assignments', label: 'Section Management', icon: 'ClipboardList' },
-            // "Manage Admins" is removed from here. It's linked from the dashboard or implicit via Faculty.
+            { href: '/admin/programs', label: 'Programs & Courses', icon: 'Library' },
+            { href: '/admin/assignments', label: 'Schedule & Announcements', icon: 'ClipboardList' }, // Updated Label
             { href: '/admin/settings', label: 'Settings', icon: 'Settings' },
         ]
     },
@@ -74,3 +72,4 @@ export function MainLayout({ children, userRole }: MainLayoutProps) {
     </SidebarProvider>
   );
 }
+
