@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, Megaphone, BookOpen, Loader2, Eye, Settings2, Filter, Users, Briefcase, PlusCircle, Trash2 } from "lucide-react";
+import { UserCheck, Megaphone, BookOpen, Loader2, Eye, Settings2, Filter, Users, Briefcase, PlusCircle, Trash2, CalendarX } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -52,7 +52,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { fetchData, postData, deleteData, putData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, logActivity } from "@/lib/api";
+import { fetchData, postData, deleteData, putData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, logActivity, mockSectionAssignments } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -65,7 +65,7 @@ type AnnouncementFormValues = z.infer<typeof announcementSchema>;
 type AssignCoursesToProgramFormValues = z.infer<typeof assignCoursesToProgramSchema>;
 
 const yearLevelOptions: { value: YearLevel; label: string }[] = ["1st Year", "2nd Year", "3rd Year", "4th Year"].map(y => ({ value: y, label: y }));
-const announcementAudienceOptions = [
+const announcementAudienceOptions: { value: 'All' | 'Student' | 'Faculty'; label: string }[] = [
     { value: 'All', label: 'All Users' },
     { value: 'Student', label: 'Students Only' },
     { value: 'Faculty', label: 'Faculty Only' },
@@ -353,6 +353,7 @@ export default function ScheduleAnnouncementsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleOpenAssignModal(row.original)}
+                disabled={isSubmitting}
                 >
                 <UserCheck className="mr-2 h-4 w-4" /> Assign Adviser
             </Button>
@@ -361,6 +362,7 @@ export default function ScheduleAnnouncementsPage() {
                 size="sm"
                 onClick={() => handleNavigateToSectionDetails(row.original.id)}
                 className="text-primary hover:bg-primary/10"
+                disabled={isSubmitting}
             >
                 <Eye className="mr-2 h-4 w-4" /> View Details
             </Button>
@@ -514,11 +516,11 @@ export default function ScheduleAnnouncementsPage() {
                     </CardDescription>
                 </div>
                  <div className="flex gap-2">
-                    <Button onClick={() => { alert("Open modal to assign course/teacher to a specific section - TBD"); }} variant="outline">
-                         <PlusCircle className="mr-2 h-4 w-4" /> Assign Course/Teacher to Section
+                    <Button onClick={() => alert("Open modal to assign teacher to a specific course in this section - TBD")} variant="outline">
+                         <PlusCircle className="mr-2 h-4 w-4" /> Assign Teachers
                     </Button>
                     <Button onClick={() => setIsAssignProgramCoursesModalOpen(true)} variant="outline">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Assign Courses to Program/Year
+                        <PlusCircle className="mr-2 h-4 w-4" /> Assign Courses
                     </Button>
                 </div>
             </CardHeader>
@@ -896,4 +898,5 @@ export default function ScheduleAnnouncementsPage() {
     </div>
   );
 }
+
 
