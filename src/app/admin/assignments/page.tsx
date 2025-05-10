@@ -7,7 +7,7 @@ import { UserCheck, PlusCircle, Megaphone, BookOpen, Trash2, Loader2, Info } fro
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
-import type { Section, Faculty, Announcement, Subject, SectionSubjectAssignment } from "@/types"; // Renamed Teacher to Faculty
+import type { Section, Faculty, Announcement, Subject, SectionSubjectAssignment, Program as ProgramType } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -51,9 +51,8 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { fetchData, postData, deleteData } from "@/lib/api";
+import { fetchData, postData, deleteData, USE_MOCK_API, mockApiPrograms, mockCourses, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments } from "@/lib/api"; // Added mock imports for initial data
 
 type AssignAdviserFormValues = z.infer<typeof assignAdviserSchema>;
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;
@@ -67,8 +66,9 @@ const getDistinctValues = (data: any[], key: string): { value: string; label: st
 
 export default function AssignmentsAnnouncementsPage() {
   const [sections, setSections] = React.useState<Section[]>([]);
-  const [faculty, setFaculty] = React.useState<Faculty[]>([]); // Renamed from teachers
+  const [faculty, setFaculty] = React.useState<Faculty[]>([]);
   const [subjects, setSubjects] = React.useState<Subject[]>([]);
+  const [programsList, setProgramsList] = React.useState<ProgramType[]>([]); // State for programs
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
@@ -91,27 +91,37 @@ export default function AssignmentsAnnouncementsPage() {
     defaultValues: {
       title: "",
       content: "",
-      targetProgramId: "all", // Keep backend name, change label later
+      targetProgramId: "all",
       targetYearLevel: "all",
       targetSection: "all",
     },
   });
 
-  // Fetch initial data using API helpers
   React.useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [sectionsData, facultyData, subjectsData, announcementsData] = await Promise.all([
-          fetchData<Section[]>('sections/read.php'),
-          fetchData<Faculty[]>('teachers/read.php'), // Endpoint remains 'teachers'
-          fetchData<Subject[]>('subjects/read.php'),
-          fetchData<Announcement[]>('announcements/read.php')
-        ]);
-        setSections(sectionsData || []);
-        setFaculty(facultyData || []); // Set faculty state
-        setSubjects(subjectsData || []);
-        setAnnouncements(announcementsData || []);
+        if (USE_MOCK_API) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            setSections(mockSections.map(s => ({...s, programName: mockApiPrograms.find(p => p.id === s.programId)?.name || s.programId })));
+            setFaculty(mockFaculty);
+            setSubjects(mockCourses); // Assuming mockCourses are the subjects
+            setAnnouncements(mockAnnouncements);
+            setProgramsList(mockApiPrograms); // Set programs list from mock
+        } else {
+            const [sectionsData, facultyData, subjectsData, announcementsData, programsData] = await Promise.all([
+            fetchData<Section[]>('sections/read.php'),
+            fetchData<Faculty[]>('teachers/read.php'),
+            fetchData<Subject[]>('subjects/read.php'), // Endpoint for subjects
+            fetchData<Announcement[]>('announcements/read.php'),
+            fetchData<ProgramType[]>('programs/read.php') // Fetch programs
+            ]);
+            setSections(sectionsData || []);
+            setFaculty(facultyData || []);
+            setSubjects(subjectsData || []);
+            setAnnouncements(announcementsData || []);
+            setProgramsList(programsData || []); // Set programs list from API
+        }
       } catch (error: any) {
         console.error("Failed to fetch initial data:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load page data. Please refresh." });
@@ -122,15 +132,23 @@ export default function AssignmentsAnnouncementsPage() {
     loadData();
   }, [toast]);
 
-   // Fetch assignments when Manage Subjects modal opens for a section using helper
     React.useEffect(() => {
         if (isManageSubjectsModalOpen && selectedSection) {
             const fetchAssignments = async () => {
                 setIsLoadingAssignments(true);
                 try {
-                    // Fetch assignments for the specific section
-                    const assignmentsData = await fetchData<SectionSubjectAssignment[]>(`sections/${selectedSection.id}/assignments/read.php`);
-                    setSelectedSectionAssignments(assignmentsData || []);
+                    if (USE_MOCK_API) {
+                        const sectionAssignments = mockSectionAssignments.filter(a => a.sectionId === selectedSection.id)
+                            .map(a => ({
+                                ...a,
+                                subjectName: subjects.find(s => s.id === a.subjectId)?.name || a.subjectId,
+                                teacherName: faculty.find(t => t.id === a.teacherId)?.firstName + ' ' + faculty.find(t => t.id === a.teacherId)?.lastName || `Faculty ID ${a.teacherId}`,
+                            }));
+                        setSelectedSectionAssignments(sectionAssignments);
+                    } else {
+                        const assignmentsData = await fetchData<SectionSubjectAssignment[]>(`sections/${selectedSection.id}/assignments/read.php`);
+                        setSelectedSectionAssignments(assignmentsData || []);
+                    }
                 } catch (error: any) {
                     console.error("Failed to fetch assignments:", error);
                      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load subject assignments." });
@@ -140,7 +158,7 @@ export default function AssignmentsAnnouncementsPage() {
             };
             fetchAssignments();
         }
-    }, [isManageSubjectsModalOpen, selectedSection, toast]);
+    }, [isManageSubjectsModalOpen, selectedSection, toast, subjects, faculty]);
 
 
   const handleOpenAssignModal = (section: Section) => {
@@ -151,20 +169,17 @@ export default function AssignmentsAnnouncementsPage() {
 
     const handleOpenManageSubjectsModal = (section: Section) => {
         setSelectedSection(section);
-        // Assignments will be fetched by the useEffect hook
         setIsManageSubjectsModalOpen(true);
     };
 
-    const handleAddSubjectAssignment = async (sectionId: string, subjectId: string, teacherId: number) => { // Keep teacherId for backend
+    const handleAddSubjectAssignment = async (sectionId: string, subjectId: string, teacherId: number) => {
         if (!selectedSection) return;
 
-        setIsLoadingAssignments(true); // Use loading state for assignments
+        setIsLoadingAssignments(true);
         try {
-            // Use postData helper
             const newAssignment = await postData<any, SectionSubjectAssignment>('sections/assignments/create.php', { sectionId, subjectId, teacherId });
-            // Add subjectName and teacherName from fetched data or local state for immediate display
              const subject = subjects.find(s => s.id === subjectId);
-             const facultyMember = faculty.find(t => t.id === teacherId); // Use faculty state
+             const facultyMember = faculty.find(t => t.id === teacherId);
              newAssignment.subjectName = subject?.name || `Subject ${subjectId}`;
              newAssignment.teacherName = facultyMember ? `${facultyMember.firstName} ${facultyMember.lastName}` : `Faculty ID ${teacherId}`;
 
@@ -173,7 +188,7 @@ export default function AssignmentsAnnouncementsPage() {
         } catch (error: any) {
             console.error("Failed to save assignment:", error);
             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to add subject assignment." });
-             throw error; // Re-throw to indicate failure
+             throw error;
         } finally {
             setIsLoadingAssignments(false);
         }
@@ -184,14 +199,13 @@ export default function AssignmentsAnnouncementsPage() {
 
         setIsLoadingAssignments(true);
         try {
-            // Use deleteData helper
-            await deleteData(`assignments/delete.php/${assignmentId}`); // Endpoint remains assignments
+            await deleteData(`assignments/delete.php/${assignmentId}`);
             setSelectedSectionAssignments(prev => prev.filter(a => a.id !== assignmentId));
             toast({ title: "Assignment Removed", description: `Subject assignment removed successfully.` });
         } catch (error: any) {
             console.error("Failed to delete assignment:", error);
             toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove subject assignment." });
-             throw error; // Re-throw to indicate failure
+             throw error;
         } finally {
             setIsLoadingAssignments(false);
         }
@@ -203,7 +217,6 @@ export default function AssignmentsAnnouncementsPage() {
     const adviserIdToAssign = values.adviserId === 0 ? null : values.adviserId;
 
     try {
-        // Use postData helper, endpoint uses POST but acts like PATCH
         const updatedSectionData = await postData<{ adviserId: number | null }, Section>(
             `sections/${selectedSection.id}/adviser/update.php`,
             { adviserId: adviserIdToAssign }
@@ -212,7 +225,7 @@ export default function AssignmentsAnnouncementsPage() {
         setSections(prev =>
             prev.map(sec =>
                 sec.id === selectedSection.id
-                ? updatedSectionData // Use the updated data from the backend
+                ? updatedSectionData
                 : sec
             )
         );
@@ -232,14 +245,13 @@ export default function AssignmentsAnnouncementsPage() {
       title: values.title,
       content: values.content,
       target: {
-        course: values.targetProgramId === 'all' ? null : values.targetProgramId, // Use programId but key is 'course' for backend
+        course: values.targetProgramId === 'all' ? null : values.targetProgramId,
         yearLevel: values.targetYearLevel === 'all' ? null : values.targetYearLevel,
         section: values.targetSection === 'all' ? null : values.targetSection,
       }
     };
 
     try {
-        // Use postData helper
         const newAnnouncement = await postData<typeof announcementPayload, Announcement>('announcements/create.php', announcementPayload);
         setAnnouncements(prev => [newAnnouncement, ...prev]);
         toast({ title: "Announcement Posted", description: "Announcement created successfully." });
@@ -256,7 +268,6 @@ export default function AssignmentsAnnouncementsPage() {
     const handleDeleteAnnouncement = async (announcementId: string) => {
         setIsSubmitting(true);
         try {
-            // Use deleteData helper
             await deleteData(`announcements/delete.php/${announcementId}`);
             setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
             toast({ title: "Deleted", description: "Announcement removed." });
@@ -279,7 +290,7 @@ export default function AssignmentsAnnouncementsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Section" />,
     },
     {
-      accessorKey: "programName", // Use programName for display
+      accessorKey: "programName",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Program" />,
     },
     {
@@ -312,7 +323,7 @@ export default function AssignmentsAnnouncementsPage() {
          </div>
       ),
     },
-  ], [assignedAdviserIds, faculty]); // Updated dependency to faculty
+  ], [assignedAdviserIds, faculty]);
 
     const announcementColumns: ColumnDef<Announcement>[] = React.useMemo(() => [
         {
@@ -320,7 +331,6 @@ export default function AssignmentsAnnouncementsPage() {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
              cell: ({ row }) => {
                  try {
-                     // Ensure date is a Date object before formatting
                      const dateValue = row.original.date instanceof Date ? row.original.date : new Date(row.original.date);
                      return format(dateValue, "PP");
                  } catch (e) {
@@ -342,8 +352,8 @@ export default function AssignmentsAnnouncementsPage() {
             header: "Target Audience",
             cell: ({ row }) => {
                  const target = row.original.target || {};
-                 const { programId, yearLevel, section } = target; // Use programId
-                 const programName = mockPrograms.find(p => p.id === programId)?.name; // Find program name
+                 const { course: programId, yearLevel, section } = target; // 'course' key for programId
+                 const programName = programsList.find(p => p.id === programId)?.name;
                  const targetParts = [];
                  if (programId && programId !== 'all') targetParts.push(`Program: ${programName || programId}`);
                  if (yearLevel && yearLevel !== 'all') targetParts.push(`Year: ${yearLevel}`);
@@ -392,9 +402,9 @@ export default function AssignmentsAnnouncementsPage() {
                  </AlertDialog>
              ),
          },
-    ], [isSubmitting]);
+    ], [isSubmitting, programsList]); // Added programsList dependency
 
-  const programOptions = React.useMemo(() => [{ value: 'all', label: 'All Programs' }, ...getDistinctValues(sections, 'programName')], [sections]); // Use programName
+  const programOptions = React.useMemo(() => [{ value: 'all', label: 'All Programs' }, ...programsList.map(p => ({ value: p.id, label: p.name }))], [programsList]);
   const yearLevelOptions = React.useMemo(() => [{ value: 'all', label: 'All Year Levels' }, ...getDistinctValues(sections, 'yearLevel')], [sections]);
   const sectionOptions = React.useMemo(() => [{ value: 'all', label: 'All Sections' }, ...getDistinctValues(sections, 'sectionCode')], [sections]);
 
@@ -446,7 +456,7 @@ export default function AssignmentsAnnouncementsPage() {
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <FormField
                             control={announcementForm.control}
-                            name="targetProgramId" // Keep name as targetProgramId
+                            name="targetProgramId"
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Target Program</FormLabel>
@@ -570,7 +580,7 @@ export default function AssignmentsAnnouncementsPage() {
           <DialogHeader>
             <DialogTitle>Assign Adviser to {selectedSection?.sectionCode}</DialogTitle>
             <DialogDescription>
-                Select an adviser for {selectedSection?.programName} - {selectedSection?.yearLevel}. {/* Use programName */}
+                Select an adviser for {selectedSection?.programName} - {selectedSection?.yearLevel}.
                 Current: {selectedSection?.adviserName || 'None'}
             </DialogDescription>
           </DialogHeader>
@@ -591,21 +601,21 @@ export default function AssignmentsAnnouncementsPage() {
                       <SelectContent>
                         <SelectItem value={"0"}>--- Unassign Adviser ---</SelectItem>
                          {isLoading ? (
-                            <SelectItem value="loading" disabled>Loading faculty...</SelectItem> // Updated text
+                            <SelectItem value="loading" disabled>Loading faculty...</SelectItem>
                         ) : (
-                             faculty // Use faculty state
-                                .filter(facultyMember => !assignedAdviserIds.includes(facultyMember.id) || facultyMember.id === selectedSection?.adviserId) // Filter faculty
-                                .map((facultyMember) => ( // Iterate over faculty
+                             faculty
+                                .filter(facultyMember => !assignedAdviserIds.includes(facultyMember.id) || facultyMember.id === selectedSection?.adviserId)
+                                .map((facultyMember) => (
                                     <SelectItem key={facultyMember.id} value={String(facultyMember.id)}>
-                                        {facultyMember.firstName} {facultyMember.lastName} ({facultyMember.department}) {/* Display faculty info */}
+                                        {facultyMember.firstName} {facultyMember.lastName} ({facultyMember.department})
                                     </SelectItem>
                                 ))
                         )}
-                         {faculty.length > 0 && !isLoading && faculty.filter(facultyMember => !assignedAdviserIds.includes(facultyMember.id) || facultyMember.id === selectedSection?.adviserId).length === 0 && ( // Check faculty state
-                            <SelectItem value="no-available" disabled>No available faculty</SelectItem> // Updated text
+                         {faculty.length > 0 && !isLoading && faculty.filter(facultyMember => !assignedAdviserIds.includes(facultyMember.id) || facultyMember.id === selectedSection?.adviserId).length === 0 && (
+                            <SelectItem value="no-available" disabled>No available faculty</SelectItem>
                          )}
-                         {faculty.length === 0 && !isLoading && ( // Check faculty state
-                            <SelectItem value="no-faculty" disabled>No faculty found</SelectItem> // Updated text
+                         {faculty.length === 0 && !isLoading && (
+                            <SelectItem value="no-faculty" disabled>No faculty found</SelectItem>
                          )}
 
                       </SelectContent>
@@ -634,17 +644,15 @@ export default function AssignmentsAnnouncementsPage() {
                 onOpenChange={setIsManageSubjectsModalOpen}
                 section={selectedSection}
                 subjects={subjects}
-                teachers={faculty} // Pass faculty state
+                teachers={faculty}
                 assignments={selectedSectionAssignments}
                 onAddAssignment={handleAddSubjectAssignment}
                 onDeleteAssignment={handleDeleteSubjectAssignment}
                 isLoadingAssignments={isLoadingAssignments}
                 isLoadingSubjects={isLoading}
-                isLoadingTeachers={isLoading} // Pass general loading state for faculty
+                isLoadingTeachers={isLoading}
             />
          )}
     </div>
   );
 }
-
-    

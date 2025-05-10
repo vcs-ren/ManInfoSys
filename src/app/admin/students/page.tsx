@@ -1,17 +1,16 @@
 
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, RotateCcw, Info } from "lucide-react"; // Removed Edit, Pencil
 import { format, formatDistanceToNow } from 'date-fns';
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form";
 import { studentSchema } from "@/lib/schemas";
-import type { Student, StudentStatus } from "@/types";
+import type { Student, StudentStatus, Program, YearLevel } from "@/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -21,25 +20,16 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"; // Removed DropdownMenuTrigger, Label
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { fetchData, postData, putData, deleteData } from "@/lib/api"; // Import API helpers
-
-// Define program options (consider fetching these from API if dynamic)
-const programOptions = [
-  { value: "Computer Science", label: "Computer Science" },
-  { value: "Information Technology", label: "Information Technology" },
-  { value: "Business Administration", label: "Business Administration" },
-  // Add more programs as needed
-];
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms } from "@/lib/api"; // Import API helpers, mockApiPrograms
 
 // Updated status options (removed 'Continuing')
 const statusOptions: { value: StudentStatus; label: string }[] = [
@@ -48,7 +38,7 @@ const statusOptions: { value: StudentStatus; label: string }[] = [
     { value: "Returnee", label: "Returnee" },
 ];
 
-const yearLevelOptions = [
+const yearLevelOptions: { value: YearLevel; label: string }[] = [
     { value: "1st Year", label: "1st Year" },
     { value: "2nd Year", label: "2nd Year" },
     { value: "3rd Year", label: "3rd Year" },
@@ -61,37 +51,42 @@ const genderOptions = [
     { value: "Other", label: "Other" },
 ];
 
-// Updated form fields config with new sections and fields
-const studentFormFields: FormFieldConfig<Student>[] = [
-  // Personal Information Section
-  { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
-  { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
-  { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
-  { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr. (optional)", section: 'personal' },
-  { name: "birthday", label: "Birthday", type: "date", placeholder: "YYYY-MM-DD (optional)", section: 'personal' },
-  { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
-  // Enrollment Info (Order: Status, Year, Program) - Student ID shown read-only in edit mode
-  { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'enrollment' },
-  { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false },
-  { name: "course", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' }, // Keep key as 'course'
-  // Contact / Account Details
-  { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
-  { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
-  // Emergency Contact Fields
-  { name: "emergencyContactName", label: "Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
-  { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father (optional)", type: "text", section: 'emergency' },
-  { name: "emergencyContactPhone", label: "Contact Number", placeholder: "Emergency contact number (optional)", type: "tel", section: 'emergency' },
-  { name: "emergencyContactAddress", label: "Address", placeholder: "Emergency contact address (optional)", type: "textarea", section: 'emergency' },
-];
+// Function to generate dynamic form fields for students
+const getStudentFormFields = (programs: Program[]): FormFieldConfig<Student>[] => {
+  const programOptions = programs.map(p => ({ value: p.id, label: p.name }));
+
+  return [
+    // Personal Information Section
+    { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
+    { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
+    { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
+    { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr. (optional)", section: 'personal' },
+    { name: "birthday", label: "Birthday", type: "date", placeholder: "YYYY-MM-DD (optional)", section: 'personal' },
+    { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
+    // Enrollment Info (Order: Status, Year, Program)
+    { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'enrollment' },
+    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: true, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false },
+    { name: "course", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' }, // Use dynamic program options
+    // Contact / Account Details
+    { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
+    { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
+    // Emergency Contact Fields
+    { name: "emergencyContactName", label: "Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
+    { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father (optional)", type: "text", section: 'emergency' },
+    { name: "emergencyContactPhone", label: "Contact Number", placeholder: "Emergency contact number (optional)", type: "tel", section: 'emergency' },
+    { name: "emergencyContactAddress", label: "Address", placeholder: "Emergency contact address (optional)", type: "textarea", section: 'emergency' },
+  ];
+};
 
 
 export default function ManageStudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
+  const [programs, setPrograms] = React.useState<Program[]>([]); // State for programs
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
-  const [isModalOpen, setIsModalOpen] = React.useState(false); // Combined state for Add/Edit modal
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isEditMode, setIsEditMode] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // For delete/reset password confirmation
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
     emergencyContactName: false,
@@ -104,25 +99,40 @@ export default function ManageStudentsPage() {
     suffix: false,
     gender: false,
     birthday: false,
-    section: true, // Show section by default now
-    username: false, // Hide username by default
-    lastAccessed: false, // Hide lastAccessed by default
+    section: true,
+    username: false,
+    lastAccessed: false,
   });
 
+  const studentFormFields = React.useMemo(() => getStudentFormFields(programs), [programs]);
+
   React.useEffect(() => {
-    const fetchStudents = async () => {
+    const loadInitialData = async () => {
       setIsLoading(true);
       try {
-         const data = await fetchData<Student[]>('students/read.php'); // Use local relative path
-        setStudents(data || []);
+        if (USE_MOCK_API) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          setStudents([
+            { id: 1, studentId: "101", username: "s101", firstName: "Alice", lastName: "Smith", course: "CS", status: "Returnee", year: "2nd Year", section: "CS-2A", email: "alice@example.com", phone: "123-456-7890", emergencyContactName: "John Smith", emergencyContactRelationship: "Father", emergencyContactPhone: "111-222-3333", emergencyContactAddress: "123 Main St", lastAccessed: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+            { id: 2, studentId: "102", username: "s102", firstName: "Bob", lastName: "Johnson", course: "IT", status: "New", year: "1st Year", section: "IT-1B", email: "bob@example.com", phone: "987-654-3210", lastAccessed: null },
+          ]);
+          setPrograms(mockApiPrograms);
+        } else {
+          const [studentsData, programsData] = await Promise.all([
+            fetchData<Student[]>('students/read.php'),
+            fetchData<Program[]>('programs/read.php')
+          ]);
+          setStudents(studentsData || []);
+          setPrograms(programsData || []);
+        }
       } catch (error: any) {
-        console.error("Failed to fetch students:", error);
-         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load student data." });
+        console.error("Failed to fetch initial data:", error);
+        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load data." });
       } finally {
         setIsLoading(false);
       }
     };
-    fetchStudents();
+    loadInitialData();
   }, [toast]);
 
   const handleSaveStudent = async (values: Student) => {
@@ -133,7 +143,6 @@ export default function ManageStudentsPage() {
         throw new Error("Year level missing");
     }
 
-    // Check for duplicate name only when *adding* a new student
     if (!isEditMode) {
         const nameExists = students.some(
             (s) => s.firstName.toLowerCase() === values.firstName.toLowerCase() &&
@@ -144,7 +153,6 @@ export default function ManageStudentsPage() {
              throw new Error("Duplicate name");
         }
     }
-
 
     const payload = {
       ...values,
@@ -162,16 +170,15 @@ export default function ManageStudentsPage() {
         } else {
              savedStudent = await postData<Omit<typeof payload, 'id' | 'studentId' | 'username' | 'section' | 'lastAccessed'>, Student>('students/create.php', payload);
             setStudents(prev => [...prev, savedStudent]);
-            toast({ title: "Student Added", description: `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.year || savedStudent.status}, Section ${savedStudent.section}) has been added.` });
+            toast({ title: "Student Added", description: `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.username}, Section ${savedStudent.section}) has been added.` });
         }
         closeModal();
     } catch (error: any) {
-        // Avoid double-toasting if it was a duplicate name error
         if (error.message !== "Duplicate name") {
             console.error(`Failed to ${isEditMode ? 'update' : 'add'} student:`, error);
             toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Student`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} student. Please try again.` });
         }
-         throw error; // Re-throw to stop further execution in the form component
+         throw error;
     }
   };
 
@@ -224,8 +231,6 @@ export default function ManageStudentsPage() {
 
    const closeModal = () => {
     setIsModalOpen(false);
-     // Add a slight delay before clearing the selected student
-     // to allow the modal close animation to finish smoothly
      setTimeout(() => {
         setSelectedStudent(null);
         setIsEditMode(false);
@@ -247,7 +252,7 @@ export default function ManageStudentsPage() {
             accessorKey: "username",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />,
             cell: ({ row }) => <div>{row.original.username}</div>,
-             enableHiding: true, // Hide by default
+             enableHiding: true,
         },
         {
             accessorKey: "firstName",
@@ -290,15 +295,18 @@ export default function ManageStudentsPage() {
             enableHiding: true,
         },
          {
-            accessorKey: "course", // Keep backend key
+            accessorKey: "course",
              header: ({ column }) => (
                  <DataTableFilterableColumnHeader
                      column={column}
-                     title="Program" // Change display label
-                     options={programOptions}
+                     title="Program"
+                     options={programs.map(p => ({ value: p.id, label: p.name }))}
                  />
              ),
-            cell: ({ row }) => <div>{row.getValue("course")}</div>, // Access value using backend key
+            cell: ({ row }) => {
+                const program = programs.find(p => p.id === row.original.course);
+                return <div>{program?.name || row.original.course}</div>;
+            },
              filterFn: (row, id, value) => value.includes(row.getValue(id)),
         },
          {
@@ -339,7 +347,7 @@ export default function ManageStudentsPage() {
             ),
             cell: ({ row }) => <div className="text-center">{row.getValue("section")}</div>,
              filterFn: (row, id, value) => value.includes(row.getValue(id)),
-             enableHiding: false, // Ensure Section is visible by default
+             enableHiding: false,
         },
          {
             accessorKey: "email",
@@ -397,11 +405,10 @@ export default function ManageStudentsPage() {
             enableHiding: true,
         },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [sectionOptions]);
+    ], [sectionOptions, programs]);
 
     const generateActionMenuItems = (student: Student) => (
         <>
-        {/* Update this item to open the modal in edit mode */}
         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditModal(student); }}>
             <Info className="mr-2 h-4 w-4" />
             View / Edit Details
@@ -495,21 +502,26 @@ export default function ManageStudentsPage() {
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
+                 filterableColumnHeaders={[
+                    { columnId: "course", title: "Program", options: programs.map(p => ({ value: p.id, label: p.name })) },
+                    { columnId: "year", title: "Year", options: yearLevelOptions },
+                    { columnId: "status", title: "Status", options: statusOptions },
+                    { columnId: "section", title: "Section", options: sectionOptions },
+                ]}
             />
         )}
 
-      {/* Use UserForm for both Add and Edit */}
       <UserForm<Student>
             isOpen={isModalOpen}
-            onOpenChange={setIsModalOpen} // Pass setIsModalOpen directly
+            onOpenChange={setIsModalOpen}
             formSchema={studentSchema}
             onSubmit={handleSaveStudent}
             title={isEditMode ? `Student Details: ${selectedStudent?.firstName} ${selectedStudent?.lastName}` : 'Add New Student'}
-            description={isEditMode ? "View or update student information." : "Fill in the details below. Section & Year (for New status) are assigned automatically. Credentials are generated upon creation."}
+            description={isEditMode ? "View or update student information." : "Fill in the details below. Section is assigned automatically. Credentials are generated upon creation."}
             formFields={studentFormFields}
             isEditMode={isEditMode}
             initialData={isEditMode ? selectedStudent : undefined}
-            startReadOnly={isEditMode} // Start in read-only mode when editing
+            startReadOnly={isEditMode}
         />
     </div>
   );

@@ -1,10 +1,11 @@
+
 "use client";
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PlusCircle, Edit, Trash2, Loader2, BookOpen, Library, PackagePlus, XCircle, Edit3, AlertCircle, MoreHorizontal } from "lucide-react";
 import { z } from "zod";
-import { Controller, useForm } from "react-hook-form"; // Corrected useForm import
+import { Controller, useForm } from "react-hook-form";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
@@ -147,7 +148,7 @@ export default function ProgramsCoursesPage() {
         toast({ title: "Program Added", description: `${savedProgram.name} added successfully.` });
       }
       setIsProgramModalOpen(false);
-      await loadData(); // Re-fetch and re-set the programs and courses state
+      await loadData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save program." });
     } finally {
@@ -160,7 +161,7 @@ export default function ProgramsCoursesPage() {
     try {
       await deleteData(`programs/delete.php/${programId}`);
       toast({ title: "Program Deleted", description: "Program and its major course assignments removed." });
-      await loadData(); // Re-fetch and re-set the programs and courses state
+      await loadData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete program." });
     } finally {
@@ -193,7 +194,6 @@ export default function ProgramsCoursesPage() {
       } else {
         const savedCourse = await postData<typeof payload, Course>('courses/create.php', payload);
         toast({ title: "Course Added", description: `${savedCourse.name} added to system courses.` });
-        // If created in context of a program and year, assign it
         if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.programId?.includes(courseModalContext.programId)) {
             await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
         } else if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.type === 'Minor') {
@@ -202,7 +202,7 @@ export default function ProgramsCoursesPage() {
       }
       setIsCourseModalOpen(false);
       setCourseModalContext(null);
-      await loadData(); // Re-fetch and re-set the programs and courses state
+      await loadData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save course." });
     } finally {
@@ -215,7 +215,7 @@ export default function ProgramsCoursesPage() {
     try {
       await deleteData(`courses/delete.php/${courseId}`);
       toast({ title: "Course Deleted", description: "Course removed from system and all program assignments." });
-      await loadData(); // Re-fetch and re-set the programs and courses state
+      await loadData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete course." });
     } finally {
@@ -231,7 +231,7 @@ export default function ProgramsCoursesPage() {
       const program = programs.find(p => p.id === programId);
       toast({ title: "Course Assigned", description: `${course?.name || 'Course'} assigned to ${program?.name || 'Program'} - ${yearLevel}.` });
       addCourseToProgramForm.reset({ courseId: "", yearLevel: yearLevel});
-      await loadData(); // Re-fetch and re-set the programs and courses state
+      await loadData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign course." });
     } finally {
@@ -246,7 +246,7 @@ export default function ProgramsCoursesPage() {
       const course = allCourses.find(c => c.id === courseId);
       const program = programs.find(p => p.id === programId);
       toast({ title: "Course Removed", description: `${course?.name || 'Course'} removed from ${program?.name || 'Program'} - ${yearLevel}.` });
-      await loadData(); // Re-fetch and re-set the programs and courses state
+      await loadData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove course." });
     } finally {
@@ -307,7 +307,7 @@ export default function ProgramsCoursesPage() {
         );
       },
     },
-  ], [isSubmitting, programs]); // Added programs to dependency array
+  ], [isSubmitting, programs]);
 
 
   const courseColumns: ColumnDef<Course>[] = React.useMemo(() => [
@@ -427,7 +427,7 @@ export default function ProgramsCoursesPage() {
                         if (course.type === 'Major') {
                             return Array.isArray(course.programId) && course.programId.includes(program.id);
                         }
-                        return true;
+                        return true; // Minor courses are always available
                       });
 
                       return (
@@ -450,8 +450,8 @@ export default function ProgramsCoursesPage() {
                                         <Controller
                                             control={addCourseToProgramForm.control}
                                             name="yearLevel"
-                                            defaultValue={year} // Set default year level for the form context
-                                            render={() => null} // Hidden field, value is used in submission
+                                            defaultValue={year}
+                                            render={() => null}
                                         />
                                         <FormField
                                             control={addCourseToProgramForm.control}
