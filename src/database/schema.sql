@@ -1,150 +1,186 @@
--- Database Schema for CampusConnect MIS
 
--- ** Make sure to create the database first! **
--- CREATE DATABASE IF NOT EXISTS campus_connect_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
--- USE campus_connect_db;
+CREATE DATABASE IF NOT EXISTS campus_connect_db;
+USE campus_connect_db;
 
--- Admins Table (Only one admin initially)
+-- Admins Table (For Super Admin primarily)
 CREATE TABLE IF NOT EXISTS admins (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
+    username VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    email VARCHAR(100) UNIQUE,
-    first_name VARCHAR(50),
-    last_name VARCHAR(50),
-    is_super_admin BOOLEAN DEFAULT FALSE, -- To distinguish the main admin
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+-- Faculty Table (Replaces Teachers table, includes Administrative staff)
+CREATE TABLE IF NOT EXISTS faculty (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    faculty_id VARCHAR(20) NOT NULL UNIQUE, -- e.g., 1000XXXX
+    username VARCHAR(50) NOT NULL UNIQUE, -- e.g., t1000XXXX or a1000XXXX
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    middle_name VARCHAR(100),
+    suffix VARCHAR(10),
+    gender ENUM('Male', 'Female', 'Other'),
+    birthday DATE,
+    address TEXT,
+    department ENUM('Teaching', 'Administrative') NOT NULL,
+    employment_type ENUM('Regular', 'Part Time') NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    phone VARCHAR(20),
+    password_hash VARCHAR(255) NOT NULL,
+    emergency_contact_name VARCHAR(200),
+    emergency_contact_relationship VARCHAR(50),
+    emergency_contact_phone VARCHAR(20),
+    emergency_contact_address TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_accessed TIMESTAMP NULL DEFAULT NULL
+);
 
 
 -- Students Table
 CREATE TABLE IF NOT EXISTS students (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    student_id VARCHAR(10) UNIQUE NOT NULL, -- e.g., '101', '102'
-    username VARCHAR(50) UNIQUE NOT NULL,   -- e.g., 's101', 's102'
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    middle_name VARCHAR(50),
+    student_id VARCHAR(20) NOT NULL UNIQUE, -- e.g., 100XXXX
+    username VARCHAR(50) NOT NULL UNIQUE, -- e.g., s100XXXX
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    middle_name VARCHAR(100),
     suffix VARCHAR(10),
     gender ENUM('Male', 'Female', 'Other'),
     birthday DATE,
-    course VARCHAR(100) NOT NULL,
-    status ENUM('New', 'Transferee', 'Returnee') NOT NULL, -- Removed 'Continuing'
-    year VARCHAR(20), -- e.g., '1st Year', '2nd Year' (Required for Transferee/Returnee)
-    section VARCHAR(20) NOT NULL, -- Auto-generated based on year
+    program VARCHAR(100) NOT NULL, -- References program ID
+    enrollment_type ENUM('New', 'Transferee', 'Returnee') NOT NULL, -- Changed from status
+    year ENUM('1st Year', '2nd Year', '3rd Year', '4th Year'),
+    section VARCHAR(20), -- References section ID
     email VARCHAR(100) UNIQUE,
     phone VARCHAR(20),
-    password_hash VARCHAR(255) NOT NULL, -- Hashed password
-    emergency_contact_name VARCHAR(100),
+    password_hash VARCHAR(255) NOT NULL,
+    emergency_contact_name VARCHAR(200),
     emergency_contact_relationship VARCHAR(50),
     emergency_contact_phone VARCHAR(20),
     emergency_contact_address TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_accessed TIMESTAMP NULL DEFAULT NULL
+);
 
--- Teachers Table
-CREATE TABLE IF NOT EXISTS teachers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    teacher_id VARCHAR(10) UNIQUE NOT NULL, -- e.g., 't101', 't102'
-    username VARCHAR(50) UNIQUE NOT NULL,   -- e.g., 't101', 't102'
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    middle_name VARCHAR(50),
-    suffix VARCHAR(10),
-    address TEXT,
-    department VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE,
-    phone VARCHAR(20),
-    birthday DATE,
-    password_hash VARCHAR(255) NOT NULL, -- Hashed password
-    emergency_contact_name VARCHAR(100),
-    emergency_contact_relationship VARCHAR(50),
-    emergency_contact_phone VARCHAR(20),
-    emergency_contact_address TEXT,
+-- Programs Table
+CREATE TABLE IF NOT EXISTS programs (
+    id VARCHAR(20) PRIMARY KEY, -- e.g., CS, IT, BSED-ENG
+    name VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+-- Courses (Subjects) Table
+CREATE TABLE IF NOT EXISTS courses (
+    id VARCHAR(20) PRIMARY KEY, -- e.g., CS101, ENG203, FIL101
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    type ENUM('Major', 'Minor') NOT NULL,
+    -- For Major courses, this field might be populated or handled by program_courses linking
+    -- For Minor courses, it would typically be empty here.
+    -- This column might be better managed in a linking table if a course can be major to multiple programs
+    -- For simplicity now, let's assume programId will be updated if needed for Majors
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Program-Courses Linking Table (Many-to-Many relationship)
+-- Defines the curriculum: which courses belong to which program at which year level
+CREATE TABLE IF NOT EXISTS program_courses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    program_id VARCHAR(20) NOT NULL,
+    course_id VARCHAR(20) NOT NULL,
+    year_level ENUM('1st Year', '2nd Year', '3rd Year', '4th Year') NOT NULL,
+    FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    UNIQUE KEY (program_id, course_id, year_level) -- Ensure a course isn't added multiple times to the same year of a program
+);
+
 
 -- Sections Table
 CREATE TABLE IF NOT EXISTS sections (
-    id VARCHAR(50) PRIMARY KEY, -- e.g., "CS-10A" (Course-YearPrefix-Letter)
-    section_code VARCHAR(10) NOT NULL, -- e.g., "10A", "20B"
-    course VARCHAR(100) NOT NULL,
-    year_level VARCHAR(20) NOT NULL, -- e.g., "1st Year"
-    adviser_id INT, -- Foreign key to teachers table
+    id VARCHAR(20) PRIMARY KEY, -- e.g., CS1A, IT2B
+    section_code VARCHAR(20) NOT NULL UNIQUE, -- Redundant but kept for consistency if ID changes
+    program_id VARCHAR(20) NOT NULL,
+    year_level ENUM('1st Year', '2nd Year', '3rd Year', '4th Year') NOT NULL,
+    adviser_id INT, -- Foreign key to faculty.id
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (adviser_id) REFERENCES teachers(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE,
+    FOREIGN KEY (adviser_id) REFERENCES faculty(id) ON DELETE SET NULL
+);
 
-
--- Subjects Table
-CREATE TABLE IF NOT EXISTS subjects (
-    id VARCHAR(50) PRIMARY KEY, -- Subject Code (e.g., CS101, MATH201)
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Section-Subject Assignments Table (Junction Table)
+-- Section-Subject-Assignments (Class Assignments) Table
 CREATE TABLE IF NOT EXISTS section_subject_assignments (
-    id VARCHAR(100) PRIMARY KEY, -- Composite key for frontend simplicity (e.g., "CS-1A-CS101")
-    section_id VARCHAR(50) NOT NULL,
-    subject_id VARCHAR(50) NOT NULL,
-    teacher_id INT NOT NULL,
+    id VARCHAR(50) PRIMARY KEY, -- Composite: section_id + '-' + subject_id
+    section_id VARCHAR(20) NOT NULL,
+    subject_id VARCHAR(20) NOT NULL, -- References courses.id
+    teacher_id INT NOT NULL, -- References faculty.id
+    -- schedule_details TEXT, -- Could be JSON or link to a more complex schedule table
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE,
-    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
-    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_assignment (section_id, subject_id) -- Ensure a subject is assigned only once per section
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (subject_id) REFERENCES courses(id) ON DELETE CASCADE,
+    FOREIGN KEY (teacher_id) REFERENCES faculty(id) ON DELETE CASCADE,
+    UNIQUE KEY (section_id, subject_id) -- A subject can only be assigned once per section
+);
 
 
 -- Grades Table
 CREATE TABLE IF NOT EXISTS grades (
     id INT AUTO_INCREMENT PRIMARY KEY,
     student_id INT NOT NULL,
-    subject_id VARCHAR(50) NOT NULL,
+    subject_id VARCHAR(20) NOT NULL, -- References courses.id
+    assignment_id VARCHAR(50), -- References section_subject_assignments.id (optional but good for context)
     term ENUM('Prelim', 'Midterm', 'Final') NOT NULL,
-    grade DECIMAL(5, 2), -- Store grades like 85.00, 92.50, allows NULL
+    grade DECIMAL(5, 2), -- e.g., 95.50, allows for null
     remarks TEXT,
-    submitted_by_teacher_id INT, -- Optional: Track who submitted/updated
-    assignment_id VARCHAR(100), -- Optional: Link back to the specific assignment if needed
+    submitted_by_teacher_id INT, -- References faculty.id of who submitted/updated
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
-    FOREIGN KEY (submitted_by_teacher_id) REFERENCES teachers(id) ON DELETE SET NULL,
-    FOREIGN KEY (assignment_id) REFERENCES section_subject_assignments(id) ON DELETE SET NULL, -- Added FK
-    UNIQUE KEY unique_grade (student_id, subject_id, term) -- Ensure only one grade per student, subject, term
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+    FOREIGN KEY (subject_id) REFERENCES courses(id) ON DELETE CASCADE,
+    FOREIGN KEY (assignment_id) REFERENCES section_subject_assignments(id) ON DELETE SET NULL,
+    FOREIGN KEY (submitted_by_teacher_id) REFERENCES faculty(id) ON DELETE SET NULL,
+    UNIQUE KEY (student_id, subject_id, term) -- One grade per student, per subject, per term
+);
 
 -- Announcements Table
 CREATE TABLE IF NOT EXISTS announcements (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
-    author_id INT, -- Can be NULL for Admin, or link to teachers.id
-    author_type ENUM('Admin', 'Teacher') NOT NULL,
-    target_course VARCHAR(100) DEFAULT NULL, -- NULL or 'all' means all courses
-    target_year_level VARCHAR(20) DEFAULT NULL, -- NULL or 'all' means all year levels
-    target_section VARCHAR(50) DEFAULT NULL, -- NULL or 'all' means all sections
+    author_id INT, -- Can be Admin (null) or Faculty ID
+    author_type ENUM('Admin', 'Teacher') NOT NULL, -- Keep 'Teacher' for faculty author
+    target_audience ENUM('Student', 'Faculty', 'All') DEFAULT 'All',
+    target_program VARCHAR(20) DEFAULT NULL, -- Program ID, or 'all'
+    target_year_level VARCHAR(20) DEFAULT NULL, -- e.g., '1st Year', 'all'
+    target_section VARCHAR(20) DEFAULT NULL, -- Section ID, or 'all'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (author_id) REFERENCES teachers(id) ON DELETE SET NULL -- Link if author is teacher
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (author_id) REFERENCES faculty(id) ON DELETE SET NULL -- If author_type is 'Teacher'
+);
 
--- Add Indexes for performance
-CREATE INDEX idx_student_username ON students(username);
-CREATE INDEX idx_teacher_username ON teachers(username);
-CREATE INDEX idx_student_section ON students(section);
-CREATE INDEX idx_section_adviser ON sections(adviser_id);
-CREATE INDEX idx_assignment_section ON section_subject_assignments(section_id);
-CREATE INDEX idx_assignment_teacher ON section_subject_assignments(teacher_id);
-CREATE INDEX idx_grade_student_subject ON grades(student_id, subject_id);
-CREATE INDEX idx_announcement_targets ON announcements(target_course, target_year_level, target_section);
+-- Activity Log Table
+CREATE TABLE IF NOT EXISTS activity_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    user_id VARCHAR(50), -- Username or system identifier
+    user_role VARCHAR(20), -- Admin, Teacher, Student, System
+    action VARCHAR(255) NOT NULL,
+    description TEXT,
+    target_entity_type VARCHAR(50), -- e.g., student, faculty, course
+    target_entity_id VARCHAR(50), -- ID of the affected entity
+    can_undo BOOLEAN DEFAULT FALSE,
+    original_data TEXT -- JSON string of data before change, for undo
+);
 
-
--- Example initial data might be added via seed.sql
-
-    
+-- Indexes for performance
+CREATE INDEX idx_student_program_year ON students(program, year);
+CREATE INDEX idx_section_program_year ON sections(program_id, year_level);
+CREATE INDEX idx_grades_student_subject ON grades(student_id, subject_id);
+CREATE INDEX idx_ssa_teacher_subject ON section_subject_assignments(teacher_id, subject_id);
+CREATE INDEX idx_announcements_target ON announcements(target_program, target_year_level, target_section);

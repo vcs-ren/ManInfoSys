@@ -1,217 +1,193 @@
 
 // Shared types for the application
 
-export type StudentStatus = 'New' | 'Transferee' | 'Returnee';
-export type EmploymentType = 'Regular' | 'Part Time'; // Added employment type
+export type EnrollmentType = 'New' | 'Transferee' | 'Returnee'; // Renamed from StudentStatus
+export type EmploymentType = 'Regular' | 'Part Time';
 export type AdminRole = 'Super Admin' | 'Sub Admin';
-export type DepartmentType = 'Teaching' | 'Administrative'; // Defined Department types
-export type CourseType = 'Major' | 'Minor'; // Added Course Type
-export type YearLevel = '1st Year' | '2nd Year' | '3rd Year' | '4th Year'; // Define YearLevel type
+export type DepartmentType = 'Teaching' | 'Administrative';
+export type CourseType = 'Major' | 'Minor';
+export type YearLevel = '1st Year' | '2nd Year' | '3rd Year' | '4th Year';
 
 
 export interface Student {
   id: number; // Database ID
-  studentId: string; // e.g., "101", "102" - Generated ID (100 + DB ID)
-  username: string; // e.g., "s101", "s102" - Generated username (s + studentId)
+  studentId: string; // e.g., "100XXXX"
+  username: string; // e.g., "s100XXXX"
   firstName: string;
   lastName: string;
   middleName?: string;
   suffix?: string;
   gender?: 'Male' | 'Female' | 'Other';
   birthday?: string; // YYYY-MM-DD format
-  course: string; // References Program Name (UI Label: Program) - Keep key as 'course' for backend
-  status: StudentStatus;
-  year?: YearLevel; // Use YearLevel type
-  section: string; // e.g., "CS-1A", "IT-1B" - Auto-generated
+  program: string; // References Program ID (UI Label: Program)
+  enrollmentType: EnrollmentType; // Changed from status
+  year?: YearLevel;
+  section: string; // e.g., "CS1A", "IT1B" - Auto-generated
   email?: string;
   phone?: string;
-  // Detailed emergency contact info
   emergencyContactName?: string;
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
   emergencyContactAddress?: string;
-  lastAccessed?: string | null; // ISO date string or null
+  lastAccessed?: string | null;
 }
 
-// Renamed Teacher to Faculty and updated department type
 export interface Faculty {
   id: number; // Database ID
-  teacherId: string; //  e.g., "1001", "1002" (DB ID + 1000)
-  username: string; // Prefixed e.g., "t1001", "a1002"
+  facultyId: string; // e.g., "1000YYYY"
+  username: string; // Prefixed e.g., "t1000YYYY", "a1000ZZZZ"
   firstName: string;
   lastName: string;
   middleName?: string;
   suffix?: string;
   gender?: 'Male' | 'Female' | 'Other';
-  employmentType: EmploymentType; // Make employmentType non-optional
+  employmentType: EmploymentType;
   address?: string;
-  department: DepartmentType; // Updated to use defined types
+  department: DepartmentType;
   email?: string;
   phone?: string;
   birthday?: string; // YYYY-MM-DD format
-  // Emergency Contact Fields
   emergencyContactName?: string;
   emergencyContactRelationship?: string;
   emergencyContactPhone?: string;
   emergencyContactAddress?: string;
-  lastAccessed?: string | null; // ISO date string or null
+  lastAccessed?: string | null;
 }
 
-// Defines the grading periods
 export type Term = 'Prelim' | 'Midterm' | 'Final';
 
-// Represents a single grade entry for a specific student, subject, and term
-// This is likely more for backend/database structure
 export interface StudentGradeEntry {
-    id?: string; // Optional: ID if stored in a DB
+    id?: string;
     studentId: number;
-    subjectId: string; // Represents the Course ID
+    subjectId: string;
     term: Term;
-    grade: number | null; // Only numeric or null
+    grade: number | null;
     remarks?: string;
 }
 
-// Represents a course
 export interface Course {
-    id: string; // Unique identifier (e.g., "CS101")
-    name: string; // e.g., "Introduction to Programming"
+    id: string;
+    name: string;
     description?: string;
-    type: CourseType; // Major or Minor
-    programId?: string[]; // Array of Program IDs if type is Major, to allow a course to be a major in multiple programs
-    yearLevel?: YearLevel; // Year level this course is typically assigned in
+    type: CourseType;
+    programId?: string[];
+    yearLevel?: YearLevel;
 }
 
-
-// Represents a program offered by the institution
 export interface Program {
-    id: string; // Unique identifier (e.g., "CS")
-    name: string; // Full name (e.g., "Computer Science")
+    id: string;
+    name: string;
     description?: string;
-    // Courses grouped by year level, references Course IDs or full Course objects
     courses: {
-        [key in YearLevel]: Course[]; // e.g., "1st Year": [Course, Course, ...]
+        [key in YearLevel]: Course[];
     };
 }
 
-
-// Represents a specific class section (now references Program ID)
 export interface Section {
-    id: string; // Unique identifier for the section (e.g., "CS-1A")
-    sectionCode: string; // e.g., "1A", "2B" - Auto-generated based on year and count
-    programId: string; // References Program.id (e.g., "CS")
-    programName?: string; // Denormalized program name
-    yearLevel: YearLevel; // Use YearLevel type
+    id: string;
+    sectionCode: string;
+    programId: string;
+    programName?: string;
+    yearLevel: YearLevel;
     adviserId?: number;
     adviserName?: string;
     studentCount?: number;
 }
 
-// Represents the assignment of a faculty member to a course within a specific section
 export interface SectionSubjectAssignment {
-    id: string; // Unique ID for the assignment itself (e.g., sectionId-subjectId)
+    id: string;
     sectionId: string;
-    subjectId: string; // Course ID
-    subjectName?: string; // Denormalized course name
-    teacherId: number; // Keep as teacherId for backend consistency
-    teacherName?: string; // Denormalized faculty name
+    subjectId: string;
+    subjectName?: string;
+    teacherId: number;
+    teacherName?: string;
 }
 
-
-// Represents an announcement
 export interface Announcement {
-    id: string; // Unique identifier
+    id: string;
     title: string;
     content: string;
-    date: Date; // Changed to Date type
-    targetAudience?: 'Student' | 'Faculty' | 'All'; // New field
+    date: Date;
+    targetAudience?: 'Student' | 'Faculty' | 'All';
     target: {
-        course?: string | 'all' | null; // Program target using Program ID (keep key as 'course')
-        yearLevel?: string | 'all' | null; // Specific year level or 'all' or null
-        section?: string | 'all' | null; // Specific section or 'all' or null
+        program?: string | 'all' | null;
+        yearLevel?: string | 'all' | null;
+        section?: string | 'all' | null;
     };
-    author?: string; // Optional: Name of the admin/faculty who posted
-    author_type?: 'Admin' | 'Teacher'; // Keep 'Teacher' for backend consistency
+    author?: string;
+    author_type?: 'Admin' | 'Teacher';
 }
 
-
 export interface ScheduleEntry {
-    id: string; // Unique identifier for the schedule entry
-    title: string; // e.g., "Introduction to Programming - CS-1A"
+    id: string;
+    title: string;
     start: Date;
     end: Date;
     type: 'class' | 'event' | 'exam';
     location?: string;
-    teacher?: string; // For student view (displays faculty name)
-    section?: string; // For faculty view
+    teacher?: string;
+    section?: string;
 }
 
-
-// Type for displaying student-subject assignments in the faculty's grade submission table
 export interface StudentSubjectAssignmentWithGrades {
-    assignmentId: string; // Unique ID combining student-subject for this context
+    assignmentId: string;
     studentId: number;
     studentName: string;
-    subjectId: string; // Course ID
-    subjectName: string; // Course Name
-    section: string; // Section Code (e.g., CS-1A)
-    year: YearLevel; // Use YearLevel type
-    prelimGrade?: number | null; // Numeric grade only (or null/undefined)
+    subjectId: string;
+    subjectName: string;
+    section: string;
+    year: YearLevel;
+    prelimGrade?: number | null;
     prelimRemarks?: string | null;
-    midtermGrade?: number | null; // Numeric grade only (or null/undefined)
+    midtermGrade?: number | null;
     midtermRemarks?: string | null;
-    finalGrade?: number | null; // Numeric grade only (or null/undefined)
+    finalGrade?: number | null;
     finalRemarks?: string | null;
     status: 'Not Submitted' | 'Incomplete' | 'Complete';
 }
 
-// Type representing the grades a student sees (per subject/course across terms)
 export interface StudentTermGrade {
-    id: string; // Can be subjectId or a unique identifier for the row
-    subjectName: string; // Course Name
-    prelimGrade?: number | null; // Numeric grade only
-    midtermGrade?: number | null; // Numeric grade only
-    finalGrade?: number | null; // Numeric grade only
-    finalRemarks?: string | null; // Optional final remark from teacher
-    status: 'Not Submitted' | 'Incomplete' | 'Complete'; // Derived status
+    id: string;
+    subjectName: string;
+    prelimGrade?: number | null;
+    midtermGrade?: number | null;
+    finalGrade?: number | null;
+    finalRemarks?: string | null;
+    status: 'Not Submitted' | 'Incomplete' | 'Complete';
 }
 
 export interface AdminUser {
   id: number;
   username: string;
-  firstName?: string; // Added optional first name
-  lastName?: string;  // Added optional last name
-  email?: string; // Email is required by form schema
-  role: AdminRole; // Use AdminRole type
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role: AdminRole;
   isSuperAdmin?: boolean;
 }
 
-// Interface for dashboard stats fetched from API
 export interface DashboardStats {
     totalStudents: number;
-    totalTeachers: number; // Faculty with 'Teaching' department
-    totalAdmins: number;   // Faculty with 'Administrative' department (excluding Super Admin)
+    totalFaculty: number;
+    totalAdmins: number;
     upcomingEvents: number;
-    totalFaculty: number; // New: Total faculty members
 }
 
-// Interface for upcoming items (simplified) - Keep this if used by mock data
 export interface UpcomingItem {
     id: string;
     title: string;
-    date?: string; // Date might be string from API
-    type: string; // Keep type flexible
+    date?: string;
+    type: string;
 }
 
-// Interface for Activity Log Entries
 export interface ActivityLogEntry {
   id: string;
   timestamp: Date;
-  user: string; // e.g., "Admin", "System", or specific username if available
-  action: string; // e.g., "Added Student", "Deleted Faculty"
-  description: string; // e.g., "John Doe (s103)", "Jane Smith (t1003)"
-  targetId?: number | string; // ID of the entity affected (studentId, facultyId, etc.)
+  user: string;
+  action: string;
+  description: string;
+  targetId?: number | string;
   targetType?: 'student' | 'faculty' | 'program' | 'course' | 'section' | 'announcement' | 'admin';
   canUndo: boolean;
-  originalData?: any; // To store data for undo operation
+  originalData?: any;
 }
-

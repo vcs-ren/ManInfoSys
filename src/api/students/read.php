@@ -1,3 +1,4 @@
+
 <?php
 // --- api/students/read.php --- (GET /api/students)
 header("Access-Control-Allow-Origin: *"); // Allow requests (adjust in production)
@@ -39,24 +40,25 @@ try {
 
             $student_item = array(
                 "id" => (int)$id, // Ensure ID is integer
-                "studentId" => $studentId, // Use the alias from the model query (e.g., 101)
-                "username" => $username, // Use the alias (e.g., s101)
-                "firstName" => $firstName, // Use the alias
-                "lastName" => $lastName,   // Use the alias
-                "middleName" => $middleName, // Added
-                "suffix" => $suffix, // Added
-                "gender" => $gender, // Added
-                "birthday" => $birthday, // Added
-                "course" => $course,
-                "status" => $status,
-                "year" => $year, // Include year
-                "section" => $section, // Include section
+                "studentId" => $studentId,
+                "username" => $username,
+                "firstName" => $firstName,
+                "lastName" => $lastName,
+                "middleName" => $middleName,
+                "suffix" => $suffix,
+                "gender" => $gender,
+                "birthday" => $birthday,
+                "program" => $program, // Use program key for frontend consistency
+                "enrollmentType" => $enrollmentType, // Changed from status
+                "year" => $year,
+                "section" => $section,
                 "email" => $email,
                 "phone" => $phone,
-                "emergencyContactName" => $emergencyContactName, // Use the alias
-                "emergencyContactRelationship" => $emergencyContactRelationship, // Use the alias
-                "emergencyContactPhone" => $emergencyContactPhone, // Use the alias
-                "emergencyContactAddress" => $emergencyContactAddress, // Use the alias
+                "emergencyContactName" => $emergencyContactName,
+                "emergencyContactRelationship" => $emergencyContactRelationship,
+                "emergencyContactPhone" => $emergencyContactPhone,
+                "emergencyContactAddress" => $emergencyContactAddress,
+                "lastAccessed" => $lastAccessed, // Added lastAccessed
             );
             array_push($students_arr, $student_item);
         }
@@ -77,5 +79,3 @@ try {
     echo json_encode(array("message" => "An unexpected error occurred while fetching students."));
 }
 ?>
-
-    

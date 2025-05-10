@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from "react";
@@ -33,12 +32,12 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
-import type { Student, Teacher, AdminUser } from "@/types";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { Student, Faculty as Teacher, AdminUser } from "@/types"; // Renamed Teacher to Faculty
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Pencil } from "lucide-react"; // Import Pencil
+import { Loader2, Pencil } from "lucide-react";
 
 interface UserFormProps<T extends Student | Teacher | AdminUser> {
   trigger?: React.ReactNode;
@@ -52,7 +51,7 @@ interface UserFormProps<T extends Student | Teacher | AdminUser> {
   formFields: FormFieldConfig<T>[];
   isEditMode?: boolean;
   initialData?: T;
-  startReadOnly?: boolean; // New prop to control initial state
+  startReadOnly?: boolean;
 }
 
 export type FormFieldConfig<T> = {
@@ -64,7 +63,6 @@ export type FormFieldConfig<T> = {
   disabled?: boolean;
   options?: { value: string | number; label: string }[];
   condition?: (data: Partial<T> | null | undefined) => boolean;
-  // Updated sections: 'employee' for teachers
   section?: 'personal' | 'enrollment' | 'employee' | 'emergency' | 'account' | 'contact';
 };
 
@@ -80,10 +78,10 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
   formFields,
   isEditMode = false,
   initialData,
-  startReadOnly = false, // Default to not read-only
+  startReadOnly = false,
 }: UserFormProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
-  const [isReadOnly, setIsReadOnly] = React.useState(startReadOnly && isEditMode); // Internal read-only state, only applicable in edit mode
+  const [isReadOnly, setIsReadOnly] = React.useState(startReadOnly && isEditMode);
   const { toast } = useToast();
 
   const isControlled = isOpenProp !== undefined && onOpenChangeProp !== undefined;
@@ -95,56 +93,44 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     defaultValues: isEditMode ? (initialData as any) : (defaultValues as any),
   });
 
-  const watchedStatus = useWatch({ control: form.control, name: 'status' as any }); // Specific to Student
+  const watchedEnrollmentType = useWatch({ control: form.control, name: 'enrollmentType' as any }); // Changed from watchedStatus
   const currentFormValues = useWatch({ control: form.control });
 
-  // Reset form and read-only state when dialog opens/closes or mode changes
   React.useEffect(() => {
     if (isOpen) {
       form.reset(isEditMode ? (initialData as any) : (defaultValues as any));
-      // Set read-only state only when opening in edit mode with startReadOnly true
       setIsReadOnly(isEditMode && startReadOnly);
     } else {
-        // Reset read-only state when closing
         setIsReadOnly(false);
     }
   }, [isOpen, isEditMode, initialData, defaultValues, form, startReadOnly]);
 
   React.useEffect(() => {
-    // This effect is primarily for the student form's 'year' field logic
-    if (initialData && 'status' in initialData) { // Check if it's likely a student form
-        if (watchedStatus === 'New') {
+    if (initialData && 'enrollmentType' in initialData) { // Changed from 'status'
+        if (watchedEnrollmentType === 'New') { // Changed from watchedStatus
             form.setValue('year' as any, '1st Year', { shouldValidate: false });
-        } else if (isEditMode && (initialData as Student).status !== 'New') {
-            // When editing and status is not 'New', set to the initial year
+        } else if (isEditMode && (initialData as Student).enrollmentType !== 'New') { // Changed from status
              form.setValue('year' as any, (initialData as Student)?.year || '', { shouldValidate: true });
-        } else if (!isEditMode && watchedStatus !== 'New') {
-             // When adding and status is not 'New', clear the year field initially
+        } else if (!isEditMode && watchedEnrollmentType !== 'New') { // Changed from watchedStatus
              form.setValue('year' as any, '', { shouldValidate: true });
         }
     }
-  }, [watchedStatus, form, isEditMode, initialData]);
+  }, [watchedEnrollmentType, form, isEditMode, initialData]); // Changed from watchedStatus
 
 
   const handleFormSubmit = async (values: T) => {
     try {
-      if ('status' in values && (values as Student).status === 'New') {
+      if ('enrollmentType' in values && (values as Student).enrollmentType === 'New') { // Changed from status
         (values as Student).year = '1st Year';
       }
       console.log("Submitting values:", values);
       await onSubmit(values);
-      // Toast is handled in the parent component onSubmit handler
-      // toast({
-      //   title: `Success`,
-      //   description: `${isEditMode ? 'User updated' : 'User added'} successfully.`,
-      // });
       if (setIsOpen) {
         setIsOpen(false);
       }
       form.reset();
     } catch (error: any) {
       console.error("Form submission error:", error);
-      // Avoid double-toasting if onSubmit handled it (e.g., duplicate name check)
       if (!error?.message?.includes('Duplicate name')) {
             toast({
                 variant: "destructive",
@@ -156,25 +142,21 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
   };
 
    const handleCancelEdit = () => {
-      setIsReadOnly(true); // Go back to read-only mode
-      // Reset form to initial data
+      setIsReadOnly(true);
        if (isEditMode && initialData) {
             form.reset(initialData as any);
        }
     };
-
 
   const renderFormField = (fieldConfig: FormFieldConfig<T>) => {
     if (fieldConfig.condition && !fieldConfig.condition(currentFormValues)) {
       return null;
     }
 
-    // Check if the current form is for a Student
     const isStudentForm = initialData && 'studentId' in initialData;
     const isYearField = fieldConfig.name === 'year';
-    // Disable Year field if status is 'New' for students
-    const disableYearField = isStudentForm && isYearField && watchedStatus === 'New';
-    const isDisabled = isReadOnly || disableYearField || fieldConfig.disabled || form.formState.isSubmitting; // Determine final disabled state
+    const disableYearField = isStudentForm && isYearField && watchedEnrollmentType === 'New'; // Changed from watchedStatus
+    const isDisabled = isReadOnly || disableYearField || fieldConfig.disabled || form.formState.isSubmitting;
 
     return (
       <FormField
@@ -191,7 +173,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                   value={field.value ? String(field.value) : undefined}
                   disabled={isDisabled}
                 >
-                  <SelectTrigger className="w-full text-sm h-10"> {/* Adjusted height */}
+                  <SelectTrigger className="w-full text-sm h-10">
                     <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -209,7 +191,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                   {...field}
                   value={field.value ?? ''}
                   className="text-sm min-h-[60px]"
-                  readOnly={isReadOnly} // Explicitly set readOnly for textarea
+                  readOnly={isReadOnly}
                 />
               ) : (
                 <Input
@@ -217,7 +199,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                   type={fieldConfig.type || "text"}
                   disabled={isDisabled}
                   {...field}
-                  value={fieldConfig.type === 'date' && field.value ? String(field.value).split('T')[0] : (field.value ?? '')} // Handle date format
+                  value={fieldConfig.type === 'date' && field.value ? String(field.value).split('T')[0] : (field.value ?? '')}
                   onChange={(e) => {
                     if (fieldConfig.type === 'number') {
                       const numericValue = e.target.value === '' ? '' : Number(e.target.value);
@@ -226,8 +208,8 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                       field.onChange(e.target.value);
                     }
                   }}
-                  className="text-sm h-10" // Adjusted height
-                  readOnly={isReadOnly} // Explicitly set readOnly for input
+                  className="text-sm h-10"
+                  readOnly={isReadOnly}
                 />
               )}
             </FormControl>
@@ -241,21 +223,19 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     );
   };
 
-  // Group fields by section
   const personalFields = formFields.filter(f => f.section === 'personal');
   const enrollmentFields = formFields.filter(f => f.section === 'enrollment');
-  const employeeFields = formFields.filter(f => f.section === 'employee'); // Added employee section
+  const employeeFields = formFields.filter(f => f.section === 'employee');
   const contactFields = formFields.filter(f => f.section === 'contact');
   const accountFields = formFields.filter(f => f.section === 'account');
   const emergencyFields = formFields.filter(f => f.section === 'emergency');
 
-  // Determine Username/ID label and value for display in read-only mode
   const isStudent = initialData && 'studentId' in initialData;
-  const isTeacher = initialData && 'teacherId' in initialData;
+  const isTeacher = initialData && 'facultyId' in initialData; // Changed from teacherId
   const isAdmin = initialData && 'username' in initialData && !isStudent && !isTeacher;
 
-  const idLabel = isStudent ? 'Student ID' : isTeacher ? 'Teacher ID' : isAdmin ? 'Username' : 'ID';
-  const idValue = isStudent ? (initialData as Student)?.studentId : isTeacher ? (initialData as Teacher)?.teacherId : isAdmin ? (initialData as AdminUser)?.username : 'N/A';
+  const idLabel = isStudent ? 'Student ID' : isTeacher ? 'Faculty ID' : isAdmin ? 'Username' : 'ID'; // Changed label
+  const idValue = isStudent ? (initialData as Student)?.studentId : isTeacher ? (initialData as Teacher)?.facultyId : isAdmin ? (initialData as AdminUser)?.username : 'N/A'; // Changed field
   const usernameLabel = 'Username';
   const usernameValue = initialData ? (initialData as Student)?.username || (initialData as Teacher)?.username || (initialData as AdminUser)?.username || 'N/A' : 'N/A';
 
@@ -270,7 +250,6 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                 <DialogTitle>{title}</DialogTitle>
                 <DialogDescription>{description}</DialogDescription>
             </div>
-            {/* Show Edit button only in read-only mode when editing */}
             {isEditMode && isReadOnly && (
                  <Button variant="outline" size="sm" onClick={() => setIsReadOnly(false)}>
                     <Pencil className="mr-2 h-4 w-4" /> Edit
@@ -280,7 +259,6 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)}>
-            {/* Wrap form content in ScrollArea */}
             <ScrollArea className="max-h-[70vh] p-1 pr-6">
                 <div className="space-y-6 py-4">
                     {personalFields.length > 0 && (
@@ -291,18 +269,17 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                              </div>
                          </div>
                     )}
-                    {enrollmentFields.length > 0 && ( // For Students
+                    {enrollmentFields.length > 0 && (
                          <div className="space-y-3">
                             <Separator />
                              <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Enrollment Information</h4>
                             <div className="space-y-3">
-                                {/* Show Student ID read-only in edit mode */}
                                 {isEditMode && isStudent && initialData && (
                                     <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
                                         <FormLabel className="text-right text-sm">{idLabel}</FormLabel>
                                         <FormControl className="col-span-3">
                                             <Input
-                                                className="text-sm h-10 bg-muted" // Adjusted height
+                                                className="text-sm h-10 bg-muted"
                                                 value={idValue}
                                                 readOnly
                                                 disabled
@@ -311,13 +288,12 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                     </FormItem>
                                 )}
                                 {enrollmentFields.map(renderFormField)}
-                                {/* Conditionally display Section (read-only) in edit mode for students */}
                                 {isEditMode && isStudent && initialData && 'section' in initialData && (
                                     <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
                                         <FormLabel className="text-right text-sm">Section</FormLabel>
                                         <FormControl className="col-span-3">
                                             <Input
-                                                className="text-sm h-10 bg-muted" // Adjusted height
+                                                className="text-sm h-10 bg-muted"
                                                 value={(initialData as Student).section || 'N/A'}
                                                 readOnly
                                                 disabled
@@ -328,18 +304,17 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                              </div>
                          </div>
                     )}
-                    {employeeFields.length > 0 && ( // For Teachers
+                    {employeeFields.length > 0 && (
                          <div className="space-y-3">
                             <Separator />
                              <h4 className="text-md font-semibold text-primary border-b pb-1 pt-2">Employee Information</h4>
                             <div className="space-y-3">
-                                 {/* Show Teacher ID read-only in edit mode */}
                                 {isEditMode && isTeacher && initialData && (
                                     <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
                                         <FormLabel className="text-right text-sm">{idLabel}</FormLabel>
                                         <FormControl className="col-span-3">
                                             <Input
-                                                className="text-sm h-10 bg-muted" // Adjusted height
+                                                className="text-sm h-10 bg-muted"
                                                 value={idValue}
                                                 readOnly
                                                 disabled
@@ -358,14 +333,13 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                              <div className="space-y-3">
                                 {contactFields.map(renderFormField)}
                                 {accountFields.map(renderFormField)}
-                                {/* Display Username and Password hint only in edit mode for students/teachers */}
-                                {isEditMode && initialData && (isStudent || isTeacher || isAdmin) && ( // Include Admin check
+                                {isEditMode && initialData && (isStudent || isTeacher || isAdmin) && (
                                     <>
                                         <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
                                             <FormLabel className="text-right text-sm">{usernameLabel}</FormLabel>
                                             <FormControl className="col-span-3">
                                                 <Input
-                                                    className="text-sm h-10 bg-muted" // Adjusted height
+                                                    className="text-sm h-10 bg-muted"
                                                     value={usernameValue}
                                                     readOnly
                                                     disabled
@@ -376,7 +350,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                                             <FormLabel className="text-right text-sm">Password</FormLabel>
                                             <FormControl className="col-span-3">
                                                 <Input
-                                                    className="bg-muted text-muted-foreground italic text-sm h-10" // Adjusted height
+                                                    className="bg-muted text-muted-foreground italic text-sm h-10"
                                                     value="******** (Hidden)"
                                                     readOnly
                                                     disabled
@@ -400,9 +374,8 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                     )}
               </div>
             </ScrollArea>
-             {/* Footer with buttons - shown only when NOT read-only */}
             {!isReadOnly && (
-                <DialogFooter className="mt-4 pt-4 border-t"> {/* Add top border */}
+                <DialogFooter className="mt-4 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={isEditMode ? handleCancelEdit : () => setIsOpen && setIsOpen(false)} disabled={form.formState.isSubmitting}>
                     Cancel
                 </Button>
@@ -411,9 +384,8 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                 </Button>
                 </DialogFooter>
             )}
-             {/* Close button for read-only mode */}
              {isReadOnly && (
-                  <DialogFooter className="mt-4 pt-4 border-t"> {/* Add top border */}
+                  <DialogFooter className="mt-4 pt-4 border-t">
                      <Button type="button" variant="outline" onClick={() => setIsOpen && setIsOpen(false)}>
                          Close
                     </Button>

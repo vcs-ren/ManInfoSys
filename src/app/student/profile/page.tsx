@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from "react";
@@ -26,12 +25,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { Student } from "@/types";
-import { studentProfileSchema } from "@/lib/schemas"; // Using the specific student profile schema
-import { Loader2, Pencil } from "lucide-react"; // Added Pencil
+import { studentProfileSchema } from "@/lib/schemas";
+import { Loader2, Pencil } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { fetchData, putData } from "@/lib/api"; // Import API helpers
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { fetchData, putData } from "@/lib/api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ProfileFormValues = z.infer<typeof studentProfileSchema>;
 
@@ -44,7 +43,7 @@ const genderOptions = [
 export default function StudentProfilePage() {
   const [studentData, setStudentData] = React.useState<Student | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isEditing, setIsEditing] = React.useState(false); // State to toggle edit mode
+  const [isEditing, setIsEditing] = React.useState(false);
   const { toast } = useToast();
 
   const form = useForm<ProfileFormValues>({
@@ -70,7 +69,7 @@ export default function StudentProfilePage() {
     const loadProfile = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchData<Student>('/api/student/profile/read.php');
+        const data = await fetchData<Student>('student/profile/read.php'); // Updated path
         setStudentData(data);
         form.reset({
             id: data.id,
@@ -95,38 +94,33 @@ export default function StudentProfilePage() {
       }
     };
     loadProfile();
-     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Fetch only once on mount
+  }, [form, toast]);
 
 
-  // Update Profile Function
   const onSubmit = async (values: ProfileFormValues) => {
     if (!studentData) return;
 
-     // Construct payload, ensuring all fields expected by the backend are present
      const payload: Student = {
-         ...studentData, // Start with existing data
-         ...values, // Overwrite with edited values
-         // Ensure non-editable fields are preserved from studentData
-         studentId: studentData.studentId,
-         course: studentData.course, // Keep backend 'course' key
-         status: studentData.status,
-         year: studentData.year,
-         section: studentData.section,
-         gender: values.gender || undefined, // Ensure gender is set or undefined
-         birthday: values.birthday || undefined, // Ensure birthday is set or undefined
+         ...studentData,
+         ...values,
+         program: studentData.program, // Keep program from fetched data
+         enrollmentType: studentData.enrollmentType, // Keep enrollmentType from fetched data
+         year: studentData.year, // Keep year from fetched data
+         section: studentData.section, // Keep section from fetched data
+         gender: values.gender || undefined,
+         birthday: values.birthday || undefined,
      };
     console.log("Updating profile:", payload);
 
     try {
-        const updatedProfile = await putData<typeof payload, Student>('/api/student/profile/update.php', payload);
-        setStudentData(prev => ({ ...prev, ...updatedProfile })); // Update local state
+        const updatedProfile = await putData<typeof payload, Student>('student/profile/update.php', payload); // Updated path
+        setStudentData(prev => ({ ...prev, ...updatedProfile }));
         toast({
             title: "Profile Updated",
             description: "Your profile information has been saved.",
         });
-        form.reset(updatedProfile); // Reset form with updated data
-        setIsEditing(false); // Exit edit mode after successful save
+        form.reset(updatedProfile);
+        setIsEditing(false);
     } catch (error: any) {
         console.error("Failed to update profile:", error);
         toast({
@@ -139,7 +133,6 @@ export default function StudentProfilePage() {
 
     const handleCancelEdit = () => {
         setIsEditing(false);
-        // Reset form to original fetched data if edits were made
         if (studentData) {
             form.reset({
                 id: studentData.id,
@@ -172,7 +165,6 @@ export default function StudentProfilePage() {
      return <p className="text-destructive text-center mt-10">Failed to load profile data. Please try refreshing the page.</p>;
   }
 
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -191,7 +183,6 @@ export default function StudentProfilePage() {
           <CardContent>
              <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                   {/* Display Only Fields */}
                     <div className="space-y-4">
                         <h3 className="text-lg font-medium text-muted-foreground">Academic Information</h3>
                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -202,15 +193,15 @@ export default function StudentProfilePage() {
                                 </FormControl>
                             </FormItem>
                              <FormItem>
-                                <FormLabel>Program</FormLabel> {/* Changed label */}
+                                <FormLabel>Program</FormLabel>
                                 <FormControl>
-                                    <Input value={studentData.course} disabled readOnly className="bg-muted"/>
+                                    <Input value={studentData.program} disabled readOnly className="bg-muted"/>
                                 </FormControl>
                             </FormItem>
                               <FormItem>
                                 <FormLabel>Year Level</FormLabel>
                                 <FormControl>
-                                    <Input value={studentData.year || studentData.status} disabled readOnly className="bg-muted"/>
+                                    <Input value={studentData.year || studentData.enrollmentType} disabled readOnly className="bg-muted"/>
                                 </FormControl>
                             </FormItem>
                              <FormItem>
@@ -220,9 +211,9 @@ export default function StudentProfilePage() {
                                 </FormControl>
                             </FormItem>
                               <FormItem>
-                                <FormLabel>Status</FormLabel>
+                                <FormLabel>Enrollment Type</FormLabel>
                                 <FormControl>
-                                    <Input value={studentData.status} disabled readOnly className="bg-muted"/>
+                                    <Input value={studentData.enrollmentType} disabled readOnly className="bg-muted"/>
                                 </FormControl>
                             </FormItem>
                         </div>
@@ -230,7 +221,6 @@ export default function StudentProfilePage() {
 
                      <Separator className="my-6" />
 
-                    {/* Editable Personal Fields */}
                      <div className="space-y-4">
                           <h3 className="text-lg font-medium text-foreground">Personal Details</h3>
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -356,7 +346,6 @@ export default function StudentProfilePage() {
 
                     <Separator className="my-6" />
 
-                    {/* Emergency Contact Section */}
                      <div className="space-y-4">
                          <h3 className="text-lg font-medium text-foreground">Emergency Contact Information</h3>
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -429,7 +418,6 @@ export default function StudentProfilePage() {
              </Form>
           </CardContent>
        </Card>
-
     </div>
   );
 }

@@ -29,13 +29,13 @@ $data = json_decode(file_get_contents("php://input"));
 if (
     empty($data->firstName) ||
     empty($data->lastName) ||
-    empty($data->course) || // Keep backend key as 'course'
-    empty($data->status) ||
-    // If status requires year, ensure it's provided
-    (in_array($data->status, ['Transferee', 'Returnee']) && empty($data->year))
+    empty($data->program) || // Keep backend key as 'program'
+    empty($data->enrollmentType) || // Changed from status
+    // If enrollmentType requires year, ensure it's provided
+    (in_array($data->enrollmentType, ['Transferee', 'Returnee']) && empty($data->year))
 ) {
     http_response_code(400);
-    echo json_encode(array("message" => "Unable to add student. Required fields (firstName, lastName, program, status) are missing or invalid. Year level is required for Transferee or Returnee status.")); // Changed label
+    echo json_encode(array("message" => "Unable to add student. Required fields (firstName, lastName, program, enrollmentType) are missing or invalid. Year level is required for Transferee or Returnee enrollmentType.")); // Changed label
     exit();
 }
 
@@ -48,12 +48,12 @@ try {
     $student->suffix = $data->suffix ?? null;
     $student->gender = $data->gender ?? null;
     $student->birthday = $data->birthday ?? null;
-    $student->course = $data->course; // Keep backend key as 'course'
-    $student->status = $data->status;
+    $student->program = $data->program; // Keep backend key as 'program'
+    $student->enrollmentType = $data->enrollmentType; // Changed from status
     // Let the model handle year logic, but provide it if available
-    $student->year = $data->year ?? null; // Year is required based on status checked above
-    // Make sure year is set for 'New' status before section generation
-    if ($student->status === 'New') {
+    $student->year = $data->year ?? null; // Year is required based on enrollmentType checked above
+    // Make sure year is set for 'New' enrollmentType before section generation
+    if ($student->enrollmentType === 'New') {
          $student->year = '1st Year';
     }
     $student->email = $data->email ?? null;
@@ -98,5 +98,3 @@ try {
 }
 
 ?>
-
-    

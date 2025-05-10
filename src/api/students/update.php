@@ -25,8 +25,6 @@ $db = $database->getConnection();
 $student = new Student($db);
 
 // Get ID from URL path
-// This part depends on how your routing/server handles the URL.
-// Assuming the ID is the last part of the URL path, e.g., /api/students/123
 $url_parts = explode('/', $_SERVER['REQUEST_URI']);
 $id = end($url_parts);
 
@@ -38,21 +36,20 @@ if (
     empty($id) || !is_numeric($id) ||
     empty($data->firstName) ||
     empty($data->lastName) ||
-    empty($data->course) || // Keep backend key as 'course'
-    empty($data->status) ||
-    // If status requires year, ensure it's provided
-    (in_array($data->status, ['Transferee', 'Returnee']) && empty($data->year)) // Keep 'Continuing' logic if needed by backend
+    empty($data->program) || // Keep backend key as 'program'
+    empty($data->enrollmentType) || // Changed from status
+    (in_array($data->enrollmentType, ['Transferee', 'Returnee']) && empty($data->year))
 ) {
     http_response_code(400);
     $errorMessage = "Unable to update student. ";
     if (empty($id) || !is_numeric($id)) {
         $errorMessage .= "Missing or invalid student ID in URL. ";
     }
-    if (empty($data->firstName) || empty($data->lastName) || empty($data->course) || empty($data->status)) {
-        $errorMessage .= "Required data is missing (firstName, lastName, program, status). "; // Changed label
+    if (empty($data->firstName) || empty($data->lastName) || empty($data->program) || empty($data->enrollmentType)) {
+        $errorMessage .= "Required data is missing (firstName, lastName, program, enrollmentType). ";
     }
-    if (in_array($data->status, ['Transferee', 'Returnee']) && empty($data->year)) { // Adjusted check
-         $errorMessage .= "Year level is required for Transferee or Returnee status.";
+    if (in_array($data->enrollmentType, ['Transferee', 'Returnee']) && empty($data->year)) {
+         $errorMessage .= "Year level is required for Transferee or Returnee enrollmentType.";
     }
     echo json_encode(array("message" => trim($errorMessage)));
     exit();
@@ -63,21 +60,19 @@ try {
     $student->id = intval($id);
     $student->firstName = $data->firstName;
     $student->lastName = $data->lastName;
-    $student->middleName = $data->middleName ?? null; // Assign optional fields
+    $student->middleName = $data->middleName ?? null;
     $student->suffix = $data->suffix ?? null;
     $student->gender = $data->gender ?? null;
     $student->birthday = $data->birthday ?? null;
-    $student->course = $data->course; // Keep backend key as 'course'
-    $student->status = $data->status;
-    // Set year, handle 'New' status explicitly
-    $student->year = $data->status === 'New' ? '1st Year' : ($data->year ?? null);
+    $student->program = $data->program; // Keep backend key as 'program'
+    $student->enrollmentType = $data->enrollmentType; // Changed from status
+    $student->year = $data->enrollmentType === 'New' ? '1st Year' : ($data->year ?? null); // Set year based on enrollmentType
     $student->email = $data->email ?? null;
     $student->phone = $data->phone ?? null;
     $student->emergencyContactName = $data->emergencyContactName ?? null;
     $student->emergencyContactRelationship = $data->emergencyContactRelationship ?? null;
     $student->emergencyContactPhone = $data->emergencyContactPhone ?? null;
     $student->emergencyContactAddress = $data->emergencyContactAddress ?? null;
-
 
     // Attempt to update student using the specific admin update method
     $updatedStudentData = $student->adminUpdate();
@@ -109,5 +104,4 @@ try {
       http_response_code(500);
       echo json_encode(array("message" => "An unexpected error occurred: " . $e->getMessage()));
 }
-
 ?>

@@ -3,14 +3,14 @@
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Trash2, Loader2, RotateCcw, Info } from "lucide-react"; // Removed Edit, Pencil
+import { PlusCircle, Trash2, Loader2, RotateCcw, Info } from "lucide-react";
 import { format, formatDistanceToNow } from 'date-fns';
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form";
 import { studentSchema } from "@/lib/schemas";
-import type { Student, StudentStatus, Program, YearLevel } from "@/types";
+import type { Student, Program, YearLevel, EnrollmentType } from "@/types"; // Changed StudentStatus to EnrollmentType
 import {
     AlertDialog,
     AlertDialogAction,
@@ -20,7 +20,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger, // Added missing import
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
     DropdownMenu,
@@ -30,10 +30,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockStudents } from "@/lib/api"; // Import API helpers, mockApiPrograms
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockStudents, logActivity } from "@/lib/api";
 
-// Updated status options (removed 'Continuing')
-const statusOptions: { value: StudentStatus; label: string }[] = [
+// Updated options to use EnrollmentType
+const enrollmentTypeOptions: { value: EnrollmentType; label: string }[] = [
     { value: "New", label: "New" },
     { value: "Transferee", label: "Transferee" },
     { value: "Returnee", label: "Returnee" },
@@ -52,26 +52,21 @@ const genderOptions = [
     { value: "Other", label: "Other" },
 ];
 
-// Function to generate dynamic form fields for students
 const getStudentFormFields = (programs: Program[]): FormFieldConfig<Student>[] => {
   const programOptions = programs.map(p => ({ value: p.id, label: p.name }));
 
   return [
-    // Personal Information Section
     { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
     { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
     { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
     { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr. (optional)", section: 'personal' },
     { name: "birthday", label: "Birthday", type: "date", placeholder: "YYYY-MM-DD (optional)", section: 'personal' },
     { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
-    // Enrollment Info (Order: Status, Year, Program)
-    { name: "status", label: "Status", type: "select", options: statusOptions, placeholder: "Select status", required: true, section: 'enrollment' },
-    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.status ? ['Transferee', 'Returnee'].includes(data.status) : false }, // Required only if status is Transferee or Returnee
-    { name: "course", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' }, // Use dynamic program options
-    // Contact / Account Details
+    { name: "enrollmentType", label: "Enrollment Type", type: "select", options: enrollmentTypeOptions, placeholder: "Select enrollment type", required: true, section: 'enrollment' }, // Changed from status
+    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.enrollmentType ? ['Transferee', 'Returnee'].includes(data.enrollmentType) : false }, // Condition uses enrollmentType
+    { name: "program", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' },
     { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
     { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
-    // Emergency Contact Fields
     { name: "emergencyContactName", label: "Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
     { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father (optional)", type: "text", section: 'emergency' },
     { name: "emergencyContactPhone", label: "Contact Number", placeholder: "Emergency contact number (optional)", type: "tel", section: 'emergency' },
@@ -79,10 +74,9 @@ const getStudentFormFields = (programs: Program[]): FormFieldConfig<Student>[] =
   ];
 };
 
-
 export default function ManageStudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
-  const [programs, setPrograms] = React.useState<Program[]>([]); // State for programs
+  const [programs, setPrograms] = React.useState<Program[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -135,13 +129,12 @@ export default function ManageStudentsPage() {
 
   const handleSaveStudent = async (values: Student) => {
     let year = values.year;
-    if (values.status === 'New') {
+    if (values.enrollmentType === 'New') { // Changed from values.status
       year = '1st Year';
-    } else if (['Transferee', 'Returnee'].includes(values.status) && !year) {
-        toast({ variant: "destructive", title: "Validation Error", description: "Year level is required for this status." });
+    } else if (['Transferee', 'Returnee'].includes(values.enrollmentType) && !year) { // Changed from values.status
+        toast({ variant: "destructive", title: "Validation Error", description: "Year level is required for this enrollment type." });
         throw new Error("Year level missing");
     }
-
 
     if (!isEditMode) {
         const nameExists = students.some(
@@ -156,7 +149,7 @@ export default function ManageStudentsPage() {
 
     const payload = {
       ...values,
-      year: year, // Use the determined year
+      year: year,
       id: isEditMode ? selectedStudent?.id : undefined,
     };
 
@@ -167,10 +160,12 @@ export default function ManageStudentsPage() {
             savedStudent = await putData<typeof payload, Student>(`students/update.php/${payload.id}`, payload);
             setStudents(prev => prev.map(s => s.id === savedStudent.id ? savedStudent : s));
             toast({ title: "Student Updated", description: `${savedStudent.firstName} ${savedStudent.lastName} has been updated.` });
+            logActivity("Updated Student", `${savedStudent.firstName} ${savedStudent.lastName}`, "Admin", savedStudent.id, "student");
         } else {
              savedStudent = await postData<Omit<typeof payload, 'id' | 'studentId' | 'username' | 'section' | 'lastAccessed'>, Student>('students/create.php', payload);
             setStudents(prev => [...prev, savedStudent]);
             toast({ title: "Student Added", description: `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.username}, Section ${savedStudent.section}) has been added.` });
+            logActivity("Added Student", `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.username})`, "Admin", savedStudent.id, "student", true, { ...savedStudent, passwordHash: "mock_hash" });
         }
         closeModal();
     } catch (error: any) {
@@ -184,10 +179,14 @@ export default function ManageStudentsPage() {
 
   const handleDeleteStudent = async (studentId: number) => {
       setIsSubmitting(true);
+      const studentToDelete = students.find(s => s.id === studentId);
       try {
           await deleteData(`students/delete.php/${studentId}`);
           setStudents(prev => prev.filter(s => s.id !== studentId));
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
+          if (studentToDelete) {
+            logActivity("Deleted Student", `${studentToDelete.firstName} ${studentToDelete.lastName} (${studentToDelete.username})`, "Admin", studentId, "student", true, studentToDelete);
+          }
       } catch (error: any) {
            console.error("Failed to delete student:", error);
            toast({ variant: "destructive", title: "Error Deleting Student", description: error.message || "Could not remove student record." });
@@ -205,6 +204,7 @@ export default function ManageStudentsPage() {
                 title: "Password Reset Successful",
                 description: `Password for student ID ${userId} has been reset. Default password: ${defaultPassword}`,
            });
+           logActivity("Reset Student Password", `For student ID ${userId}`, "Admin");
       } catch (error: any) {
            console.error("Failed to reset password:", error);
            toast({
@@ -295,7 +295,7 @@ export default function ManageStudentsPage() {
             enableHiding: true,
         },
          {
-            accessorKey: "course",
+            accessorKey: "program", // Changed from course to program
              header: ({ column }) => (
                  <DataTableFilterableColumnHeader
                      column={column}
@@ -304,21 +304,21 @@ export default function ManageStudentsPage() {
                  />
              ),
             cell: ({ row }) => {
-                const program = programs.find(p => p.id === row.original.course);
-                return <div>{program?.name || row.original.course}</div>;
+                const program = programs.find(p => p.id === row.original.program);
+                return <div>{program?.name || row.original.program}</div>;
             },
              filterFn: (row, id, value) => value.includes(row.getValue(id)),
         },
          {
-            accessorKey: "status",
+            accessorKey: "enrollmentType", // Changed from status to enrollmentType
              header: ({ column }) => (
                  <DataTableFilterableColumnHeader
                      column={column}
-                     title="Status"
-                     options={statusOptions}
+                     title="Enrollment Type" // Changed label
+                     options={enrollmentTypeOptions}
                  />
             ),
-            cell: ({ row }) => <div className="text-center">{row.getValue("status")}</div>,
+            cell: ({ row }) => <div className="text-center">{row.getValue("enrollmentType")}</div>,
             filterFn: (row, id, value) => value.includes(row.getValue(id)),
         },
         {
@@ -404,7 +404,6 @@ export default function ManageStudentsPage() {
             },
             enableHiding: true,
         },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     ], [sectionOptions, programs]);
 
     const generateActionMenuItems = (student: Student) => (
@@ -477,7 +476,6 @@ export default function ManageStudentsPage() {
         </>
     );
 
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -503,9 +501,9 @@ export default function ManageStudentsPage() {
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
                  filterableColumnHeaders={[
-                    { columnId: "course", title: "Program", options: programs.map(p => ({ value: p.id, label: p.name })) },
+                    { columnId: "program", title: "Program", options: programs.map(p => ({ value: p.id, label: p.name })) }, // Changed from course
                     { columnId: "year", title: "Year", options: yearLevelOptions },
-                    { columnId: "status", title: "Status", options: statusOptions },
+                    { columnId: "enrollmentType", title: "Enrollment Type", options: enrollmentTypeOptions }, // Changed from status
                     { columnId: "section", title: "Section", options: sectionOptions },
                 ]}
             />
@@ -526,4 +524,3 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-
