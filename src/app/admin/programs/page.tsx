@@ -1,10 +1,10 @@
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PlusCircle, Edit, Trash2, Loader2, BookOpen, Library, PackagePlus, XCircle, Edit3, AlertCircle, MoreHorizontal } from "lucide-react";
 import { z } from "zod";
+import { Controller, useForm } from "react-hook-form"; // Corrected useForm import
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useForm, Controller } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { programSchema, courseSchema } from "@/lib/schemas";
 import type { Program, Course, CourseType, YearLevel } from "@/types";
@@ -139,27 +139,15 @@ export default function ProgramsCoursesPage() {
   const handleSaveProgram = async (values: ProgramFormValues) => {
     setIsSubmitting(true);
     try {
-      let savedProgram;
       if (isEditProgramMode && selectedProgram) {
-        savedProgram = await putData<ProgramFormValues, Program>(`programs/update.php/${selectedProgram.id}`, values);
-        setPrograms(prev => prev.map(p => p.id === savedProgram.id ? savedProgram : p));
-        toast({ title: "Program Updated", description: `${savedProgram.name} updated successfully.` });
+        await putData<ProgramFormValues, Program>(`programs/update.php/${selectedProgram.id}`, values);
+        toast({ title: "Program Updated", description: `${values.name} updated successfully.` });
       } else {
-        savedProgram = await postData<ProgramFormValues, Program>('programs/create.php', values);
-        setPrograms(prev => [...prev, savedProgram]);
+        const savedProgram = await postData<ProgramFormValues, Program>('programs/create.php', values);
         toast({ title: "Program Added", description: `${savedProgram.name} added successfully.` });
       }
-      // If courses were added during program creation, update allCourses state
-      if (savedProgram.courses) {
-          Object.values(savedProgram.courses).flat().forEach(course => {
-              if (!allCourses.some(c => c.id === course.id)) {
-                  // Ensure programId is an array for Major courses
-                  const courseToAdd = { ...course, programId: course.type === 'Major' ? (course.programId || [savedProgram.id]) : [] };
-                  setAllCourses(prev => [...prev, courseToAdd]);
-              }
-          });
-      }
       setIsProgramModalOpen(false);
+      await loadData(); // Re-fetch and re-set the programs and courses state
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save program." });
     } finally {
@@ -171,19 +159,8 @@ export default function ProgramsCoursesPage() {
     setIsSubmitting(true);
     try {
       await deleteData(`programs/delete.php/${programId}`);
-      setPrograms(prev => prev.filter(p => p.id !== programId));
-      // Also remove major courses associated ONLY with this program from allCourses list
-      setAllCourses(prev => prev.map(c => {
-          if (c.type === 'Major' && c.programId?.includes(programId)) {
-              const updatedProgramIds = c.programId.filter(pid => pid !== programId);
-              if (updatedProgramIds.length === 0) { // If this was the only program, remove the course entirely or change type
-                  return null; // Mark for removal, or handle differently (e.g., convert to Minor if no programs left)
-              }
-              return { ...c, programId: updatedProgramIds };
-          }
-          return c;
-      }).filter(Boolean) as Course[]);
       toast({ title: "Program Deleted", description: "Program and its major course assignments removed." });
+      await loadData(); // Re-fetch and re-set the programs and courses state
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete program." });
     } finally {
@@ -196,7 +173,7 @@ export default function ProgramsCoursesPage() {
     if (course) {
       setSelectedCourse(course);
       setIsEditCourseMode(true);
-      courseForm.reset({...course, programId: course.programId || [] });
+      courseForm.reset({...course, programId: Array.isArray(course.programId) ? course.programId : (course.programId ? [course.programId] : []) });
     } else {
       setSelectedCourse(null);
       setIsEditCourseMode(false);
@@ -208,35 +185,24 @@ export default function ProgramsCoursesPage() {
   const handleSaveCourse = async (values: CourseFormValues) => {
     setIsSubmitting(true);
     try {
-      let savedCourse: Course;
       const payload = { ...values, programId: values.type === 'Major' ? (values.programId || []) : [] };
 
       if (isEditCourseMode && selectedCourse) {
-        savedCourse = await putData<typeof payload, Course>(`courses/update.php/${selectedCourse.id}`, payload);
-        setAllCourses(prev => prev.map(c => c.id === savedCourse.id ? savedCourse : c));
-        setPrograms(prevProgs => prevProgs.map(prog => ({
-            ...prog,
-            courses: Object.fromEntries(
-                Object.entries(prog.courses).map(([year, courses]) => [
-                    year,
-                    courses.map(c => c.id === savedCourse.id ? savedCourse : c)
-                ])
-            ) as Program['courses']
-        })));
-        toast({ title: "Course Updated", description: `${savedCourse.name} updated successfully.` });
+        await putData<typeof payload, Course>(`courses/update.php/${selectedCourse.id}`, payload);
+        toast({ title: "Course Updated", description: `${values.name} updated successfully.` });
       } else {
-        savedCourse = await postData<typeof payload, Course>('courses/create.php', payload);
-        setAllCourses(prev => [...prev, savedCourse]);
+        const savedCourse = await postData<typeof payload, Course>('courses/create.php', payload);
         toast({ title: "Course Added", description: `${savedCourse.name} added to system courses.` });
         // If created in context of a program and year, assign it
-        if (courseModalContext?.programId && courseModalContext?.yearLevel && savedCourse.programId?.includes(courseModalContext.programId)) {
+        if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.programId?.includes(courseModalContext.programId)) {
             await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
-        } else if (courseModalContext?.programId && courseModalContext?.yearLevel && savedCourse.type === 'Minor') {
-            await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
+        } else if (courseModalContext?.programId && courseModalContext?.yearLevel && payload.type === 'Minor') {
+             await handleAssignCourseToProgram(courseModalContext.programId, savedCourse.id, courseModalContext.yearLevel);
         }
       }
       setIsCourseModalOpen(false);
       setCourseModalContext(null);
+      await loadData(); // Re-fetch and re-set the programs and courses state
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save course." });
     } finally {
@@ -248,17 +214,8 @@ export default function ProgramsCoursesPage() {
     setIsSubmitting(true);
     try {
       await deleteData(`courses/delete.php/${courseId}`);
-      setAllCourses(prev => prev.filter(c => c.id !== courseId));
-      setPrograms(prevProgs => prevProgs.map(prog => ({
-          ...prog,
-          courses: Object.fromEntries(
-              Object.entries(prog.courses).map(([year, courses]) => [
-                  year,
-                  courses.filter(c => c.id !== courseId)
-              ])
-          ) as Program['courses']
-      })));
       toast({ title: "Course Deleted", description: "Course removed from system and all program assignments." });
+      await loadData(); // Re-fetch and re-set the programs and courses state
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to delete course." });
     } finally {
@@ -269,11 +226,12 @@ export default function ProgramsCoursesPage() {
   const handleAssignCourseToProgram = async (programId: string, courseId: string, yearLevel: YearLevel) => {
     setIsSubmitting(true);
     try {
-      const updatedProgram = await postData<any, Program>(`programs/${programId}/courses/assign.php`, { courseId, yearLevel });
-      setPrograms(prev => prev.map(p => p.id === updatedProgram.id ? updatedProgram : p));
+      await postData<any, Program>(`programs/${programId}/courses/assign.php`, { courseId, yearLevel });
       const course = allCourses.find(c => c.id === courseId);
-      toast({ title: "Course Assigned", description: `${course?.name || 'Course'} assigned to ${updatedProgram.name} - ${yearLevel}.` });
+      const program = programs.find(p => p.id === programId);
+      toast({ title: "Course Assigned", description: `${course?.name || 'Course'} assigned to ${program?.name || 'Program'} - ${yearLevel}.` });
       addCourseToProgramForm.reset({ courseId: "", yearLevel: yearLevel});
+      await loadData(); // Re-fetch and re-set the programs and courses state
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign course." });
     } finally {
@@ -285,17 +243,10 @@ export default function ProgramsCoursesPage() {
     setIsSubmitting(true);
     try {
       await deleteData(`programs/${programId}/courses/remove.php/${yearLevel}/${courseId}`);
-      setPrograms(prev => prev.map(p => {
-        if (p.id === programId) {
-          const updatedCourses = { ...p.courses };
-          updatedCourses[yearLevel] = updatedCourses[yearLevel].filter(c => c.id !== courseId);
-          return { ...p, courses: updatedCourses };
-        }
-        return p;
-      }));
       const course = allCourses.find(c => c.id === courseId);
       const program = programs.find(p => p.id === programId);
       toast({ title: "Course Removed", description: `${course?.name || 'Course'} removed from ${program?.name || 'Program'} - ${yearLevel}.` });
+      await loadData(); // Re-fetch and re-set the programs and courses state
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove course." });
     } finally {
@@ -313,34 +264,62 @@ export default function ProgramsCoursesPage() {
       cell: ({ row }) => {
         const program = row.original;
         return (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleOpenProgramModal(program)}><Edit3 className="mr-2 h-4 w-4" />Edit</Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" disabled={isSubmitting}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Delete Program?</AlertDialogTitle><AlertDialogDescription>This will delete "{program.name}" and all its major course assignments. Minor courses assigned will remain in other programs. Are you sure?</AlertDialogDescription></AlertDialogHeader>
-                <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteProgram(program.id)} disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Delete</AlertDialogAction></AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => handleOpenProgramModal(program)}>
+                    <Edit3 className="mr-2 h-4 w-4" /> Edit Program
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            disabled={isSubmitting}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Program
+                        </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Program?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will delete "{program.name}" and all its major course assignments. Minor courses assigned will remain in other programs. Are you sure?
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteProgram(program.id)} disabled={isSubmitting} className={buttonVariants({variant: "destructive"})}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </DropdownMenuContent>
+           </DropdownMenu>
         );
       },
     },
-  ], [isSubmitting]);
+  ], [isSubmitting, programs]); // Added programs to dependency array
 
 
   const courseColumns: ColumnDef<Course>[] = React.useMemo(() => [
     { accessorKey: "id", header: ({ column }) => <DataTableColumnHeader column={column} title="Course ID" /> },
     { accessorKey: "name", header: ({ column }) => <DataTableColumnHeader column={column} title="Course Name" /> },
     { accessorKey: "type", header: "Type", cell: ({ row }) => <Badge variant={row.original.type === "Major" ? "default" : "secondary"}>{row.original.type}</Badge> },
-    { accessorKey: "programId", header: "Program(s) (Majors)", cell: ({ row }) => {
+    { accessorKey: "programId", header: "Assigned Program(s) (Majors)", cell: ({ row }) => {
         if (row.original.type === 'Major') {
             if (row.original.programId && row.original.programId.length > 0) {
                 return row.original.programId.map(pid => programs.find(p => p.id === pid)?.name || pid).join(', ');
             }
-            return <AlertCircle className="h-4 w-4 text-destructive" title="Major course needs program ID(s)" />;
+            return <AlertCircle className="h-4 w-4 text-destructive" titleAccess="Major course needs program ID(s)" />;
         }
         return <span className="text-muted-foreground">-</span>;
       }
@@ -351,18 +330,36 @@ export default function ProgramsCoursesPage() {
       cell: ({ row }) => {
         const course = row.original;
         return (
-           <div className="flex gap-2">
-             <Button variant="outline" size="sm" onClick={() => handleOpenCourseModal(course)}><Edit3 className="mr-2 h-4 w-4" />Edit</Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" disabled={isSubmitting}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Delete Course?</AlertDialogTitle><AlertDialogDescription>This will delete "{course.name}" from the system and all program assignments. Are you sure?</AlertDialogDescription></AlertDialogHeader>
-                <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCourse(course.id)} disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Delete</AlertDialogAction></AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => handleOpenCourseModal(course)}>
+                        <Edit3 className="mr-2 h-4 w-4" /> Edit Course
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                             <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                disabled={isSubmitting}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete Course
+                            </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Delete Course?</AlertDialogTitle><AlertDialogDescription>This will delete "{course.name}" from the system and all program assignments. Are you sure?</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCourse(course.id)} disabled={isSubmitting} className={buttonVariants({variant: "destructive"})}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Delete</AlertDialogAction></AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </DropdownMenuContent>
+            </DropdownMenu>
         );
       },
     },
@@ -426,12 +423,11 @@ export default function ProgramsCoursesPage() {
                     {yearLevels.map(year => {
                       const assignedCourses = program.courses?.[year] || [];
                       const availableCoursesForAssignment = allCourses.filter(course => {
-                        if (assignedCourses.some(ac => ac.id === course.id)) return false; // Already assigned to this year level
+                        if (assignedCourses.some(ac => ac.id === course.id)) return false;
                         if (course.type === 'Major') {
-                            // Major courses can only be assigned if this program is one of their designated programs
-                            return course.programId?.includes(program.id);
+                            return Array.isArray(course.programId) && course.programId.includes(program.id);
                         }
-                        return true; // Minor courses are generally available
+                        return true;
                       });
 
                       return (
@@ -454,8 +450,8 @@ export default function ProgramsCoursesPage() {
                                         <Controller
                                             control={addCourseToProgramForm.control}
                                             name="yearLevel"
-                                            defaultValue={year}
-                                            render={() => null}
+                                            defaultValue={year} // Set default year level for the form context
+                                            render={() => null} // Hidden field, value is used in submission
                                         />
                                         <FormField
                                             control={addCourseToProgramForm.control}
@@ -575,34 +571,36 @@ export default function ProgramsCoursesPage() {
                   render={({ field, fieldState }) => (
                     <FormItem style={{ display: courseForm.watch("type") === 'Major' ? 'block' : 'none' }}>
                         <FormLabel>Assign to Program(s) (Required for Major)</FormLabel>
-                        <div className="space-y-2 max-h-32 overflow-y-auto border p-2 rounded-md">
-                            {programs.map(p => (
-                                <FormField
-                                    key={p.id}
-                                    control={courseForm.control}
-                                    name="programId"
-                                    render={() => ( // Removed field from render as we manage it manually
-                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                            <FormControl>
-                                                <Checkbox
-                                                    checked={(field.value || []).includes(p.id)}
-                                                    onCheckedChange={(checked) => {
-                                                        const currentProgramIds = field.value || [];
-                                                        if (checked) {
-                                                            field.onChange([...currentProgramIds, p.id]);
-                                                        } else {
-                                                            field.onChange(currentProgramIds.filter((id) => id !== p.id));
-                                                        }
-                                                    }}
-                                                    disabled={isSubmitting}
-                                                />
-                                            </FormControl>
-                                            <FormLabel className="font-normal text-sm">{p.name} ({p.id})</FormLabel>
-                                        </FormItem>
-                                    )}
-                                />
-                            ))}
-                        </div>
+                        <ScrollArea className="max-h-32 overflow-y-auto border p-2 rounded-md">
+                            <div className="space-y-2">
+                                {programs.map(p => (
+                                    <FormField
+                                        key={p.id}
+                                        control={courseForm.control}
+                                        name="programId"
+                                        render={() => (
+                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                <FormControl>
+                                                    <Checkbox
+                                                        checked={(field.value || []).includes(p.id)}
+                                                        onCheckedChange={(checked) => {
+                                                            const currentProgramIds = field.value || [];
+                                                            if (checked) {
+                                                                field.onChange([...currentProgramIds, p.id]);
+                                                            } else {
+                                                                field.onChange(currentProgramIds.filter((id) => id !== p.id));
+                                                            }
+                                                        }}
+                                                        disabled={isSubmitting}
+                                                    />
+                                                </FormControl>
+                                                <FormLabel className="font-normal text-sm">{p.name} ({p.id})</FormLabel>
+                                            </FormItem>
+                                        )}
+                                    />
+                                ))}
+                            </div>
+                        </ScrollArea>
                         {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
                          <p className="text-xs text-muted-foreground">A Major course must be assigned to at least one program.</p>
                     </FormItem>
@@ -638,4 +636,3 @@ export default function ProgramsCoursesPage() {
     </div>
   );
 }
-
