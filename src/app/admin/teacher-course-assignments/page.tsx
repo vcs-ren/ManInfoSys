@@ -1,48 +1,39 @@
-
 "use client";
 
 import * as React from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
+import { Label } from "@/components/ui/label"; // Import Label
 import { useToast } from "@/hooks/use-toast";
-import { assignSubjectSchema } from "@/lib/schemas"; // Assuming this schema fits: { subjectId, teacherId } might need sectionId too.
-import type { Faculty, Course, Section, SectionSubjectAssignment } from "@/types";
-import { fetchData, postData, deleteData, USE_MOCK_API, mockFaculty, mockCourses, mockSections, mockSectionAssignments, logActivity } from "@/lib/api";
-import { Loader2, PlusCircle, Trash2, User, BookOpen, Users as UsersIcon } from "lucide-react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import type { Faculty, Course, SectionSubjectAssignment } from "@/types";
+import { fetchData, postData, deleteData, USE_MOCK_API, mockFaculty, mockCourses, mockSectionAssignments, logActivity, mockTeacherTeachableCourses as apiMockTeacherTeachableCourses } from "@/lib/api";
+import { Loader2, PlusCircle, Trash2, User, BookOpen, Settings } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge"; // Added import for Badge
+import { Badge } from "@/components/ui/badge";
 
-
-type AssignCourseToTeacherFormValues = z.infer<typeof assignSubjectSchema> & { sectionId: string };
-
-const assignCourseToTeacherFullSchema = assignSubjectSchema.extend({
-    sectionId: z.string().min(1, "Section selection is required."),
-});
-
+// New type for the form within the "Manage Teachable Courses" modal
+interface ManageTeachableCoursesFormValues {
+    selectedCourseIds: string[];
+}
 
 export default function TeacherCourseAssignmentsPage() {
     const [teachers, setTeachers] = React.useState<Faculty[]>([]);
     const [allCourses, setAllCourses] = React.useState<Course[]>([]);
-    const [allSections, setAllSections] = React.useState<Section[]>([]);
     const [allAssignments, setAllAssignments] = React.useState<SectionSubjectAssignment[]>([]);
+    const [teacherTeachableCourses, setTeacherTeachableCourses] = React.useState<{ teacherId: number; courseIds: string[] }[]>(apiMockTeacherTeachableCourses);
+
     const [isLoading, setIsLoading] = React.useState(true);
-    const [isModalOpen, setIsModalOpen] = React.useState(false);
-    const [selectedTeacherForAssignment, setSelectedTeacherForAssignment] = React.useState<Faculty | null>(null);
+    const [isManageModalOpen, setIsManageModalOpen] = React.useState(false);
+    const [selectedTeacherForManagement, setSelectedTeacherForManagement] = React.useState<Faculty | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [currentTeachableCourseIds, setCurrentTeachableCourseIds] = React.useState<string[]>([]);
+
 
     const { toast } = useToast();
-
-    const form = useForm<AssignCourseToTeacherFormValues>({
-        resolver: zodResolver(assignCourseToTeacherFullSchema),
-    });
 
     const loadData = React.useCallback(async () => {
         setIsLoading(true);
@@ -51,27 +42,27 @@ export default function TeacherCourseAssignmentsPage() {
                 await new Promise(resolve => setTimeout(resolve, 300));
                 setTeachers(mockFaculty.filter(f => f.department === 'Teaching'));
                 setAllCourses(mockCourses);
-                setAllSections(mockSections);
                 setAllAssignments(mockSectionAssignments.map(as => ({
                     ...as,
                     subjectName: mockCourses.find(c => c.id === as.subjectId)?.name || as.subjectId,
                     teacherName: mockFaculty.find(f => f.id === as.teacherId)?.firstName + " " + mockFaculty.find(f => f.id === as.teacherId)?.lastName
                 })));
+                setTeacherTeachableCourses(apiMockTeacherTeachableCourses);
             } else {
-                const [facultyData, coursesData, sectionsData, assignmentsData] = await Promise.all([
+                const [facultyData, coursesData, assignmentsData, teachableCoursesData] = await Promise.all([
                     fetchData<Faculty[]>('teachers/read.php'),
                     fetchData<Course[]>('courses/read.php'),
-                    fetchData<Section[]>('sections/read.php'),
-                    fetchData<SectionSubjectAssignment[]>('sections/assignments/read.php?all=true') // Assuming an endpoint to fetch all
+                    fetchData<SectionSubjectAssignment[]>('sections/assignments/read.php?all=true'), // Assuming an endpoint to fetch all assignments
+                    fetchData<{ teacherId: number; courseIds: string[] }[]>('teacher/teachable-courses/read.php') // New endpoint needed
                 ]);
                 setTeachers((facultyData || []).filter(f => f.department === 'Teaching'));
                 setAllCourses(coursesData || []);
-                setAllSections(sectionsData || []);
                 setAllAssignments((assignmentsData || []).map(as => ({
                     ...as,
                     subjectName: coursesData?.find(c => c.id === as.subjectId)?.name || as.subjectId,
                     teacherName: facultyData?.find(f => f.id === as.teacherId)?.firstName + " " + facultyData?.find(f => f.id === as.teacherId)?.lastName
                 })));
+                setTeacherTeachableCourses(teachableCoursesData || []);
             }
         } catch (error: any) {
             toast({ variant: "destructive", title: "Error loading data", description: error.message });
@@ -84,38 +75,62 @@ export default function TeacherCourseAssignmentsPage() {
         loadData();
     }, [loadData]);
 
-    const handleOpenModal = (teacher: Faculty) => {
-        setSelectedTeacherForAssignment(teacher);
-        form.reset({ teacherId: teacher.id, subjectId: "", sectionId: "" });
-        setIsModalOpen(true);
+    const handleOpenManageModal = (teacher: Faculty) => {
+        setSelectedTeacherForManagement(teacher);
+        const currentCourses = teacherTeachableCourses.find(ttc => ttc.teacherId === teacher.id)?.courseIds || [];
+        setCurrentTeachableCourseIds(currentCourses);
+        setIsManageModalOpen(true);
     };
 
-    const handleAssignCourse = async (values: AssignCourseToTeacherFormValues) => {
-        if (!selectedTeacherForAssignment) return;
+    const handleSaveTeachableCourses = async () => {
+        if (!selectedTeacherForManagement) return;
         setIsSubmitting(true);
-        const payload = {
-            teacherId: selectedTeacherForAssignment.id,
-            subjectId: values.subjectId,
-            sectionId: values.sectionId,
-        };
+        const teacherId = selectedTeacherForManagement.id;
 
         try {
-            const newAssignment = await postData<typeof payload, SectionSubjectAssignment>('sections/assignments/create.php', payload);
-            toast({ title: "Assignment Successful", description: `${allCourses.find(c=>c.id === values.subjectId)?.name} in section ${values.sectionId} assigned to ${selectedTeacherForAssignment.firstName} ${selectedTeacherForAssignment.lastName}.` });
-            logActivity("Assigned Teacher to Course-Section", `${selectedTeacherForAssignment.firstName} ${selectedTeacherForAssignment.lastName} to ${values.subjectId} in ${values.sectionId}`, "Admin");
-            setIsModalOpen(false);
-            loadData(); // Refresh assignments
+            if (USE_MOCK_API) {
+                const updatedTeachable = [...teacherTeachableCourses];
+                const existingIndex = updatedTeachable.findIndex(ttc => ttc.teacherId === teacherId);
+                if (existingIndex > -1) {
+                    updatedTeachable[existingIndex].courseIds = [...currentTeachableCourseIds];
+                } else {
+                    updatedTeachable.push({ teacherId, courseIds: [...currentTeachableCourseIds] });
+                }
+                setTeacherTeachableCourses(updatedTeachable);
+                // Persist to apiMockTeacherTeachableCourses if necessary for mock persistence across loads
+                const apiMockIndex = apiMockTeacherTeachableCourses.findIndex(ttc => ttc.teacherId === teacherId);
+                 if (apiMockIndex > -1) {
+                    apiMockTeacherTeachableCourses[apiMockIndex].courseIds = [...currentTeachableCourseIds];
+                 } else {
+                    apiMockTeacherTeachableCourses.push({ teacherId, courseIds: [...currentTeachableCourseIds] });
+                 }
+
+            } else {
+                // API call to save teachable courses
+                await postData(`teacher/teachable-courses/update.php`, { teacherId, courseIds: currentTeachableCourseIds });
+            }
+            toast({ title: "Teachable Courses Updated", description: `Successfully updated courses for ${selectedTeacherForManagement.firstName} ${selectedTeacherForManagement.lastName}.` });
+            logActivity("Updated Teachable Courses", `For ${selectedTeacherForManagement.firstName} ${selectedTeacherForManagement.lastName}`, "Admin");
+            setIsManageModalOpen(false);
+            // No need to call loadData() if local mock state is managed correctly, or if API call implies a refresh elsewhere.
+            // For mock, local state update is enough.
         } catch (error: any) {
-            toast({ variant: "destructive", title: "Assignment Failed", description: error.message });
+            toast({ variant: "destructive", title: "Update Failed", description: error.message });
         } finally {
             setIsSubmitting(false);
         }
     };
 
+
     const handleRemoveAssignment = async (assignmentId: string) => {
         setIsSubmitting(true);
         try {
-            await deleteData(`assignments/delete.php/${assignmentId}`);
+            if (USE_MOCK_API) {
+                 const index = mockSectionAssignments.findIndex(a => a.id === assignmentId);
+                 if (index > -1) mockSectionAssignments.splice(index, 1);
+            } else {
+                await deleteData(`assignments/delete.php/${assignmentId}`);
+            }
             toast({ title: "Assignment Removed", description: "Teacher unassigned from course-section." });
             const removedAssignment = allAssignments.find(a => a.id === assignmentId);
             if(removedAssignment) {
@@ -136,15 +151,18 @@ export default function TeacherCourseAssignmentsPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold">Teacher Course-Section Assignments</h1>
+                <h1 className="text-3xl font-bold">Teacher Course Assignments</h1>
                  <Button variant="outline" asChild>
                     <Link href="/admin/assignments">Back to Schedule & Announcements</Link>
                 </Button>
             </div>
             <Card>
                 <CardHeader>
-                    <CardTitle>Assign Teachers to Courses in Sections</CardTitle>
-                    <CardDescription>Manage which teacher handles specific courses within class sections. Only teaching staff are listed.</CardDescription>
+                    <CardTitle>Manage Teacher Assignments</CardTitle>
+                    <CardDescription>
+                        View current teaching assignments and manage which courses each teacher is qualified to teach.
+                        Actual assignment to sections happens on the "Schedule & Announcements" page or section details page.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {teachers.length === 0 ? (
@@ -153,6 +171,7 @@ export default function TeacherCourseAssignmentsPage() {
                         <Accordion type="multiple" className="w-full space-y-2">
                             {teachers.map(teacher => {
                                 const teacherAssignments = allAssignments.filter(a => a.teacherId === teacher.id);
+                                const teachable = teacherTeachableCourses.find(t => t.teacherId === teacher.id)?.courseIds || [];
                                 return (
                                     <AccordionItem value={String(teacher.id)} key={teacher.id} className="border rounded-md shadow-sm">
                                         <AccordionTrigger className="px-4 py-3 hover:bg-accent/50 rounded-t-md">
@@ -160,17 +179,18 @@ export default function TeacherCourseAssignmentsPage() {
                                                 <div className="flex items-center gap-2">
                                                     <User className="h-5 w-5 text-primary"/>
                                                     <span>{teacher.firstName} {teacher.lastName} ({teacher.facultyId})</span>
-                                                    <Badge variant="secondary">{teacherAssignments.length} assignment(s)</Badge>
+                                                    <Badge variant="outline">Teaches: {teachable.length} course(s)</Badge>
+                                                    <Badge variant="secondary">Assignments: {teacherAssignments.length}</Badge>
                                                 </div>
                                             </div>
                                         </AccordionTrigger>
-                                        <AccordionContent className="p-4 border-t">
-                                            {teacherAssignments.length > 0 && (
-                                                <div className="mb-4">
-                                                    <h4 className="font-semibold text-sm mb-2">Current Assignments:</h4>
-                                                    <ul className="space-y-1 max-h-48 overflow-y-auto">
+                                        <AccordionContent className="p-4 border-t space-y-4">
+                                            <div>
+                                                <h4 className="font-semibold text-sm mb-2">Currently Assigned to Sections:</h4>
+                                                {teacherAssignments.length > 0 ? (
+                                                    <ul className="space-y-1 max-h-40 overflow-y-auto text-xs">
                                                         {teacherAssignments.map(assign => (
-                                                            <li key={assign.id} className="text-xs flex justify-between items-center p-1.5 bg-muted rounded-sm">
+                                                            <li key={assign.id} className="flex justify-between items-center p-1.5 bg-muted rounded-sm">
                                                                 <span>{assign.subjectName} - {assign.sectionId}</span>
                                                                 <Button variant="ghost" size="sm" className="text-destructive h-6 px-1.5" onClick={() => handleRemoveAssignment(assign.id)} disabled={isSubmitting}>
                                                                     <Trash2 className="h-3 w-3"/>
@@ -178,10 +198,22 @@ export default function TeacherCourseAssignmentsPage() {
                                                             </li>
                                                         ))}
                                                     </ul>
-                                                </div>
-                                            )}
-                                            <Button size="sm" variant="outline" onClick={() => handleOpenModal(teacher)}>
-                                                <PlusCircle className="mr-2 h-4 w-4" /> Assign Course to Section
+                                                ) : <p className="text-xs text-muted-foreground">No active section assignments.</p>}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-semibold text-sm mb-2">Teachable Courses:</h4>
+                                                {teachable.length > 0 ? (
+                                                    <ul className="space-y-1 text-xs max-h-40 overflow-y-auto">
+                                                        {teachable.map(courseId => {
+                                                            const course = allCourses.find(c => c.id === courseId);
+                                                            return <li key={courseId} className="p-1.5 bg-secondary rounded-sm">{course?.name || courseId}</li>;
+                                                        })}
+                                                    </ul>
+                                                ) : <p className="text-xs text-muted-foreground">No specific teachable courses set. Can be assigned any course matching their expertise.</p>}
+                                            </div>
+
+                                            <Button size="sm" variant="outline" onClick={() => handleOpenManageModal(teacher)}>
+                                                <Settings className="mr-2 h-4 w-4" /> Manage Teachable Courses
                                             </Button>
                                         </AccordionContent>
                                     </AccordionItem>
@@ -192,62 +224,45 @@ export default function TeacherCourseAssignmentsPage() {
                 </CardContent>
             </Card>
 
-            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent>
+            <Dialog open={isManageModalOpen} onOpenChange={setIsManageModalOpen}>
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Assign Course to {selectedTeacherForAssignment?.firstName} {selectedTeacherForAssignment?.lastName}</DialogTitle>
-                        <DialogDescription>Select a course and section to assign to this teacher.</DialogDescription>
+                        <DialogTitle>Manage Teachable Courses for {selectedTeacherForManagement?.firstName} {selectedTeacherForManagement?.lastName}</DialogTitle>
+                        <DialogDescription>Select the courses this teacher is qualified to teach.</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[60vh] p-1 pr-2">
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(handleAssignCourse)} className="space-y-4 py-2">
-                                <FormField
-                                    control={form.control}
-                                    name="subjectId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Course (Subject)</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value} disabled={isLoading || isSubmitting}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Select a course" /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    {allCourses.map(course => (
-                                                        <SelectItem key={course.id} value={course.id}>{course.name} ({course.type})</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="sectionId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Section</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value} disabled={isLoading || isSubmitting}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Select a section" /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    {allSections.map(section => (
-                                                        <SelectItem key={section.id} value={section.id}>{section.sectionCode} ({section.programName} - {section.yearLevel})</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <DialogFooter className="pt-4">
-                                    <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
-                                    <Button type="submit" disabled={isSubmitting || !form.formState.isValid}>
-                                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Assign
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </Form>
+                        <div className="space-y-2 py-4">
+                            {allCourses.map(course => (
+                                <div key={course.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-accent/50">
+                                    <Checkbox
+                                        id={`course-${course.id}-${selectedTeacherForManagement?.id}`}
+                                        checked={currentTeachableCourseIds.includes(course.id)}
+                                        onCheckedChange={(checked) => {
+                                            setCurrentTeachableCourseIds(prev =>
+                                                checked
+                                                    ? [...prev, course.id]
+                                                    : prev.filter(id => id !== course.id)
+                                            );
+                                        }}
+                                        disabled={isSubmitting}
+                                    />
+                                    <Label htmlFor={`course-${course.id}-${selectedTeacherForManagement?.id}`} className="text-sm font-normal flex-1 cursor-pointer">
+                                        {course.name} ({course.id}) - <span className="text-xs italic text-muted-foreground">{course.type}</span>
+                                    </Label>
+                                </div>
+                            ))}
+                             {allCourses.length === 0 && <p className="text-sm text-muted-foreground text-center">No system courses available.</p>}
+                        </div>
                     </ScrollArea>
+                    <DialogFooter className="pt-4">
+                        <Button type="button" variant="outline" onClick={() => setIsManageModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                        <Button onClick={handleSaveTeachableCourses} disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
     );
 }
+
