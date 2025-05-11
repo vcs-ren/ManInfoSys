@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry, EmploymentType, EnrollmentType } from '@/types';
@@ -12,7 +13,7 @@ let nextActivityLogId = 1;
 
 const mockGenerateFourRandomDigits = () => Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 
-let mockCourses: Course[] = [
+export let mockCourses: Course[] = [
     { id: "CS101", name: "Introduction to Programming", description: "Fundamentals of programming.", type: "Major", programId: ["CS"], yearLevel: "1st Year" },
     { id: "IT101", name: "IT Fundamentals", description: "Basics of IT.", type: "Major", programId: ["IT"], yearLevel: "1st Year" },
     { id: "CS201", name: "Data Structures", description: "Study of data organization.", type: "Major", programId: ["CS"], yearLevel: "2nd Year" },
@@ -20,7 +21,7 @@ let mockCourses: Course[] = [
     { id: "MATH101", name: "Calculus I", description: "Differential Calculus", type: "Minor", programId: []},
 ];
 
-let mockApiPrograms: Program[] = [
+export let mockApiPrograms: Program[] = [
     {
         id: "CS", name: "Computer Science", description: "Focuses on algorithms, data structures, and software development.",
         courses: { "1st Year": [mockCourses[0], mockCourses[4]], "2nd Year": [mockCourses[2]], "3rd Year": [], "4th Year": [] },
@@ -31,14 +32,14 @@ let mockApiPrograms: Program[] = [
     },
 ];
 
-let mockStudents: Student[] = [
+export let mockStudents: Student[] = [
   { id: 1, studentId: generateFrontendStudentId(), username: "", firstName: "Alice", lastName: "Smith", program: "CS", enrollmentType: "Returnee", year: "2nd Year", section: "CS2A", email: "alice@example.com", phone: "123-456-7890", emergencyContactName: "John Smith", emergencyContactRelationship: "Father", emergencyContactPhone: "111-222-3333", emergencyContactAddress: "123 Main St", lastAccessed: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
   { id: 2, studentId: generateFrontendStudentId(), username: "", firstName: "Bob", lastName: "Johnson", program: "IT", enrollmentType: "New", year: "1st Year", section: "IT1A", email: "bob@example.com", phone: "987-654-3210", lastAccessed: null },
 ];
 mockStudents[0].username = generateStudentUsername(mockStudents[0].studentId);
 mockStudents[1].username = generateStudentUsername(mockStudents[1].studentId);
 
-let mockFaculty: Faculty[] = [
+export let mockFaculty: Faculty[] = [
   { id: 1, facultyId: generateTeacherId(), username: "", firstName: "David", lastName: "Lee", department: "Teaching", email: "david.lee@example.com", phone: "555-1234", employmentType: 'Regular', lastAccessed: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
   { id: 2, facultyId: generateTeacherId(), username: "", firstName: "Eve", lastName: "Davis", department: "Administrative", email: "eve.davis@example.com", phone: "555-5678", employmentType: 'Part Time', lastAccessed: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
   { id: 3, facultyId: generateTeacherId(), username: "", firstName: "Carol", lastName: "White", department: "Teaching", email: "carol.white@example.com", phone: "555-9012", employmentType: 'Regular', lastAccessed: null },
@@ -47,18 +48,18 @@ mockFaculty[0].username = generateTeacherUsername(mockFaculty[0].facultyId, mock
 mockFaculty[1].username = generateTeacherUsername(mockFaculty[1].facultyId, mockFaculty[1].department);
 mockFaculty[2].username = generateTeacherUsername(mockFaculty[2].facultyId, mockFaculty[2].department);
 
-let mockSections: Section[] = [
+export let mockSections: Section[] = [
     { id: "CS1A", sectionCode: "CS1A", programId: "CS", programName: "Computer Science", yearLevel: "1st Year", adviserId: 1, adviserName: "David Lee", studentCount: 0 },
     { id: "CS2A", sectionCode: "CS2A", programId: "CS", programName: "Computer Science", yearLevel: "2nd Year", adviserId: 1, adviserName: "David Lee", studentCount: 1 },
     { id: "IT1A", sectionCode: "IT1A", programId: "IT", programName: "Information Technology", yearLevel: "1st Year", studentCount: 1 },
 ];
 
-let mockSectionAssignments: SectionSubjectAssignment[] = [
+export let mockSectionAssignments: SectionSubjectAssignment[] = [
     { id: "CS2A-CS201", sectionId: "CS2A", subjectId: "CS201", subjectName: "Data Structures", teacherId: 1, teacherName: "David Lee" },
     { id: "IT1A-IT101", sectionId: "IT1A", subjectId: "IT101", subjectName: "IT Fundamentals", teacherId: 1, teacherName: "David Lee" },
 ];
 
-let mockAnnouncements: Announcement[] = [
+export let mockAnnouncements: Announcement[] = [
   { id: "ann1", title: "Welcome Back Students!", content: "Welcome to the new academic year.", date: new Date(2024, 7, 15), targetAudience: "All", target: { program: "all" }, author: "Admin" },
 ];
 
@@ -67,7 +68,7 @@ let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[
     { assignmentId: `IT1A-IT101-${mockStudents[1].id}`, studentId: mockStudents[1].id, studentName: "Bob Johnson", subjectId: "IT101", subjectName: "IT Fundamentals", section: "IT1A", year: "1st Year", prelimGrade: null, prelimRemarks: "", midtermGrade: null, midtermRemarks: "", finalGrade: null, finalRemarks: "", status: "Not Submitted" },
 ];
 
-let mockApiAdmins: AdminUser[] = [
+export let mockApiAdmins: AdminUser[] = [
     { id: 0, username: "admin", firstName: "Super", lastName: "Admin", email: "superadmin@example.com", role: "Super Admin", isSuperAdmin: true },
     { id: mockFaculty[1].id, username: mockFaculty[1].username, firstName: mockFaculty[1].firstName, lastName: mockFaculty[1].lastName, email: mockFaculty[1].email, role: "Sub Admin", isSuperAdmin: false },
     { id: 1001, username: generateAdminUsername(generateTeacherId()), firstName: "Test", lastName: "SubAdmin", email: "test.sub@example.com", role: "Sub Admin", isSuperAdmin: false },
@@ -114,14 +115,13 @@ let mockDashboardStatsGlobal: DashboardStats = {} as DashboardStats;
 const recalculateDashboardStats = () => {
     const teachingStaffCount = mockFaculty.filter(f => f.department === 'Teaching').length;
     const adminStaffCount = mockFaculty.filter(f => f.department === 'Administrative').length;
-    // This counts explicit sub-admins from mockApiAdmins who are NOT already counted as faculty admins
     const explicitSubAdminCount = mockApiAdmins.filter(a => a.id !== 0 && !mockFaculty.some(f => f.id === a.id && f.department === 'Administrative')).length;
 
 
     mockDashboardStatsGlobal = {
         totalStudents: mockStudents.length,
-        totalFaculty: mockFaculty.length, // All faculty members
-        totalAdmins: adminStaffCount + explicitSubAdminCount, // Faculty admins + explicit non-faculty sub-admins
+        totalFaculty: mockFaculty.length, 
+        totalAdmins: adminStaffCount + explicitSubAdminCount, 
         upcomingEvents: mockAnnouncements.filter(a => a.date > new Date()).length,
     };
 };
@@ -214,18 +214,39 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
         }
         if (phpPath === 'programs/read.php') return [...mockApiPrograms] as T;
         if (phpPath === 'courses/read.php') return [...mockCourses] as T;
-        if (phpPath === 'sections/read.php') {
-            const sectionsWithCounts = mockSections.map(section => {
-                const count = mockStudents.filter(student => student.section === section.id).length;
-                return {
-                    ...section,
-                    studentCount: count,
-                    programName: mockApiPrograms.find(p => p.id === section.programId)?.name || section.programId,
-                    adviserName: section.adviserId ? mockFaculty.find(f=>f.id === section.adviserId)?.firstName + " " + mockFaculty.find(f=>f.id === section.adviserId)?.lastName : undefined,
-                };
-            });
-            return sectionsWithCounts as T;
+        
+        if (phpPath.startsWith('sections/read.php')) {
+            const urlParams = new URLSearchParams(phpPath.split('?')[1] || '');
+            const sectionIdParam = urlParams.get('id');
+
+            if (sectionIdParam) { // Fetch single section
+                const section = mockSections.find(s => s.id === sectionIdParam);
+                 if (section) {
+                     const program = mockApiPrograms.find(p => p.id === section.programId);
+                     const adviser = mockFaculty.find(f => f.id === section.adviserId);
+                     const singleSection = {
+                         ...section,
+                         programName: program?.name || section.programId,
+                         adviserName: adviser ? `${adviser.firstName} ${adviser.lastName}` : undefined,
+                         studentCount: mockStudents.filter(st => st.section === section.id).length
+                     };
+                     return [singleSection] as unknown as T; // Return as array for consistency if API does
+                 }
+                 return [] as unknown as T; // Or throw error if not found
+            } else { // Fetch all sections
+                const sectionsWithCounts = mockSections.map(section => {
+                    const count = mockStudents.filter(student => student.section === section.id).length;
+                    return {
+                        ...section,
+                        studentCount: count,
+                        programName: mockApiPrograms.find(p => p.id === section.programId)?.name || section.programId,
+                        adviserName: section.adviserId ? mockFaculty.find(f=>f.id === section.adviserId)?.firstName + " " + mockFaculty.find(f=>f.id === section.adviserId)?.lastName : undefined,
+                    };
+                });
+                return sectionsWithCounts as T;
+            }
         }
+
         if (phpPath === 'announcements/read.php') {
             return [...mockAnnouncements].sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
@@ -1239,19 +1260,20 @@ export const fetchData = async <T>(path: string): Promise<T> => {
         let errorMessage = errorData.message;
         let responseBodyText = "";
         try {
-            responseBodyText = await response.text();
+            responseBodyText = await response.text(); // Read body once as text
             console.error("API Error Response Text (fetchData):", responseBodyText);
             try {
-                 errorData = JSON.parse(responseBodyText);
+                 errorData = JSON.parse(responseBodyText); // Try parsing the text
                  errorMessage = errorData?.message || responseBodyText || errorMessage;
-            } catch (parseError) {
+            } catch (jsonParseError) {
+                 // If parsing fails, use the raw text as the error message
                  errorMessage = responseBodyText || errorMessage;
                  errorData = { message: errorMessage };
             }
         } catch (readError) {
             console.error("Failed to read error response body (fetchData):", readError);
-            errorData = { message: `HTTP error! status: ${response.status}. Failed to read error body.` };
-            errorMessage = errorData.message;
+             errorData = { message: `HTTP error! status: ${response.status}. Failed to read error body.` };
+             errorMessage = errorData.message;
         }
         handleFetchError({ ...errorData, name: 'HTTPError', message: errorMessage }, path, 'GET');
     }
@@ -1288,13 +1310,12 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
         let errorMessage = errorData.message;
         let responseBodyText = "";
         try {
-            responseBodyText = await response.text(); // Read body once as text
+            responseBodyText = await response.text(); 
             console.error("API Error Response Text (postData):", responseBodyText);
             try {
-                 errorData = JSON.parse(responseBodyText); // Try parsing the text
+                 errorData = JSON.parse(responseBodyText); 
                  errorMessage = errorData?.message || responseBodyText || errorMessage;
             } catch (jsonParseError) {
-                 // If parsing fails, use the raw text as the error message
                  errorMessage = responseBodyText || errorMessage;
                  errorData = { message: errorMessage };
             }
@@ -1436,3 +1457,4 @@ function formatDate(date: Date): string {
 }
 
 export { mockApiPrograms, mockCourses, mockStudents, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments };
+
