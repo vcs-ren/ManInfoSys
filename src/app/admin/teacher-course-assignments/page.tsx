@@ -18,6 +18,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge"; // Added import for Badge
 
 
 type AssignCourseToTeacherFormValues = z.infer<typeof assignSubjectSchema> & { sectionId: string };
