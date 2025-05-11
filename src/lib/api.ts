@@ -77,10 +77,9 @@ let mockActivityLog: ActivityLogEntry[] = [
     { id: `log${nextActivityLogId++}`, timestamp: new Date(Date.now() - 1000 * 60 * 5), user: "System", action: "System Startup", description: "System initialized successfully.", canUndo: false }
 ];
 
-// New mock data for teacher's teachable courses
 export let mockTeacherTeachableCourses: { teacherId: number; courseIds: string[] }[] = [
-    { teacherId: 1, courseIds: ["CS101", "CS201", "IT101"] }, // David Lee can teach these
-    { teacherId: 3, courseIds: ["GEN001", "MATH101"] },      // Carol White can teach these
+    { teacherId: 1, courseIds: ["CS101", "CS201", "IT101"] },
+    { teacherId: 3, courseIds: ["GEN001", "MATH101"] },
 ];
 
 
@@ -114,12 +113,15 @@ let mockDashboardStatsGlobal: DashboardStats = {} as DashboardStats;
 
 const recalculateDashboardStats = () => {
     const teachingStaffCount = mockFaculty.filter(f => f.department === 'Teaching').length;
-    const adminFacultyCount = mockFaculty.filter(f => f.department === 'Administrative').length;
+    const adminStaffCount = mockFaculty.filter(f => f.department === 'Administrative').length;
+    // This counts explicit sub-admins from mockApiAdmins who are NOT already counted as faculty admins
+    const explicitSubAdminCount = mockApiAdmins.filter(a => a.id !== 0 && !mockFaculty.some(f => f.id === a.id && f.department === 'Administrative')).length;
+
 
     mockDashboardStatsGlobal = {
         totalStudents: mockStudents.length,
-        totalFaculty: mockFaculty.length,
-        totalAdmins: adminFacultyCount + mockApiAdmins.filter(a => a.id !== 0 && !mockFaculty.some(f => f.id === a.id && f.department === 'Administrative')).length,
+        totalFaculty: mockFaculty.length, // All faculty members
+        totalAdmins: adminStaffCount + explicitSubAdminCount, // Faculty admins + explicit non-faculty sub-admins
         upcomingEvents: mockAnnouncements.filter(a => a.date > new Date()).length,
     };
 };
@@ -164,6 +166,7 @@ const handleFetchError = (error: any, path: string, method: string, isNetworkErr
         detailedLog += `\n    - Error Message: ${error.message}`;
     }
      detailedLog += `\n    \n        Troubleshooting Tips:\n        - Ensure the PHP server is running and listening on the correct port (8000).\n        - Check the PHP server's console output for any startup errors or errors during the request.\n        - Verify the 'Access-Control-Allow-Origin' header in the failing PHP endpoint matches your frontend origin or is '*'.\n        - Temporarily simplify the PHP endpoint to just return headers and a basic JSON to isolate the issue.\n        `;
+
 
     console.error("Detailed Fetch Error Log:", detailedLog);
     throw new Error(errorMessage);
@@ -244,19 +247,19 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
             ).sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
         if (phpPath === 'teacher/announcements/read.php') {
-            const teacherUser = mockTestUsers.find(u => u.username === "t1001"); // Assuming t1001 is a faculty member
+            const teacherUser = mockTestUsers.find(u => u.username === "t1001");
             const teacherId = teacherUser?.userId;
 
             return mockAnnouncements.filter(ann =>
                 (ann.author_type === 'Admin' && (ann.targetAudience === 'All' || ann.targetAudience === 'Faculty')) ||
-                (ann.author_type === 'Teacher' && ann.author === String(teacherId)) // Assuming author stores ID for teachers
+                (ann.author_type === 'Teacher' && ann.author === String(teacherId))
             ).sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
         if (phpPath === 'admin/dashboard-stats.php') {
             recalculateDashboardStats();
             return { ...mockDashboardStatsGlobal } as T;
         }
-         if (phpPath.startsWith('sections/assignments/read.php')) { // Modified to handle all=true
+         if (phpPath.startsWith('sections/assignments/read.php')) {
             const sectionIdMatch = phpPath.match(/sectionId=([^&]+)/);
             const allMatch = phpPath.match(/all=true/);
 
@@ -274,7 +277,6 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
                     teacherName: mockFaculty.find(t => t.id === a.teacherId)?.firstName + ' ' + mockFaculty.find(t => t.id === a.teacherId)?.lastName || `Faculty ID ${a.teacherId}`,
                 })) as T;
             }
-            // Fallback if no specific filter, though ideally the endpoint should specify
              return mockSectionAssignments.map(a => ({
                  ...a,
                  subjectName: mockCourses.find(s => s.id === a.subjectId)?.name || a.subjectId,
@@ -377,7 +379,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
              const subjectIds = new Set(mockSectionAssignments.filter(a => a.teacherId === teacherId).map(a => a.subjectId));
              return mockCourses.filter(s => subjectIds.has(s.id)) as T;
          }
-         if (phpPath === 'teacher/teachable-courses/read.php') { // New mock endpoint
+         if (phpPath === 'teacher/teachable-courses/read.php') {
             return [...mockTeacherTeachableCourses] as T;
         }
           if (phpPath === 'student/upcoming/read.php') {
@@ -411,7 +413,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
          if (phpPath === 'admin/activity-log/read.php') {
             return [...mockActivityLog].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 10) as T;
         }
-         if (phpPath.startsWith('sections/read.php/')) { // For single section
+         if (phpPath.startsWith('sections/read.php/')) {
             const sectionId = phpPath.split('/').pop();
             const section = mockSections.find(s => s.id === sectionId);
              if (section) {
@@ -451,7 +453,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                  else if (username.toLowerCase() === "t1001") user = { username: "t1001", password: "password", role: "Teacher", userId: 1 };
             }
 
-             if (user) {
+             if (user && user.password === password) { // Password check
                 const redirectPath = user.role === 'Admin' ? '/admin/dashboard' : user.role === 'Student' ? '/student/dashboard' : '/teacher/dashboard';
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('userRole', user.role);
@@ -463,7 +465,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 } else if (user.role === 'Teacher') {
                     const facultyIndex = mockFaculty.findIndex(f => f.id === user.userId);
                     if (facultyIndex > -1) mockFaculty[facultyIndex].lastAccessed = new Date().toISOString();
-                } else if (user.role === 'Admin' && user.userId !== 0) { // For sub-admins
+                } else if (user.role === 'Admin' && user.userId !== 0) {
                     const facultyAdmin = mockFaculty.find(f => f.id === user.userId && f.department === 'Administrative');
                     if (facultyAdmin) {
                          const facultyIndex = mockFaculty.findIndex(f => f.id === user.userId);
@@ -600,7 +602,6 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
              mockApiPrograms.push(newProgram);
              logActivity("Added Program", newProgram.name, "Admin", newProgram.id, "program");
 
-              // Auto-create a default section for 1st Year if no students yet for this program/year
                 const firstYearSections = mockSections.filter(s => s.programId === newProgram.id && s.yearLevel === "1st Year");
                 if (firstYearSections.length === 0) {
                     const sectionCode = generateSectionCode(newProgram.id, "1st Year", 0);
@@ -694,7 +695,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 date: new Date(),
                 targetAudience: newAnnData.targetAudience || 'All',
                 target: newAnnData.target,
-                author: "Admin" // In mock, announcements made by admin always have author Admin
+                author: "Admin"
             };
             mockAnnouncements.unshift(newAnnouncement);
             logActivity("Created Announcement", newAnnData.title, "Admin", newAnnData.target.program || newAnnData.target.section || newAnnData.target.yearLevel || 'all', 'announcement');
@@ -892,7 +893,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
             logActivity("Added Section", `Section ${newSection.sectionCode} for ${newSection.programName} - ${newSection.yearLevel}`, "Admin", newSection.id, "section");
             return newSection as ResponseData;
         }
-        if (phpPath === 'teacher/teachable-courses/update.php') { // New mock endpoint
+        if (phpPath === 'teacher/teachable-courses/update.php') {
             const { teacherId, courseIds } = data as { teacherId: number, courseIds: string[] };
             const index = mockTeacherTeachableCourses.findIndex(ttc => ttc.teacherId === teacherId);
             if (index > -1) {
@@ -1287,12 +1288,13 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
         let errorMessage = errorData.message;
         let responseBodyText = "";
         try {
-            responseBodyText = await response.text();
+            responseBodyText = await response.text(); // Read body once as text
             console.error("API Error Response Text (postData):", responseBodyText);
             try {
-                 errorData = JSON.parse(responseBodyText);
+                 errorData = JSON.parse(responseBodyText); // Try parsing the text
                  errorMessage = errorData?.message || responseBodyText || errorMessage;
             } catch (jsonParseError) {
+                 // If parsing fails, use the raw text as the error message
                  errorMessage = responseBodyText || errorMessage;
                  errorData = { message: errorMessage };
             }
@@ -1434,4 +1436,3 @@ function formatDate(date: Date): string {
 }
 
 export { mockApiPrograms, mockCourses, mockStudents, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments };
-

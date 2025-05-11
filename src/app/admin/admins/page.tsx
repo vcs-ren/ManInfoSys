@@ -3,12 +3,10 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Trash2, Loader2, RotateCcw, ShieldAlert, Info } from "lucide-react"; // Removed PlusCircle
+import { Trash2, Loader2, RotateCcw, ShieldAlert, Info } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
-// import { UserForm, type FormFieldConfig } from "@/components/user-form"; // UserForm no longer needed for adding
-// import { adminUserSchema } from "@/lib/schemas"; // Schema no longer needed for adding
 import type { AdminUser, AdminRole } from "@/types";
 import {
     AlertDialog,
@@ -31,11 +29,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { fetchData, postData, deleteData } from "@/lib/api";
+import { fetchData, postData, deleteData, USE_MOCK_API, mockApiAdmins, mockFaculty, logActivity } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"; // For view details
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import Link from "next/link";
 
-const CURRENT_SUPER_ADMIN_ID = 0; // Assuming Super Admin always has ID 0 from seed data
+const CURRENT_SUPER_ADMIN_ID = 0;
 
 export default function ManageAdminsPage() {
   const [admins, setAdmins] = React.useState<AdminUser[]>([]);
@@ -45,17 +44,45 @@ export default function ManageAdminsPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
 
-  // TODO: Implement check for current user's role (should be Super Admin to manage others)
-  const isCurrentUserSuperAdmin = true; // Placeholder - fetch actual role
+  // Placeholder: In a real app, fetch the current user's role/ID
+  const isCurrentUserSuperAdmin = true; // Assume current user is Super Admin for mock
+  const currentUserId = 0; // Assume current user is the Super Admin with ID 0
 
   React.useEffect(() => {
-    const fetchAdmins = async () => {
+    const fetchAdminsData = async () => {
       setIsLoading(true);
       try {
-        // The mock API for 'admins/read.php' now combines Super Admin from mockAdmins
-        // and Sub Admins derived from mockFaculty with 'Administrative' department.
-        const data = await fetchData<AdminUser[]>('admins/read.php');
-        setAdmins(data || []);
+        if (USE_MOCK_API) {
+            // Derive admins from mockFaculty (Administrative) and merge with explicit mockApiAdmins
+            const facultyAdmins: AdminUser[] = mockFaculty
+                .filter(f => f.department === 'Administrative')
+                .map(f => ({
+                    id: f.id, // Use faculty ID as admin ID
+                    username: f.username,
+                    firstName: f.firstName,
+                    lastName: f.lastName,
+                    email: f.email,
+                    role: 'Sub Admin',
+                    isSuperAdmin: false,
+                }));
+
+            // Combine super admin, faculty-derived admins, and other explicit sub-admins from mockApiAdmins
+            // Ensuring no duplicates and Super Admin ID 0 is always the primary.
+            const superAdmin = mockApiAdmins.find(a => a.id === CURRENT_SUPER_ADMIN_ID && a.isSuperAdmin);
+            const otherExplicitSubAdmins = mockApiAdmins.filter(a => a.id !== CURRENT_SUPER_ADMIN_ID && !facultyAdmins.some(fa => fa.id === a.id));
+
+            let combinedAdmins: AdminUser[] = [];
+            if (superAdmin) combinedAdmins.push(superAdmin);
+            combinedAdmins = [...combinedAdmins, ...facultyAdmins, ...otherExplicitSubAdmins];
+            
+            // Ensure uniqueness by ID
+            const uniqueAdmins = Array.from(new Map(combinedAdmins.map(admin => [admin.id, admin])).values());
+            setAdmins(uniqueAdmins);
+
+        } else {
+            const data = await fetchData<AdminUser[]>('admins/read.php');
+            setAdmins(data || []);
+        }
       } catch (error: any) {
         console.error("Failed to fetch admins:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load admin data." });
@@ -63,31 +90,31 @@ export default function ManageAdminsPage() {
         setIsLoading(false);
       }
     };
-    fetchAdmins();
+    fetchAdminsData();
   }, [toast]);
 
 
   const handleDeleteAdmin = async (adminId: number, adminUsername?: string) => {
-      // Only Super Admin can delete, and cannot delete self
       if (!isCurrentUserSuperAdmin) {
-         toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can delete admins." });
+         toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can remove admin roles." });
          return;
       }
        if (adminId === CURRENT_SUPER_ADMIN_ID) {
-           toast({ variant: "destructive", title: "Error", description: "Cannot delete the main Super Admin account." });
+           toast({ variant: "destructive", title: "Error", description: "Cannot remove the main Super Admin account." });
            return;
        }
       setIsSubmitting(true);
       try {
-          // Note: Deleting an admin who is also a faculty member should ideally have cascading logic
-          // in a real backend (e.g., remove from faculty or change department).
-          // For mock, we just remove from the admin view. The faculty entry remains.
+          // The backend 'admins/delete.php/{adminId}' should handle:
+          // - If it's a faculty-derived admin, change their department (e.g., to 'Teaching' or a default).
+          // - If it's an explicit admin record (not tied to faculty), delete that record.
           await deleteData(`admins/delete.php/${adminId}`);
           setAdmins(prev => prev.filter(a => a.id !== adminId));
-          toast({ title: "Admin Removed", description: `Admin ${adminUsername || `ID ${adminId}`} has been removed from admin roles.` });
+          toast({ title: "Admin Role Removed", description: `Admin role for ${adminUsername || `ID ${adminId}`} has been removed.` });
+          logActivity("Removed Admin Role", `For ${adminUsername || `ID ${adminId}`}`, "Admin", adminId, "admin", true, admins.find(a => a.id === adminId));
       } catch (error: any) {
-           console.error("Failed to delete admin:", error);
-           toast({ variant: "destructive", title: "Error Removing Admin", description: error.message || "Could not remove admin role." });
+           console.error("Failed to remove admin role:", error);
+           toast({ variant: "destructive", title: "Error Removing Admin Role", description: error.message || "Could not remove admin role." });
       } finally {
            setIsSubmitting(false);
       }
@@ -104,21 +131,20 @@ export default function ManageAdminsPage() {
       }
       setIsSubmitting(true);
       const adminToReset = admins.find(a => a.id === userId);
-      // For sub-admins (derived from faculty), their password reset is tied to their faculty last name.
-      // The 'admin/reset_password.php' endpoint needs to handle 'admin' userType and find the corresponding faculty's last name.
-      // Or, if sub-admins store their own password hash separately, then this works as is.
-      // Based on previous setup, reset_password.php takes userType: 'admin'
-      // and should ideally fetch the faculty's last name if the admin is a faculty member.
-      // For mock: we can assume the backend handles it.
-      const lastNameForPassword = adminToReset?.lastName || 'user'; // Use admin's last name if available, else generic
+      // For sub-admins (who might be faculty), use their actual last name for password reset.
+      // 'admin/reset_password.php' needs userType: 'admin' (or 'teacher' if it's a faculty record directly)
+      // and the lastName.
+      const userTypeForReset = mockFaculty.some(f => f.id === userId && f.department === 'Administrative') ? 'teacher' : 'admin';
+      const lastNameForPassword = adminToReset?.lastName || 'user';
 
       try {
-           await postData('admin/reset_password.php', { userId, userType: 'admin', lastName: lastNameForPassword });
+           await postData('admin/reset_password.php', { userId, userType: userTypeForReset, lastName: lastNameForPassword });
            const defaultPassword = `${lastNameForPassword.substring(0, 2).toLowerCase()}1000`;
            toast({
                 title: "Password Reset Successful",
                 description: `Password for admin ${username || `ID ${userId}`} has been reset. Default password: ${defaultPassword}`,
            });
+           logActivity("Reset Admin Password", `For ${username || `ID ${userId}`}`, "Admin");
       } catch (error: any) {
            console.error("Failed to reset admin password:", error);
            toast({
@@ -146,12 +172,12 @@ export default function ManageAdminsPage() {
         accessorKey: "username",
         header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />,
     },
-    { // Display First Name if available (for faculty-derived admins)
+    {
         accessorKey: "firstName",
         header: "First Name",
         cell: ({ row }) => row.original.firstName || <span className="text-muted-foreground italic">N/A</span>,
     },
-    { // Display Last Name if available
+    {
         accessorKey: "lastName",
         header: "Last Name",
         cell: ({ row }) => row.original.lastName || <span className="text-muted-foreground italic">N/A</span>,
@@ -196,7 +222,7 @@ export default function ManageAdminsPage() {
                  <AlertDialogHeader>
                      <AlertDialogTitle>Reset Password?</AlertDialogTitle>
                      <AlertDialogDescription>
-                          This will reset the password for admin {admin.username} ({admin.email}). Are you sure?
+                          This will reset the password for admin {admin.username}. Are you sure? The default password will be the first two letters of their last name (if available, otherwise 'us') followed by '1000'.
                      </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
@@ -227,7 +253,8 @@ export default function ManageAdminsPage() {
                  <AlertDialogHeader>
                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                  <AlertDialogDescription>
-                     This action cannot be undone. This will remove the admin role for {admin.username} ({admin.email}). If this user is also a faculty member, their faculty record will remain.
+                     This action cannot be undone. This will remove the admin role for {admin.username}.
+                     If this user is a faculty member, their department will be changed to 'Teaching' (if applicable).
                  </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
@@ -251,18 +278,19 @@ export default function ManageAdminsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Manage Admins</h1>
-         {/* "Add New Admin" button is removed. Admins are added via Faculty (Administrative department) */}
       </div>
        <p className="text-sm text-muted-foreground">
-            This page lists all administrators. The Super Admin is a system default. Sub Admins are faculty members with an 'Administrative' department.
-            To add a new Sub Admin, add a new faculty member and assign them to the 'Administrative' department via the <Link href="/admin/teachers" className="underline hover:text-primary">Manage Faculty</Link> page.
+            This page lists all administrators. The Super Admin is a system default.
+            Sub Admins are primarily faculty members assigned to the 'Administrative' department.
+            To add a new Sub Admin, add a new faculty member via the <Link href="/admin/teachers" className="underline hover:text-primary">Manage Faculty</Link> page and assign them to the 'Administrative' department.
+            Their admin account will be generated automatically.
       </p>
 
       {isLoading ? (
          <div className="flex justify-center items-center py-10">
              <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" /> Loading admin data...
          </div>
-       ) : admins.length === 0 ? ( // Should at least show Super Admin
+       ) : admins.length === 0 ? (
             <p className="text-center text-muted-foreground py-10">No admin accounts found (this should not happen).</p>
        ) : (
             <DataTable
@@ -277,7 +305,6 @@ export default function ManageAdminsPage() {
             />
         )}
 
-        {/* Modal for viewing admin details */}
         <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
             <DialogContent>
                 <DialogHeader>
@@ -293,7 +320,11 @@ export default function ManageAdminsPage() {
                      {selectedAdminForView?.lastName && <p><strong>Last Name:</strong> {selectedAdminForView.lastName}</p>}
                      <p><strong>Role:</strong> <Badge variant={selectedAdminForView?.role === 'Super Admin' ? 'destructive' : 'secondary'}>{selectedAdminForView?.role}</Badge></p>
                      {selectedAdminForView?.role !== 'Super Admin' && (
-                        <p className="text-xs text-muted-foreground">This Sub Admin is managed through the Faculty list.</p>
+                        <p className="text-xs text-muted-foreground">
+                            {mockFaculty.some(f => f.id === selectedAdminForView?.id && f.department === 'Administrative')
+                                ? "This Sub Admin is managed through the Faculty list."
+                                : "This is an explicit Sub Admin account."}
+                        </p>
                      )}
                 </div>
                 <DialogFooter>

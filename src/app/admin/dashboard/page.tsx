@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCog, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase } from "lucide-react"; // Added Briefcase for Faculty
+import { Users, UserCog, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase } from "lucide-react";
 import * as React from 'react';
 import { fetchData, postData } from "@/lib/api";
 import type { DashboardStats, ActivityLogEntry } from "@/types";
@@ -61,14 +61,12 @@ export default function AdminDashboardPage() {
     try {
       await postData('admin/activity-log/undo.php', { logId });
       toast({ title: "Action Undone", description: "The selected action has been reverted." });
-      // Refetch activity log and stats to reflect changes
       await fetchDashboardData();
     } catch (err: any) {
       console.error("Failed to undo activity:", err);
       toast({ variant: "destructive", title: "Undo Failed", description: err.message || "Could not undo the action." });
-      setIsActivityLoading(false); // Stop loading only if error, success will refetch
+      setIsActivityLoading(false);
     }
-    // setIsLoading will be handled by fetchDashboardData
   };
 
 
@@ -84,7 +82,7 @@ export default function AdminDashboardPage() {
       {error && <p className="text-destructive text-center py-4">{error}</p>}
 
       {stats && !isLoading && !error && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"> {/* Adjusted grid to 3 columns */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card onClick={() => handleCardClick('/admin/students/population')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle>
@@ -97,15 +95,27 @@ export default function AdminDashboardPage() {
 
            <Card onClick={() => handleCardClick('/admin/faculty/population')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Faculty Staff</CardTitle> {/* New Card */}
-              <Briefcase className="h-4 w-4 text-muted-foreground" /> {/* Icon for Faculty */}
+              <CardTitle className="text-sm font-medium">Faculty Staff</CardTitle>
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalFaculty}</div>
             </CardContent>
           </Card>
+          
+           <Card className="hover:shadow-md transition-shadow"> {/* Removed onClick to make it unclickable */}
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Administrative Staff</CardTitle>
+              <UserCog className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalAdmins}</div>
+              {/* Description removed as per request */}
+            </CardContent>
+          </Card>
 
-          <Card onClick={() => handleCardClick('/admin/assignments')} className="cursor-pointer hover:shadow-md transition-shadow"> {/* Assuming assignments covers tasks */}
+
+          <Card onClick={() => handleCardClick(null)} className="hover:shadow-md transition-shadow"> {/* No path for now or path to events page */}
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Upcoming Events/Tasks</CardTitle>
               <CalendarDays className="h-4 w-4 text-muted-foreground" />
