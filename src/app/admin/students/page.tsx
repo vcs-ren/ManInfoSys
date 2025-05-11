@@ -1,8 +1,9 @@
+
 "use client";
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Trash2, Loader2, RotateCcw, Info } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react"; // Added Pencil
 import { format, formatDistanceToNow } from 'date-fns';
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -103,38 +104,41 @@ export default function ManageStudentsPage() {
 
   const studentFormFields = React.useMemo(() => getStudentFormFields(programs), [programs]);
 
-  React.useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true);
-      try {
-        if (USE_MOCK_API) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-          setStudents(mockStudents);
-          setPrograms(mockApiPrograms);
-        } else {
-          const [studentsData, programsData] = await Promise.all([
-            fetchData<Student[]>('students/read.php'),
-            fetchData<Program[]>('programs/read.php')
-          ]);
-          setStudents(studentsData || []);
-          setPrograms(programsData || []);
-        }
-      } catch (error: any) {
-        console.error("Failed to fetch initial data:", error);
-        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load data." });
-      } finally {
-        setIsLoading(false);
+  const loadInitialData = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      if (USE_MOCK_API) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setStudents(mockStudents);
+        setPrograms(mockApiPrograms);
+      } else {
+        const [studentsData, programsData] = await Promise.all([
+          fetchData<Student[]>('students/read.php'),
+          fetchData<Program[]>('programs/read.php')
+        ]);
+        setStudents(studentsData || []);
+        setPrograms(programsData || []);
       }
-    };
-    loadInitialData();
+    } catch (error: any) {
+      console.error("Failed to fetch initial data:", error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load data." });
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
 
+  React.useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
   const handleSaveStudent = async (values: Student) => {
+    setIsSubmitting(true);
     let year = values.year;
     if (values.enrollmentType === 'New') {
       year = '1st Year';
     } else if (['Transferee', 'Returnee'].includes(values.enrollmentType) && !year) {
         toast({ variant: "destructive", title: "Validation Error", description: "Year level is required for this enrollment type." });
+        setIsSubmitting(false);
         throw new Error("Year level missing");
     }
 
@@ -147,6 +151,7 @@ export default function ManageStudentsPage() {
 
     if (nameExists) {
          toast({ variant: "destructive", title: "Duplicate Name", description: `A student named ${values.firstName} ${values.lastName} already exists.` });
+         setIsSubmitting(false);
          throw new Error("Duplicate name");
     }
 
@@ -158,25 +163,27 @@ export default function ManageStudentsPage() {
 
     console.log(`Attempting to ${isEditMode ? 'edit' : 'add'} student:`, payload);
     try {
-        let savedStudent: Student;
+        let savedStudentResponse: Student;
         if (isEditMode && payload.id) {
-            savedStudent = await putData<typeof payload, Student>(`students/update.php/${payload.id}`, payload);
-            setStudents(prev => prev.map(s => s.id === savedStudent.id ? savedStudent : s));
-            toast({ title: "Student Updated", description: `${savedStudent.firstName} ${savedStudent.lastName} has been updated.` });
-            logActivity("Updated Student", `${savedStudent.firstName} ${savedStudent.lastName}`, "Admin", savedStudent.id, "student");
+            savedStudentResponse = await putData<typeof payload, Student>(`students/update.php/${payload.id}`, payload);
+            logActivity("Updated Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName}`, "Admin", savedStudentResponse.id, "student");
         } else {
-             savedStudent = await postData<Omit<typeof payload, 'id' | 'studentId' | 'username' | 'section' | 'lastAccessed'>, Student>('students/create.php', payload);
-            setStudents(prev => [...prev, savedStudent]);
-            toast({ title: "Student Added", description: `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.username}, Section ${savedStudent.section}) has been added.` });
-            logActivity("Added Student", `${savedStudent.firstName} ${savedStudent.lastName} (${savedStudent.username})`, "Admin", savedStudent.id, "student", true, { ...savedStudent, passwordHash: "mock_hash" });
+             savedStudentResponse = await postData<Omit<typeof payload, 'id' | 'studentId' | 'username' | 'section' | 'lastAccessed'>, Student>('students/create.php', payload);
+            logActivity("Added Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} (${savedStudentResponse.username})`, "Admin", savedStudentResponse.id, "student", true, { ...savedStudentResponse, passwordHash: "mock_hash" });
         }
+        
+        await loadInitialData(); // Reload data from the source
+        toast({ title: isEditMode ? "Student Updated" : "Student Added", description: `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} has been ${isEditMode ? 'updated' : 'added'}.` });
         closeModal();
     } catch (error: any) {
         if (error.message !== "Duplicate name") {
             console.error(`Failed to ${isEditMode ? 'update' : 'add'} student:`, error);
             toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Student`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} student. Please try again.` });
         }
-         throw error;
+         // Rethrow error if it's not handled by toast or if form needs to know about it
+         // throw error; 
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -185,7 +192,8 @@ export default function ManageStudentsPage() {
       const studentToDelete = students.find(s => s.id === studentId);
       try {
           await deleteData(`students/delete.php/${studentId}`);
-          setStudents(prev => prev.filter(s => s.id !== studentId));
+          // setStudents(prev => prev.filter(s => s.id !== studentId)); // Removed direct state update
+          await loadInitialData(); // Reload data from source
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
           if (studentToDelete) {
             logActivity("Deleted Student", `${studentToDelete.firstName} ${studentToDelete.lastName} (${studentToDelete.username})`, "Admin", studentId, "student", true, studentToDelete);
@@ -378,13 +386,13 @@ export default function ManageStudentsPage() {
             accessorKey: "emergencyContactRelationship",
             header: "Relationship",
             cell: ({ row }) => <div>{row.original.emergencyContactRelationship || '-'}</div>,
-             enableHiding: true,
+            enableHiding: true,
         },
          {
             accessorKey: "emergencyContactPhone",
             header: "Emergency Contact Phone",
             cell: ({ row }) => <div>{row.original.emergencyContactPhone || '-'}</div>,
-             enableHiding: true,
+            enableHiding: true,
         },
          {
             accessorKey: "emergencyContactAddress",
@@ -416,7 +424,7 @@ export default function ManageStudentsPage() {
     const generateActionMenuItems = (student: Student) => (
         <>
         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditModal(student); }}>
-            <Info className="mr-2 h-4 w-4" />
+            <Pencil className="mr-2 h-4 w-4" />
             View / Edit Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -531,3 +539,4 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
+

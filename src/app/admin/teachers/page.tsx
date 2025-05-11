@@ -94,8 +94,7 @@ export default function ManageFacultyPage() {
    });
 
 
-  React.useEffect(() => {
-    const fetchFaculty = async () => {
+    const fetchFacultyData = React.useCallback(async () => {
       setIsLoading(true);
        try {
         if (USE_MOCK_API) {
@@ -111,11 +110,14 @@ export default function ManageFacultyPage() {
       } finally {
         setIsLoading(false);
       }
-    };
-    fetchFaculty();
-  }, [toast]);
+    }, [toast]);
+
+  React.useEffect(() => {
+    fetchFacultyData();
+  }, [fetchFacultyData]);
 
   const handleSaveFaculty = async (values: Faculty) => {
+    setIsSubmitting(true);
     const nameExists = faculty.some(
         (f) =>
             f.firstName.toLowerCase() === values.firstName.toLowerCase() &&
@@ -125,31 +127,33 @@ export default function ManageFacultyPage() {
 
     if (nameExists) {
         toast({ variant: "destructive", title: "Duplicate Name", description: `A faculty member named ${values.firstName} ${values.lastName} already exists.` });
+        setIsSubmitting(false);
         throw new Error("Duplicate name");
     }
 
      const payload = { ...values, id: isEditMode ? selectedFaculty?.id : undefined };
      console.log(`Attempting to ${isEditMode ? 'edit' : 'add'} faculty:`, payload);
      try {
-         let savedFaculty: Faculty;
+         let savedFacultyResponse: Faculty;
          if (isEditMode && payload.id) {
-              savedFaculty = await putData<typeof payload, Faculty>(`teachers/update.php/${payload.id}`, payload);
-             setFaculty(prev => prev.map(t => t.id === savedFaculty.id ? savedFaculty : t));
-             toast({ title: "Faculty Updated", description: `${savedFaculty.firstName} ${savedFaculty.lastName} has been updated.` });
-             logActivity("Updated Faculty", `${savedFaculty.firstName} ${savedFaculty.lastName}`, "Admin", savedFaculty.id, "faculty");
+              savedFacultyResponse = await putData<typeof payload, Faculty>(`teachers/update.php/${payload.id}`, payload);
+             logActivity("Updated Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName}`, "Admin", savedFacultyResponse.id, "faculty");
          } else {
-              savedFaculty = await postData<Omit<typeof payload, 'id' | 'facultyId' | 'username' | 'lastAccessed'>, Faculty>('teachers/create.php', payload);
-             setFaculty(prev => [...prev, savedFaculty]);
-             toast({ title: "Faculty Added", description: `${savedFaculty.firstName} ${savedFaculty.lastName} (${savedFaculty.username}) has been added.` });
-             logActivity("Added Faculty", `${savedFaculty.firstName} ${savedFaculty.lastName} (${savedFaculty.username})`, "Admin", savedFaculty.id, "faculty", true, { ...savedFaculty, passwordHash: "mock_hash" });
+              savedFacultyResponse = await postData<Omit<typeof payload, 'id' | 'facultyId' | 'username' | 'lastAccessed'>, Faculty>('teachers/create.php', payload);
+             logActivity("Added Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} (${savedFacultyResponse.username})`, "Admin", savedFacultyResponse.id, "faculty", true, { ...savedFacultyResponse, passwordHash: "mock_hash" });
          }
+         
+         await fetchFacultyData(); // Reload data from source
+         toast({ title: isEditMode ? "Faculty Updated" : "Faculty Added", description: `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} has been ${isEditMode ? 'updated' : 'added'}.` });
          closeModal();
      } catch (error: any) {
         if (error.message !== "Duplicate name") {
              console.error(`Failed to ${isEditMode ? 'update' : 'add'} faculty:`, error);
              toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Faculty`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} faculty.` });
         }
-         throw error;
+         // throw error; 
+     } finally {
+        setIsSubmitting(false);
      }
   };
 
@@ -158,7 +162,8 @@ export default function ManageFacultyPage() {
       const facultyToDelete = faculty.find(f => f.id === facultyId);
       try {
              await deleteData(`teachers/delete.php/${facultyId}`);
-            setFaculty(prev => prev.filter(t => t.id !== facultyId));
+            // setFaculty(prev => prev.filter(t => t.id !== facultyId)); // Removed direct state update
+            await fetchFacultyData(); // Reload data from source
             toast({ title: "Faculty Deleted", description: `Faculty record has been removed.` });
             if (facultyToDelete) {
                 logActivity("Deleted Faculty", `${facultyToDelete.firstName} ${facultyToDelete.lastName} (${facultyToDelete.username})`, "Admin", facultyId, "faculty", true, facultyToDelete);
@@ -328,7 +333,7 @@ export default function ManageFacultyPage() {
     const generateActionMenuItems = (facultyMember: Faculty) => (
         <>
         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditModal(facultyMember); }}>
-            <Info className="mr-2 h-4 w-4" />
+            <Pencil className="mr-2 h-4 w-4" />
             View / Edit Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -442,3 +447,4 @@ export default function ManageFacultyPage() {
     </div>
   );
 }
+
