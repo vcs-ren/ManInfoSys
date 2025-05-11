@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, Megaphone, BookOpen, Loader2, Eye, Settings2, Filter, Users, Briefcase, PlusCircle, Trash2, CalendarX } from "lucide-react";
+import { UserCheck, Megaphone, BookOpen, Loader2, Eye, Settings2, Filter, Users, Briefcase, PlusCircle, Trash2, CalendarX, EyeIcon } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -209,7 +209,7 @@ export default function ScheduleAnnouncementsPage() {
 
     try {
         const updatedSectionData = await postData<{ sectionId: string, adviserId: number | null }, Section>(
-            `sections/adviser/update.php`,
+            `sections/adviser/update.php`, // This should be a POST or PATCH to /api/sections/{sectionId}/adviser
             { sectionId: selectedSection.id, adviserId: adviserIdToAssign }
         );
 
@@ -237,8 +237,8 @@ export default function ScheduleAnnouncementsPage() {
       title: values.title,
       content: values.content,
       targetAudience: values.targetAudience,
-      target: {
-        program: values.targetProgramId === 'all' ? null : values.targetProgramId,
+      target: { // This structure is for mock API, adjust if real API differs
+        course: values.targetProgramId === 'all' ? null : values.targetProgramId, // Mapped program to course for backend
         yearLevel: values.targetYearLevel === 'all' ? null : values.targetYearLevel,
         section: values.targetSection === 'all' ? null : values.targetSection,
       }
@@ -300,7 +300,7 @@ export default function ScheduleAnnouncementsPage() {
       toast({ title: "Courses Assigned", description: `Courses assigned to ${targetProgram.name} - ${values.yearLevel} successfully.` });
       logActivity("Assigned Courses to Program", `${targetProgram.name} - ${values.yearLevel}`, "Admin");
       setIsAssignProgramCoursesModalOpen(false);
-      await loadData();
+      await loadData(); // Reload all data to reflect changes everywhere
     } catch (error: any) {
       console.error("Failed to assign courses:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign courses." });
@@ -364,7 +364,7 @@ export default function ScheduleAnnouncementsPage() {
                 className="text-primary hover:bg-primary/10"
                 disabled={isSubmitting}
             >
-                <Eye className="mr-2 h-4 w-4" /> View Details
+                <EyeIcon className="mr-2 h-4 w-4" /> View Details
             </Button>
          </div>
       ),
@@ -400,7 +400,7 @@ export default function ScheduleAnnouncementsPage() {
             cell: ({ row }) => {
                  const target = row.original.target || {};
                  const audience = row.original.targetAudience || 'All';
-                 const { program: programId, yearLevel, section } = target;
+                 const { course: programId, yearLevel, section } = target; // Use 'course' for programId from backend
                  const programName = programsList.find(p => p.id === programId)?.name;
 
                  let targetParts = [`Audience: ${audience}`];
@@ -408,7 +408,11 @@ export default function ScheduleAnnouncementsPage() {
                     if (programId && programId !== 'all') targetParts.push(`Program: ${programName || programId}`);
                     if (yearLevel && yearLevel !== 'all') targetParts.push(`Year: ${yearLevel}`);
                     if (section && section !== 'all') targetParts.push(`Section: ${section}`);
+                 } else if (audience === 'Faculty') {
+                     // For faculty, specific program/year/section might not be relevant unless explicitly targeted
+                     // This part can be adjusted based on how faculty targeting is implemented
                  }
+
                  if (targetParts.length === 1 && audience === 'All' && (!programId || programId === 'all') && (!yearLevel || yearLevel === 'all') && (!section || section === 'all')) {
                      return 'All Users';
                  }
@@ -417,7 +421,7 @@ export default function ScheduleAnnouncementsPage() {
              filterFn: (row, id, value) => {
                 const target = row.original.target || {};
                 const audience = row.original.targetAudience || 'All';
-                const programId = target.program;
+                const programId = target.course; // Use 'course' for programId from backend
                 const yearLevel = target.yearLevel;
                 const section = target.section;
 
@@ -488,17 +492,18 @@ export default function ScheduleAnnouncementsPage() {
 
     return allCourses.filter(course => {
       if (course.type === 'Major' && !(course.programId?.includes(selectedProgramObject.id))) {
-          return false;
+          return false; // Major course not for this program
       }
 
+      // Check if course is already assigned to a *different* year level in this program
       for (const [year, assignedCoursesInYear] of Object.entries(selectedProgramObject.courses || {})) {
-        if (year as YearLevel !== watchedYearLevelForCourseAssignment) {
+        if (year as YearLevel !== watchedYearLevelForCourseAssignment) { // Don't check against current year
           if (assignedCoursesInYear.some(assignedCourse => assignedCourse.id === course.id)) {
-            return false;
+            return false; // Already assigned to another year in this program
           }
         }
       }
-      return true;
+      return true; // Available if minor, or major for this program AND not in another year of this program
     });
   }, [watchedProgramIdForCourseAssignment, watchedYearLevelForCourseAssignment, allCourses, programsList]);
 
@@ -516,8 +521,10 @@ export default function ScheduleAnnouncementsPage() {
                     </CardDescription>
                 </div>
                  <div className="flex gap-2">
-                    <Button onClick={() => alert("Open modal to assign teacher to a specific course in this section - TBD")} variant="outline">
-                         <PlusCircle className="mr-2 h-4 w-4" /> Assign Teachers
+                    <Button asChild variant="outline">
+                        <Link href="/admin/teacher-course-assignments">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Assign Teachers
+                        </Link>
                     </Button>
                     <Button onClick={() => setIsAssignProgramCoursesModalOpen(true)} variant="outline">
                         <PlusCircle className="mr-2 h-4 w-4" /> Assign Courses
@@ -898,5 +905,6 @@ export default function ScheduleAnnouncementsPage() {
     </div>
   );
 }
+
 
 
