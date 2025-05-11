@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -10,7 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form";
 import { studentSchema } from "@/lib/schemas";
-import type { Student, Program, YearLevel, EnrollmentType } from "@/types"; // Changed StudentStatus to EnrollmentType
+import type { Student, Program, YearLevel, EnrollmentType } from "@/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -32,7 +31,6 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockStudents, logActivity } from "@/lib/api";
 
-// Updated options to use EnrollmentType
 const enrollmentTypeOptions: { value: EnrollmentType; label: string }[] = [
     { value: "New", label: "New" },
     { value: "Transferee", label: "Transferee" },
@@ -56,17 +54,21 @@ const getStudentFormFields = (programs: Program[]): FormFieldConfig<Student>[] =
   const programOptions = programs.map(p => ({ value: p.id, label: p.name }));
 
   return [
+    // Personal Information Section
     { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
     { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
     { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
     { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr. (optional)", section: 'personal' },
     { name: "birthday", label: "Birthday", type: "date", placeholder: "YYYY-MM-DD (optional)", section: 'personal' },
     { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
-    { name: "enrollmentType", label: "Enrollment Type", type: "select", options: enrollmentTypeOptions, placeholder: "Select enrollment type", required: true, section: 'enrollment' }, // Changed from status
-    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.enrollmentType ? ['Transferee', 'Returnee'].includes(data.enrollmentType) : false }, // Condition uses enrollmentType
+    // Enrollment Information Section
+    { name: "enrollmentType", label: "Enrollment Type", type: "select", options: enrollmentTypeOptions, placeholder: "Select enrollment type", required: true, section: 'enrollment' },
+    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.enrollmentType ? ['Transferee', 'Returnee'].includes(data.enrollmentType) : false },
     { name: "program", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' },
+    // Contact/Account Details Section
     { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
     { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
+    // Emergency Contact Section
     { name: "emergencyContactName", label: "Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
     { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father (optional)", type: "text", section: 'emergency' },
     { name: "emergencyContactPhone", label: "Contact Number", placeholder: "Emergency contact number (optional)", type: "tel", section: 'emergency' },
@@ -129,22 +131,23 @@ export default function ManageStudentsPage() {
 
   const handleSaveStudent = async (values: Student) => {
     let year = values.year;
-    if (values.enrollmentType === 'New') { // Changed from values.status
+    if (values.enrollmentType === 'New') {
       year = '1st Year';
-    } else if (['Transferee', 'Returnee'].includes(values.enrollmentType) && !year) { // Changed from values.status
+    } else if (['Transferee', 'Returnee'].includes(values.enrollmentType) && !year) {
         toast({ variant: "destructive", title: "Validation Error", description: "Year level is required for this enrollment type." });
         throw new Error("Year level missing");
     }
 
-    if (!isEditMode) {
-        const nameExists = students.some(
-            (s) => s.firstName.toLowerCase() === values.firstName.toLowerCase() &&
-                   s.lastName.toLowerCase() === values.lastName.toLowerCase()
-        );
-        if (nameExists) {
-             toast({ variant: "destructive", title: "Duplicate Name", description: `A student named ${values.firstName} ${values.lastName} already exists.` });
-             throw new Error("Duplicate name");
-        }
+    const nameExists = students.some(
+        (s) =>
+            s.firstName.toLowerCase() === values.firstName.toLowerCase() &&
+            s.lastName.toLowerCase() === values.lastName.toLowerCase() &&
+            (!isEditMode || (isEditMode && selectedStudent && s.id !== selectedStudent.id))
+    );
+
+    if (nameExists) {
+         toast({ variant: "destructive", title: "Duplicate Name", description: `A student named ${values.firstName} ${values.lastName} already exists.` });
+         throw new Error("Duplicate name");
     }
 
     const payload = {
@@ -242,6 +245,10 @@ export default function ManageStudentsPage() {
         return distinctSections.map(sec => ({ label: sec, value: sec }));
     }, [students]);
 
+    const programOptions = React.useMemo(() => {
+        return programs.map(p => ({ value: p.id, label: p.name}));
+    }, [programs]);
+
     const columns: ColumnDef<Student>[] = React.useMemo(() => [
          {
             accessorKey: "studentId",
@@ -295,12 +302,12 @@ export default function ManageStudentsPage() {
             enableHiding: true,
         },
          {
-            accessorKey: "program", // Changed from course to program
+            accessorKey: "program",
              header: ({ column }) => (
                  <DataTableFilterableColumnHeader
                      column={column}
                      title="Program"
-                     options={programs.map(p => ({ value: p.id, label: p.name }))}
+                     options={programOptions}
                  />
              ),
             cell: ({ row }) => {
@@ -310,11 +317,11 @@ export default function ManageStudentsPage() {
              filterFn: (row, id, value) => value.includes(row.getValue(id)),
         },
          {
-            accessorKey: "enrollmentType", // Changed from status to enrollmentType
+            accessorKey: "enrollmentType",
              header: ({ column }) => (
                  <DataTableFilterableColumnHeader
                      column={column}
-                     title="Enrollment Type" // Changed label
+                     title="Enrollment Type"
                      options={enrollmentTypeOptions}
                  />
             ),
@@ -404,7 +411,7 @@ export default function ManageStudentsPage() {
             },
             enableHiding: true,
         },
-    ], [sectionOptions, programs]);
+    ], [sectionOptions, programs, programOptions]);
 
     const generateActionMenuItems = (student: Student) => (
         <>
@@ -452,10 +459,10 @@ export default function ManageStudentsPage() {
              </AlertDialogTrigger>
              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                  <AlertDialogHeader>
-                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                     <AlertDialogDescription>
+                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                 <AlertDialogDescription>
                           This action cannot be undone. This will permanently delete the student record for {student.firstName} {student.lastName}.
-                     </AlertDialogDescription>
+                 </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
                      <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
@@ -501,9 +508,9 @@ export default function ManageStudentsPage() {
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
                  filterableColumnHeaders={[
-                    { columnId: "program", title: "Program", options: programs.map(p => ({ value: p.id, label: p.name })) }, // Changed from course
+                    { columnId: "program", title: "Program", options: programOptions },
                     { columnId: "year", title: "Year", options: yearLevelOptions },
-                    { columnId: "enrollmentType", title: "Enrollment Type", options: enrollmentTypeOptions }, // Changed from status
+                    { columnId: "enrollmentType", title: "Enrollment Type", options: enrollmentTypeOptions },
                     { columnId: "section", title: "Section", options: sectionOptions },
                 ]}
             />

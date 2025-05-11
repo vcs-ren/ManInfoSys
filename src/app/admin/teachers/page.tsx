@@ -1,18 +1,17 @@
 
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react"; // Added Pencil
+import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react";
 import { format, formatDistanceToNow } from 'date-fns';
 
 
-import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
+import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
-import { UserForm, type FormFieldConfig } from "@/components/user-form"; // Import FormFieldConfig
+import { UserForm, type FormFieldConfig } from "@/components/user-form";
 import { teacherSchema } from "@/lib/schemas";
-import type { Faculty, EmploymentType, DepartmentType } from "@/types"; // Renamed Teacher to Faculty, added DepartmentType
+import type { Faculty, EmploymentType, DepartmentType } from "@/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -22,25 +21,21 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger, // Added missing import
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    // DropdownMenuLabel, // Removed as not used
     DropdownMenuSeparator,
-    // DropdownMenuTrigger, // Removed as not used
-} from "@/components/ui/dropdown-menu"; // Import DropdownMenu components
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockFaculty } from "@/lib/api"; // Import API helpers
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockFaculty, logActivity } from "@/lib/api";
 
-// Updated department options using DepartmentType
 const departmentOptions: { value: DepartmentType; label: string }[] = [
     { value: "Teaching", label: "Teaching" },
     { value: "Administrative", label: "Administrative" },
-    // Add more roles if needed
 ];
 
 const employmentTypeOptions: { value: EmploymentType; label: string }[] = [
@@ -54,10 +49,7 @@ const genderOptions = [
     { value: "Other", label: "Other" },
 ];
 
-
-// Refactored form fields for Faculty with updated sections and department options
 const facultyFormFields: FormFieldConfig<Faculty>[] = [
-  // Personal Information Section
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
   { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
@@ -65,13 +57,10 @@ const facultyFormFields: FormFieldConfig<Faculty>[] = [
   { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
   { name: "birthday", label: "Birthday", placeholder: "YYYY-MM-DD (optional)", type: "date", section: 'personal' },
   { name: "address", label: "Address", placeholder: "Enter full address (optional)", type: "textarea", section: 'personal' },
-  // Employee Information Section
   { name: "employmentType", label: "Employment Type", type: "select", options: employmentTypeOptions, placeholder: "Select employment type", required: true, section: 'employee' },
-  { name: "department", label: "Department", type: "select", options: departmentOptions, placeholder: "Select department", required: true, section: 'employee' }, // Use updated options
-  // Contact / Account Details
+  { name: "department", label: "Department", type: "select", options: departmentOptions, placeholder: "Select department", required: true, section: 'employee' },
   { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
-  // Emergency Contact Section
   { name: "emergencyContactName", label: "Contact Name", placeholder: "Parent/Guardian/Spouse Name (optional)", type: "text", section: 'emergency' },
   { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father, Spouse (optional)", type: "text", section: 'emergency' },
   { name: "emergencyContactPhone", label: "Contact Phone", placeholder: "Contact Number (optional)", type: "tel", section: 'emergency' },
@@ -79,10 +68,10 @@ const facultyFormFields: FormFieldConfig<Faculty>[] = [
 ];
 
 
-export default function ManageFacultyPage() { // Renamed component
-  const [faculty, setFaculty] = React.useState<Faculty[]>([]); // Renamed state variable
+export default function ManageFacultyPage() {
+  const [faculty, setFaculty] = React.useState<Faculty[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [selectedFaculty, setSelectedFaculty] = React.useState<Faculty | null>(null); // Renamed state variable
+  const [selectedFaculty, setSelectedFaculty] = React.useState<Faculty | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -94,19 +83,19 @@ export default function ManageFacultyPage() { // Renamed component
      address: false,
      email: false,
      phone: false,
-     gender: false, // Hide new gender field by default
-     employmentType: false, // Hide new employment type field by default
+     gender: false,
+     employmentType: false,
      emergencyContactName: false,
      emergencyContactRelationship: false,
      emergencyContactPhone: false,
      emergencyContactAddress: false,
-     username: false, // Hide username by default
-     lastAccessed: false, // Hide lastAccessed by default
+     username: false,
+     lastAccessed: false,
    });
 
 
   React.useEffect(() => {
-    const fetchFaculty = async () => { // Renamed function
+    const fetchFaculty = async () => {
       setIsLoading(true);
        try {
         if (USE_MOCK_API) {
@@ -117,61 +106,66 @@ export default function ManageFacultyPage() { // Renamed component
             setFaculty(data || []);
         }
       } catch (error: any) {
-        console.error("Failed to fetch faculty:", error); // Updated log message
-        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load faculty data." }); // Updated toast message
+        console.error("Failed to fetch faculty:", error);
+        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load faculty data." });
       } finally {
         setIsLoading(false);
       }
     };
-    fetchFaculty(); // Call the renamed function
+    fetchFaculty();
   }, [toast]);
 
-  const handleSaveFaculty = async (values: Faculty) => { // Renamed function and type
-     // Check for duplicate name only when *adding* a new faculty member
-     if (!isEditMode) {
-         const nameExists = faculty.some( // Use renamed state variable
-             (t) => t.firstName.toLowerCase() === values.firstName.toLowerCase() &&
-                    t.lastName.toLowerCase() === values.lastName.toLowerCase()
-         );
-         if (nameExists) {
-              toast({ variant: "destructive", title: "Duplicate Name", description: `A faculty member named ${values.firstName} ${values.lastName} already exists.` }); // Updated message
-              throw new Error("Duplicate name"); // Prevent submission
-         }
-     }
+  const handleSaveFaculty = async (values: Faculty) => {
+    const nameExists = faculty.some(
+        (f) =>
+            f.firstName.toLowerCase() === values.firstName.toLowerCase() &&
+            f.lastName.toLowerCase() === values.lastName.toLowerCase() &&
+            (!isEditMode || (isEditMode && selectedFaculty && f.id !== selectedFaculty.id))
+    );
+
+    if (nameExists) {
+        toast({ variant: "destructive", title: "Duplicate Name", description: `A faculty member named ${values.firstName} ${values.lastName} already exists.` });
+        throw new Error("Duplicate name");
+    }
 
      const payload = { ...values, id: isEditMode ? selectedFaculty?.id : undefined };
-     console.log(`Attempting to ${isEditMode ? 'edit' : 'add'} faculty:`, payload); // Updated log message
+     console.log(`Attempting to ${isEditMode ? 'edit' : 'add'} faculty:`, payload);
      try {
-         let savedFaculty: Faculty; // Renamed variable
+         let savedFaculty: Faculty;
          if (isEditMode && payload.id) {
               savedFaculty = await putData<typeof payload, Faculty>(`teachers/update.php/${payload.id}`, payload);
-             setFaculty(prev => prev.map(t => t.id === savedFaculty.id ? savedFaculty : t)); // Update faculty state
-             toast({ title: "Faculty Updated", description: `${savedFaculty.firstName} ${savedFaculty.lastName} has been updated.` }); // Updated message
+             setFaculty(prev => prev.map(t => t.id === savedFaculty.id ? savedFaculty : t));
+             toast({ title: "Faculty Updated", description: `${savedFaculty.firstName} ${savedFaculty.lastName} has been updated.` });
+             logActivity("Updated Faculty", `${savedFaculty.firstName} ${savedFaculty.lastName}`, "Admin", savedFaculty.id, "faculty");
          } else {
-              savedFaculty = await postData<Omit<typeof payload, 'id' | 'teacherId' | 'username' | 'lastAccessed'>, Faculty>('teachers/create.php', payload);
-             setFaculty(prev => [...prev, savedFaculty]); // Update faculty state
-             toast({ title: "Faculty Added", description: `${savedFaculty.firstName} ${savedFaculty.lastName} (${savedFaculty.username}) has been added.` }); // Display username
+              savedFaculty = await postData<Omit<typeof payload, 'id' | 'facultyId' | 'username' | 'lastAccessed'>, Faculty>('teachers/create.php', payload);
+             setFaculty(prev => [...prev, savedFaculty]);
+             toast({ title: "Faculty Added", description: `${savedFaculty.firstName} ${savedFaculty.lastName} (${savedFaculty.username}) has been added.` });
+             logActivity("Added Faculty", `${savedFaculty.firstName} ${savedFaculty.lastName} (${savedFaculty.username})`, "Admin", savedFaculty.id, "faculty", true, { ...savedFaculty, passwordHash: "mock_hash" });
          }
          closeModal();
      } catch (error: any) {
-        // Avoid double-toasting if it was a duplicate name error
         if (error.message !== "Duplicate name") {
-             console.error(`Failed to ${isEditMode ? 'update' : 'add'} faculty:`, error); // Updated log message
-             toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Faculty`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} faculty.` }); // Updated message
+             console.error(`Failed to ${isEditMode ? 'update' : 'add'} faculty:`, error);
+             toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Faculty`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} faculty.` });
         }
-         throw error; // Re-throw to stop further execution in the form component
+         throw error;
      }
   };
 
-  const handleDeleteFaculty = async (facultyId: number) => { // Renamed function and parameter
+  const handleDeleteFaculty = async (facultyId: number) => {
       setIsSubmitting(true);
+      const facultyToDelete = faculty.find(f => f.id === facultyId);
       try {
              await deleteData(`teachers/delete.php/${facultyId}`);
-            setFaculty(prev => prev.filter(t => t.id !== facultyId)); // Update faculty state
-            toast({ title: "Faculty Deleted", description: `Faculty record has been removed.` }); // Updated message
+            setFaculty(prev => prev.filter(t => t.id !== facultyId));
+            toast({ title: "Faculty Deleted", description: `Faculty record has been removed.` });
+            if (facultyToDelete) {
+                logActivity("Deleted Faculty", `${facultyToDelete.firstName} ${facultyToDelete.lastName} (${facultyToDelete.username})`, "Admin", facultyId, "faculty", true, facultyToDelete);
+            }
       } catch (error: any) {
-          console.error("Failed to delete faculty:", error); // Updated log message
-          toast({ variant: "destructive", title: "Error Deleting Faculty", description: error.message || "Could not remove faculty record." }); // Updated message
+          console.error("Failed to delete faculty:", error);
+          toast({ variant: "destructive", title: "Error Deleting Faculty", description: error.message || "Could not remove faculty record." });
       } finally {
           setIsSubmitting(false);
       }
@@ -180,18 +174,19 @@ export default function ManageFacultyPage() { // Renamed component
     const handleResetPassword = async (userId: number, lastName: string) => {
         setIsSubmitting(true);
         try {
-             await postData('admin/reset_password.php', { userId, userType: 'teacher', lastName }); // userType remains 'teacher' for backend
+             await postData('admin/reset_password.php', { userId, userType: 'teacher', lastName });
              const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
              toast({
                   title: "Password Reset Successful",
-                  description: `Password for faculty ID ${userId} has been reset. Default password: ${defaultPassword}`, // Updated message
+                  description: `Password for faculty ID ${userId} has been reset. Default password: ${defaultPassword}`,
              });
+             logActivity("Reset Faculty Password", `For faculty ID ${userId}`, "Admin");
         } catch (error: any) {
              console.error("Failed to reset password:", error);
              toast({
                   variant: "destructive",
                   title: "Password Reset Failed",
-                  description: error.message || "Could not reset faculty password.", // Updated message
+                  description: error.message || "Could not reset faculty password.",
              });
         } finally {
              setIsSubmitting(false);
@@ -200,37 +195,37 @@ export default function ManageFacultyPage() { // Renamed component
 
    const openAddModal = () => {
     setIsEditMode(false);
-    setSelectedFaculty(null); // Use renamed state variable
+    setSelectedFaculty(null);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (facultyMember: Faculty) => { // Renamed parameter
+  const openEditModal = (facultyMember: Faculty) => {
     setIsEditMode(true);
-    setSelectedFaculty(facultyMember); // Use renamed state variable
+    setSelectedFaculty(facultyMember);
     setIsModalOpen(true);
   };
 
    const closeModal = () => {
         setIsModalOpen(false);
         setTimeout(() => {
-            setSelectedFaculty(null); // Use renamed state variable
+            setSelectedFaculty(null);
             setIsEditMode(false);
         }, 150);
    };
 
     const currentDepartmentOptions = React.useMemo(() => departmentOptions, []);
 
-    const columns: ColumnDef<Faculty>[] = React.useMemo(() => [ // Use Faculty type
+    const columns: ColumnDef<Faculty>[] = React.useMemo(() => [
          {
-            accessorKey: "teacherId",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Faculty ID" />, // Updated title (numeric ID)
-            cell: ({ row }) => <div>{row.getValue("teacherId")}</div>,
+            accessorKey: "facultyId",
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Faculty ID" />,
+            cell: ({ row }) => <div>{row.getValue("facultyId")}</div>,
         },
          {
             accessorKey: "username",
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />, // Department-prefixed username
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />,
              cell: ({ row }) => <div>{row.original.username}</div>,
-             enableHiding: true, // Hide by default
+             enableHiding: true,
         },
         {
             accessorKey: "firstName",
@@ -263,19 +258,19 @@ export default function ManageFacultyPage() { // Renamed component
                  <DataTableFilterableColumnHeader
                      column={column}
                      title="Department"
-                     options={currentDepartmentOptions} // Use updated options
+                     options={currentDepartmentOptions}
                  />
              ),
             cell: ({ row }) => <div>{row.getValue("department")}</div>,
              filterFn: (row, id, value) => value.includes(row.getValue(id)),
         },
-        { // Added Gender column
+        {
             accessorKey: "gender",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Gender" />,
             cell: ({ row }) => <div className="capitalize">{row.original.gender || '-'}</div>,
             enableHiding: true,
         },
-        { // Added Employment Type column
+        {
             accessorKey: "employmentType",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Employment Type" />,
             cell: ({ row }) => <div className="capitalize">{row.original.employmentType || '-'}</div>,
@@ -328,12 +323,10 @@ export default function ManageFacultyPage() { // Renamed component
             },
             enableHiding: true,
         },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [currentDepartmentOptions]); // Updated dependency
+    ], [currentDepartmentOptions]);
 
-    const generateActionMenuItems = (facultyMember: Faculty) => ( // Renamed parameter
+    const generateActionMenuItems = (facultyMember: Faculty) => (
         <>
-        {/* Update this item to open the modal in edit mode */}
         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditModal(facultyMember); }}>
             <Info className="mr-2 h-4 w-4" />
             View / Edit Details
@@ -358,7 +351,7 @@ export default function ManageFacultyPage() { // Renamed component
                      <AlertDialogAction
                           onClick={async (e) => {
                               e.stopPropagation();
-                              await handleResetPassword(facultyMember.id, facultyMember.lastName); // Use facultyMember
+                              await handleResetPassword(facultyMember.id, facultyMember.lastName);
                          }}
                           className={cn(buttonVariants({ variant: "destructive" }))}
                           disabled={isSubmitting}
@@ -389,7 +382,7 @@ export default function ManageFacultyPage() { // Renamed component
                  <AlertDialogAction
                       onClick={async (e) => {
                           e.stopPropagation();
-                          await handleDeleteFaculty(facultyMember.id); // Use facultyMember
+                          await handleDeleteFaculty(facultyMember.id);
                      }}
                       className={cn(buttonVariants({ variant: "destructive" }))}
                       disabled={isSubmitting}
@@ -407,43 +400,45 @@ export default function ManageFacultyPage() { // Renamed component
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Manage Faculty</h1> {/* Updated Title */}
+        <h1 className="text-3xl font-bold">Manage Faculty</h1>
          <Button onClick={openAddModal}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Faculty {/* Updated Button Text */}
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Faculty
         </Button>
       </div>
 
       {isLoading ? (
           <div className="flex justify-center items-center py-10">
-             <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" /> Loading faculty data... {/* Updated Text */}
+             <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" /> Loading faculty data...
          </div>
-       ) : faculty.length === 0 ? ( // Use renamed state variable
-             <p className="text-center text-muted-foreground py-10">No faculty found.</p> // Updated Text
+       ) : faculty.length === 0 ? (
+             <p className="text-center text-muted-foreground py-10">No faculty found.</p>
        ) : (
             <DataTable
                 columns={columns}
-                data={faculty} // Use renamed state variable
+                data={faculty}
                 searchPlaceholder="Search by name..."
                 searchColumnId="firstName"
                  actionMenuItems={generateActionMenuItems}
                  columnVisibility={columnVisibility}
                  setColumnVisibility={setColumnVisibility}
+                 filterableColumnHeaders={[
+                    { columnId: "department", title: "Department", options: departmentOptions }
+                ]}
             />
         )}
 
-        <UserForm<Faculty> // Use Faculty type
+        <UserForm<Faculty>
           isOpen={isModalOpen}
-          onOpenChange={setIsModalOpen} // Pass setter directly
-          formSchema={teacherSchema} // Schema remains teacherSchema for validation rules
-          onSubmit={handleSaveFaculty} // Use renamed handler
-          title={isEditMode ? `Faculty Details: ${selectedFaculty?.firstName} ${selectedFaculty?.lastName}` : 'Add New Faculty'} // Updated title
-          description={isEditMode ? "View or update the faculty's information." : "Fill in the details below. Credentials are generated upon creation."} // Updated description
-          formFields={facultyFormFields} // Pass the updated form fields
+          onOpenChange={setIsModalOpen}
+          formSchema={teacherSchema}
+          onSubmit={handleSaveFaculty}
+          title={isEditMode ? `Faculty Details: ${selectedFaculty?.firstName} ${selectedFaculty?.lastName}` : 'Add New Faculty'}
+          description={isEditMode ? "View or update the faculty's information." : "Fill in the details below. Credentials are generated upon creation."}
+          formFields={facultyFormFields}
           isEditMode={isEditMode}
-          initialData={isEditMode ? selectedFaculty : undefined} // Use renamed state variable
-          startReadOnly={isEditMode} // Start in read-only mode when editing
+          initialData={isEditMode ? selectedFaculty : undefined}
+          startReadOnly={isEditMode}
         />
     </div>
   );
 }
-
