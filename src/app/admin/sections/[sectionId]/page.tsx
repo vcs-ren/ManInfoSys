@@ -49,45 +49,50 @@ import { assignSubjectSchema } from "@/lib/schemas";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useForm } from "react-hook-form"; // Removed useWatch
+import { useForm } from "react-hook-form";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 
 type AssignSubjectFormValues = z.infer<typeof assignSubjectSchema>;
 
-// Enhanced type for display in the main courses table
 interface DisplayableCourseAssignment {
     courseId: string;
     courseName?: string;
     teacherId?: number | null;
     teacherName?: string | null;
-    assignmentId?: string | null; // The ID of the SectionSubjectAssignment if it exists
+    assignmentId?: string | null; 
     isAssigned: boolean;
 }
 
+// Type for information needed to generate a schedule entry
+interface ScheduleCourseInfo {
+    courseId: string;
+    courseName?: string;
+    teacherName?: string | null;
+    sectionId: string;
+}
 
-const generateScheduleForSection = (sectionId: string, assignments: SectionSubjectAssignment[]): ScheduleEntry[] => {
+
+const generateScheduleForSection = (coursesForSchedule: ScheduleCourseInfo[]): ScheduleEntry[] => {
     const schedule: ScheduleEntry[] = [];
     const today = new Date();
-    // let currentClassDay = isMonday(today) ? 0 : (nextMonday(today).getDay() - 1); // 0 for Monday, 1 for Tuesday etc.
-
-    const timeSlots = [ // 8 slots per day for 5 days = 40 slots
+    
+    const timeSlots = [ 
         { hour: 8, minute: 0 }, { hour: 9, minute: 0 }, { hour: 10, minute: 0 }, { hour: 11, minute: 0 },
         { hour: 13, minute: 0 }, { hour: 14, minute: 0 }, { hour: 15, minute: 0 }, { hour: 16, minute: 0 }
     ];
     
     let timeSlotIndex = 0;
 
-    assignments.forEach((assign, idx) => {
-        const dayOffset = Math.floor(idx / timeSlots.length) % 5; // Cycle through Mon-Fri
+    coursesForSchedule.forEach((courseInfo, idx) => {
+        const dayOffset = Math.floor(idx / timeSlots.length) % 5; 
         
         let firstDayOfWeek = nextMonday(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
-        if (isMonday(today)) { // If today is Monday, start from today
+        if (isMonday(today)) { 
             firstDayOfWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         }
         
         const currentDayDate = addDays(firstDayOfWeek, dayOffset + Math.floor(idx / (timeSlots.length * 5)) * 7);
-
 
         const slot = timeSlots[timeSlotIndex % timeSlots.length];
         
@@ -95,14 +100,14 @@ const generateScheduleForSection = (sectionId: string, assignments: SectionSubje
         const endDateTime = addHours(startDateTime, 1);
 
         schedule.push({
-            id: `${assign.id}-${format(startDateTime, "yyyyMMddHHmm")}`,
-            title: `${assign.subjectName || assign.subjectId}`,
+            id: `${courseInfo.sectionId}-${courseInfo.courseId}-${format(startDateTime, "yyyyMMddHHmm")}`, 
+            title: `${courseInfo.courseName || courseInfo.courseId}`,
             start: startDateTime,
             end: endDateTime,
             type: 'class',
             location: `Room ${101 + (idx % 10)}`, 
-            teacher: assign.teacherName,
-            section: sectionId,
+            teacher: courseInfo.teacherName || "Pending Assignment", // Use teacherName or fallback
+            section: courseInfo.sectionId,
         });
 
         timeSlotIndex++;
@@ -119,12 +124,9 @@ export default function SectionDetailsPage() {
 
   const [section, setSection] = React.useState<Section | null>(null);
   const [students, setStudents] = React.useState<Student[]>([]);
-  // const [currentAssignments, setCurrentAssignments] = React.useState<SectionSubjectAssignment[]>([]); 
   const [displayedCourses, setDisplayedCourses] = React.useState<DisplayableCourseAssignment[]>([]); 
   const [schedule, setSchedule] = React.useState<ScheduleEntry[]>([]);
   
-  // Data for populating forms and lookups
-  // const [allSystemCourses, setAllSystemCourses] = React.useState<Course[]>([]); 
   const [programsList, setProgramsList] = React.useState<Program[]>([]); 
   const [teachingFaculty, setTeachingFaculty] = React.useState<Faculty[]>([]);
   const [teacherTeachableCourses, setTeacherTeachableCourses] = React.useState<{ teacherId: number; courseIds: string[] }[]>([]);
@@ -151,7 +153,7 @@ export default function SectionDetailsPage() {
         let fetchedSystemCourses: Course[] = [];
         let fetchedPrograms: Program[] = [];
         let fetchedFaculty: Faculty[] = [];
-        let fetchedTeachableCourses: { teacherId: number; courseIds: string[] }[] = [];
+        let fetchedTeachableCoursesData: { teacherId: number; courseIds: string[] }[] = [];
 
         if (USE_MOCK_API) {
             await new Promise(resolve => setTimeout(resolve, 300));
@@ -167,14 +169,12 @@ export default function SectionDetailsPage() {
             fetchedSystemCourses = mockCourses;
             fetchedPrograms = mockApiPrograms; 
             fetchedFaculty = mockFaculty.filter(f => f.department === 'Teaching');
-            fetchedTeachableCourses = mockTeacherTeachableCourses;
+            fetchedTeachableCoursesData = mockTeacherTeachableCourses;
         } else {
-            // Real API calls
-            const sectionDataArr = await fetchData<Section[]>(`sections/read.php?id=${sectionId}`); // Assuming this fetches a single section as an array
+            const sectionDataArr = await fetchData<Section[]>(`sections/read.php?id=${sectionId}`); 
             fetchedSection = sectionDataArr && sectionDataArr.length > 0 ? sectionDataArr[0] : null;
             
             if (fetchedSection) {
-                // Assuming backend filters students by section, or you filter here
                 const allStudents = await fetchData<Student[]>(`students/read.php`);
                 fetchedStudents = (allStudents || []).filter(st => st.section === sectionId);
                 fetchedAssignments = await fetchData<SectionSubjectAssignment[]>(`sections/assignments/read.php?sectionId=${sectionId}`);
@@ -183,22 +183,20 @@ export default function SectionDetailsPage() {
             fetchedPrograms = await fetchData<Program[]>('programs/read.php');
             const allFaculty = await fetchData<Faculty[]>('teachers/read.php');
             fetchedFaculty = (allFaculty || []).filter(f => f.department === 'Teaching');
-            fetchedTeachableCourses = await fetchData<{ teacherId: number; courseIds: string[] }[]>('teacher/teachable-courses/read.php');
+            fetchedTeachableCoursesData = await fetchData<{ teacherId: number; courseIds: string[] }[]>('teacher/teachable-courses/read.php');
         }
 
         setSection(fetchedSection);
         setStudents(fetchedStudents || []);
-        // setCurrentAssignments(fetchedAssignments || []); // Keep this if used elsewhere, but schedule uses filtered one
         setProgramsList(fetchedPrograms || []);
         setTeachingFaculty(fetchedFaculty || []);
-        setTeacherTeachableCourses(fetchedTeachableCourses || []);
+        setTeacherTeachableCourses(fetchedTeachableCoursesData || []);
 
-        // Process curriculum and assignments for display
         if (fetchedSection && fetchedPrograms.length > 0 && fetchedSystemCourses.length > 0) {
             const programDetails = fetchedPrograms.find(p => p.id === fetchedSection!.programId);
             const curriculumCourses: Course[] = programDetails?.courses[fetchedSection!.yearLevel] || [];
             
-            const displayable: DisplayableCourseAssignment[] = curriculumCourses.map(course => {
+            const displayableAssignmentsForTable: DisplayableCourseAssignment[] = curriculumCourses.map(course => {
                 const existingAssignment = (fetchedAssignments || []).find(a => a.subjectId === course.id && a.sectionId === sectionId);
                 return {
                     courseId: course.id,
@@ -209,13 +207,18 @@ export default function SectionDetailsPage() {
                     isAssigned: !!existingAssignment,
                 };
             });
-            setDisplayedCourses(displayable);
+            setDisplayedCourses(displayableAssignmentsForTable);
 
-            // Generate schedule based on curriculum courses that have teachers assigned
-            const assignmentsForSchedule = (fetchedAssignments || []).filter(assignment =>
-                curriculumCourses.some(currCourse => currCourse.id === assignment.subjectId) && assignment.teacherId
-            );
-            setSchedule(generateScheduleForSection(sectionId, assignmentsForSchedule));
+            const coursesForScheduleGeneration: ScheduleCourseInfo[] = curriculumCourses.map(course => {
+                 const existingAssignment = (fetchedAssignments || []).find(a => a.subjectId === course.id && a.sectionId === sectionId);
+                 return {
+                    courseId: course.id,
+                    courseName: course.name,
+                    teacherName: existingAssignment?.teacherName, 
+                    sectionId: sectionId,
+                };
+            });
+            setSchedule(generateScheduleForSection(coursesForScheduleGeneration));
 
         } else {
             setDisplayedCourses([]);
@@ -258,16 +261,15 @@ export default function SectionDetailsPage() {
         
         const responseData = await postData<typeof payload, SectionSubjectAssignment>(`sections/assignments/create.php`, payload); 
         
-        if (selectedCourseForAssignment.isAssigned && values.teacherId !== selectedCourseForAssignment.teacherId) { // Check if teacher actually changed
+        if (selectedCourseForAssignment.isAssigned && values.teacherId !== selectedCourseForAssignment.teacherId) { 
             toast({ title: "Teacher Assignment Updated", description: `Teacher for ${selectedCourseForAssignment.courseName} updated.` });
             logActivity("Updated Section Teacher Assignment", `Teacher for ${selectedCourseForAssignment.courseName} in section ${section.id}`, "Admin");
         } else if (!selectedCourseForAssignment.isAssigned && values.teacherId !== 0) {
             toast({ title: "Teacher Assigned", description: `Teacher assigned to ${selectedCourseForAssignment.courseName}.` });
             logActivity("Assigned Teacher to Course in Section", `${selectedCourseForAssignment.courseName} to section ${section.id}`, "Admin");
         } else if (selectedCourseForAssignment.isAssigned && values.teacherId === 0) {
-            // This case should be handled by handleUnassignTeacher, but as a fallback
-            await handleUnassignTeacher(selectedCourseForAssignment); // Call unassign logic
-            setIsSubmitting(false); // Unassign function handles submitting state
+            await handleUnassignTeacher(selectedCourseForAssignment); 
+            setIsSubmitting(false); 
             setIsAssignSubjectModalOpen(false);
             return;
         }
