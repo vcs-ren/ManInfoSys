@@ -2,9 +2,9 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase } from "lucide-react"; // Removed UserCog
+import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase } from "lucide-react";
 import * as React from 'react';
-import { fetchData, postData } from "@/lib/api";
+import { fetchData, postData, USE_MOCK_API, mockDashboardStats, mockActivityLog } from "@/lib/api";
 import type { DashboardStats, ActivityLogEntry } from "@/types";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
@@ -28,12 +28,30 @@ export default function AdminDashboardPage() {
       setIsActivityLoading(true);
       setError(null);
       try {
-        const [statsData, activityData] = await Promise.all([
-          fetchData<DashboardStats>('admin/dashboard-stats.php'),
-          fetchData<ActivityLogEntry[]>('admin/activity-log/read.php')
-        ]);
+        let statsData: DashboardStats | null = null;
+        let activityDataResult: ActivityLogEntry[] = [];
+
+        if (USE_MOCK_API) {
+            statsData = mockDashboardStats;
+            // Ensure mockActivityLog is treated as the source of truth and sliced/sorted
+            activityDataResult = [...mockActivityLog].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10);
+        } else {
+            const [fetchedStats, fetchedActivities] = await Promise.all([
+              fetchData<DashboardStats>('admin/dashboard-stats.php'),
+              fetchData<ActivityLogEntry[]>('admin/activity-log/read.php')
+            ]);
+            statsData = fetchedStats;
+            activityDataResult = fetchedActivities || [];
+        }
+        
         setStats(statsData);
-        setActivityLog(activityData ? activityData.map(log => ({ ...log, timestamp: new Date(log.timestamp) })) : []);
+
+        // Ensure unique activity log entries by ID before setting state
+        const uniqueActivityDataById = activityDataResult
+            ? Array.from(new Map(activityDataResult.map(log => [log.id, log])).values())
+            : [];
+        setActivityLog(uniqueActivityDataById.map(log => ({ ...log, timestamp: new Date(log.timestamp) })));
+
       } catch (err: any) {
         console.error("Failed to fetch dashboard data:", err);
         setError(err.message || "Failed to load dashboard data. Please try again later.");
@@ -42,7 +60,6 @@ export default function AdminDashboardPage() {
         setIsLoading(false);
         setIsActivityLoading(false);
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [toast]);
 
 
@@ -59,13 +76,24 @@ export default function AdminDashboardPage() {
   const handleUndoActivity = async (logId: string) => {
     setIsActivityLoading(true);
     try {
-      await postData('admin/activity-log/undo.php', { logId });
+      if (USE_MOCK_API) {
+        const logIndex = mockActivityLog.findIndex(l => l.id === logId);
+        if (logIndex > -1 && mockActivityLog[logIndex].canUndo) {
+            // Simulate undo logic if needed for mock, e.g., restoring originalData
+            console.log("Mock: Undoing activity", mockActivityLog[logIndex]);
+            mockActivityLog.splice(logIndex, 1); // Remove from global mock log
+        } else {
+            throw new Error("Mock: Action cannot be undone or log not found.");
+        }
+      } else {
+        await postData('admin/activity-log/undo.php', { logId });
+      }
       toast({ title: "Action Undone", description: "The selected action has been reverted." });
-      await fetchDashboardData();
+      await fetchDashboardData(); // Refresh data after undo
     } catch (err: any) {
       console.error("Failed to undo activity:", err);
       toast({ variant: "destructive", title: "Undo Failed", description: err.message || "Could not undo the action." });
-      setIsActivityLoading(false);
+      setIsActivityLoading(false); // Ensure loading state is reset on error
     }
   };
 
@@ -103,9 +131,7 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
           
-          {/* Administrative Staff card removed */}
-
-          <Card className="hover:shadow-md transition-shadow cursor-not-allowed opacity-75"> {/* No path for now or path to events page */}
+          <Card className="cursor-not-allowed opacity-75 hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Upcoming Events/Tasks</CardTitle>
               <CalendarDays className="h-4 w-4 text-muted-foreground" />
