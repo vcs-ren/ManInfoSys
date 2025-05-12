@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCog, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase } from "lucide-react";
+import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase } from "lucide-react"; // Removed UserCog
 import * as React from 'react';
 import { fetchData, postData } from "@/lib/api";
 import type { DashboardStats, ActivityLogEntry } from "@/types";
@@ -103,19 +103,9 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
           
-           <Card className="hover:shadow-md transition-shadow"> {/* Removed onClick to make it unclickable */}
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Administrative Staff</CardTitle>
-              <UserCog className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalAdmins}</div>
-              {/* Description removed as per request */}
-            </CardContent>
-          </Card>
+          {/* Administrative Staff card removed */}
 
-
-          <Card onClick={() => handleCardClick(null)} className="hover:shadow-md transition-shadow"> {/* No path for now or path to events page */}
+          <Card className="hover:shadow-md transition-shadow cursor-not-allowed opacity-75"> {/* No path for now or path to events page */}
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Upcoming Events/Tasks</CardTitle>
               <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -184,3 +174,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
