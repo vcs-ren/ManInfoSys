@@ -4,7 +4,20 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase, ShieldCheck } from "lucide-react";
 import * as React from 'react';
-import { fetchData, postData, USE_MOCK_API, mockDashboardStats, mockActivityLog, logActivity, mockStudents, mockFaculty, mockApiAdmins, mockSections, recalculateDashboardStats } from "@/lib/api";
+import {
+    fetchData,
+    postData,
+    USE_MOCK_API,
+    mockDashboardStats,
+    mockActivityLog,
+    logActivity,
+    executeUndoAddStudent,
+    executeUndoDeleteStudent,
+    executeUndoAddFaculty,
+    executeUndoDeleteFaculty,
+    executeUndoRemoveAdminRole,
+    // mockApiAdmins // No longer directly modified here
+} from "@/lib/api";
 import type { DashboardStats, ActivityLogEntry, Student, Faculty, AdminUser, DepartmentType } from "@/types";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
@@ -32,22 +45,20 @@ export default function AdminDashboardPage() {
         let activityDataResult: ActivityLogEntry[] = [];
 
         if (USE_MOCK_API) {
-            recalculateDashboardStats(); // Ensure stats are up-to-date before fetching
+            // Assuming recalculateDashboardStats is now internal to api.ts or called by mutation functions
             statsData = mockDashboardStats;
-            // Ensure mockActivityLog is treated as the source of truth and sliced/sorted
             activityDataResult = [...mockActivityLog].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10);
         } else {
             const [fetchedStats, fetchedActivities] = await Promise.all([
               fetchData<DashboardStats>('admin/dashboard-stats.php'),
-              fetchData<ActivityLogEntry[]>('admin/activity-log/read.php')
+              fetchData<ActivityLogEntry[]>('admin/activity-log/read.php') // Assuming this endpoint exists
             ]);
             statsData = fetchedStats;
             activityDataResult = fetchedActivities || [];
         }
-        
+
         setStats(statsData);
 
-        // Deduplication step
         const uniqueActivityDataById = activityDataResult
             ? Array.from(new Map(activityDataResult.map(log => [log.id, log])).values())
             : [];
@@ -84,7 +95,7 @@ export default function AdminDashboardPage() {
         if (logEntryIndex === -1) {
             throw new Error("Log entry not found.");
         }
-        
+
         const logEntry = mockActivityLog[logEntryIndex];
 
         if (!logEntry.canUndo) {
@@ -92,30 +103,18 @@ export default function AdminDashboardPage() {
         }
 
         let undoSuccess = false;
-        let specificErrorMessage: string | null = null; // For errors specific to undo logic
+        let specificErrorMessage: string | null = null;
 
-        // Specific Undo Logic
         if (logEntry.action === "Added Student" && logEntry.targetType === "student") {
             if (logEntry.originalData && logEntry.targetId) {
-                const studentIdToUndo = logEntry.targetId as number;
-                const studentDataToUndo = logEntry.originalData as Student;
-                mockStudents = mockStudents.filter(s => s.id !== studentIdToUndo);
-                const sectionToUpdate = mockSections.find(s => s.id === studentDataToUndo.section);
-                if (sectionToUpdate) {
-                    sectionToUpdate.studentCount = mockStudents.filter(s => s.section === studentDataToUndo.section).length;
-                }
+                executeUndoAddStudent(logEntry.targetId as number, logEntry.originalData as Student);
                 undoSuccess = true;
             } else {
                 specificErrorMessage = "Missing original data or target ID for undoing 'Added Student'.";
             }
         } else if (logEntry.action === "Deleted Student" && logEntry.targetType === "student") {
             if (logEntry.originalData) {
-                const studentDataToRestore = logEntry.originalData as Student;
-                if (!mockStudents.some(s => s.id === studentDataToRestore.id)) mockStudents.push(studentDataToRestore);
-                const sectionToUpdate = mockSections.find(s => s.id === studentDataToRestore.section);
-                if (sectionToUpdate) {
-                    sectionToUpdate.studentCount = mockStudents.filter(s => s.section === studentDataToRestore.section).length;
-                }
+                executeUndoDeleteStudent(logEntry.originalData as Student);
                 undoSuccess = true;
             } else {
                 specificErrorMessage = "Missing original data for undoing 'Deleted Student'.";
@@ -123,26 +122,14 @@ export default function AdminDashboardPage() {
         } else if (logEntry.action === "Added Faculty" && logEntry.targetType === "faculty") {
              if (logEntry.originalData && logEntry.targetId) {
                 const facultyData = logEntry.originalData as Faculty;
-                mockFaculty = mockFaculty.filter(f => f.id !== (logEntry.targetId as number));
-                if (facultyData.department === 'Administrative') {
-                    mockApiAdmins = mockApiAdmins.filter(a => a.id !== (logEntry.targetId as number));
-                }
+                executeUndoAddFaculty(logEntry.targetId as number, facultyData); // This function now handles mockApiAdmins update internally
                 undoSuccess = true;
             } else {
                 specificErrorMessage = "Missing original data or target ID for undoing 'Added Faculty'.";
             }
         } else if (logEntry.action === "Deleted Faculty" && logEntry.targetType === "faculty") {
             if (logEntry.originalData) {
-                const facultyData = logEntry.originalData as Faculty;
-                if (!mockFaculty.some(f => f.id === facultyData.id)) mockFaculty.push(facultyData);
-                if (facultyData.department === 'Administrative') {
-                    if (!mockApiAdmins.some(a => a.id === facultyData.id)) {
-                       mockApiAdmins.push({
-                           id: facultyData.id, username: facultyData.username, firstName: facultyData.firstName,
-                           lastName: facultyData.lastName, email: facultyData.email, role: 'Sub Admin', isSuperAdmin: false
-                       });
-                    }
-                }
+                executeUndoDeleteFaculty(logEntry.originalData as Faculty);
                 undoSuccess = true;
             } else {
                 specificErrorMessage = "Missing original data for undoing 'Deleted Faculty'.";
@@ -150,56 +137,47 @@ export default function AdminDashboardPage() {
         } else if (logEntry.action === "Removed Admin Role" && logEntry.targetType === "admin") {
             if (logEntry.originalData && logEntry.targetId) {
                 const adminData = logEntry.originalData as AdminUser & { originalDepartment?: DepartmentType };
-                const facultyMember = mockFaculty.find(f => f.id === adminData.id);
-                if (facultyMember) {
-                    facultyMember.department = adminData.originalDepartment || 'Administrative';
-                    if (!mockApiAdmins.some(a => a.id === adminData.id)) {
-                        mockApiAdmins.push({ // Reconstruct AdminUser object
-                            id: adminData.id, username: adminData.username, firstName: adminData.firstName,
-                            lastName: adminData.lastName, email: adminData.email, role: 'Sub Admin', isSuperAdmin: false
-                        });
-                    }
+                const restored = executeUndoRemoveAdminRole(adminData);
+                if(restored) {
                     undoSuccess = true;
                 } else {
-                     // This case might be for an admin that was *not* faculty-derived
-                     // For now, this is unlikely with current logic where sub-admins are from faculty
-                     if (!mockApiAdmins.some(a => a.id === adminData.id)) { // Check if it was an explicit admin
-                         mockApiAdmins.push(adminData); // Add back the AdminUser
-                         undoSuccess = true;
-                     } else {
-                        specificErrorMessage = "Could not undo 'Removed Admin Role': Corresponding faculty member not found, and admin user already exists or was not an explicit admin entry.";
-                     }
+                     specificErrorMessage = "Could not undo 'Removed Admin Role': Corresponding faculty member not found for restoration, or it was not a faculty-derived admin handled by this logic.";
                 }
             } else {
                  specificErrorMessage = "Missing original data or target ID for undoing 'Removed Admin Role'.";
             }
         } else {
-            // If canUndo was true but no specific handler was found for this action type
             specificErrorMessage = `Mock: Undo for action type "${logEntry.action}" is not implemented.`;
         }
 
         if (undoSuccess) {
-            mockActivityLog.splice(logEntryIndex, 1); // Remove the original log entry
-            recalculateDashboardStats();
-            logActivity("Action Undone", `Reverted: ${logEntry.action} - ${logEntry.description}`, "System"); // Log the undo itself
+            // Remove the original log entry from the local state, as it's "undone"
+            setActivityLog(prev => prev.filter(l => l.id !== logId));
+            // Optionally, remove from mockActivityLog directly if it's the source of truth for the next fetch
+            const mockLogIndex = mockActivityLog.findIndex(l => l.id === logId);
+            if (mockLogIndex > -1) {
+                mockActivityLog.splice(mockLogIndex, 1);
+            }
             toast({ title: "Action Undone", description: "The selected action has been successfully reverted." });
         } else {
-            // This means undo failed either due to missing data or unimplemented handler
             throw new Error(specificErrorMessage || "Undo operation failed for an unknown reason.");
         }
-      } else { // Real API call
-        // This part would interact with your PHP backend
+      } else {
         await postData('admin/activity-log/undo.php', { logId });
         toast({ title: "Action Undone", description: "The selected action has been reverted (via API)." });
       }
-      // Refresh data after undo attempt (success or if API was called and succeeded/failed)
-      // For mock, this re-renders the list based on the modified mockActivityLog.
-      await fetchDashboardData(); 
+      await fetchDashboardData();
     } catch (err: any) {
       console.error("Failed to undo activity:", err);
       toast({ variant: "destructive", title: "Undo Failed", description: err.message || "Could not undo the action." });
-      // Ensure loading state is reset if an error occurs before fetchDashboardData or within it
-      setIsActivityLoading(false);
+      // No need to set isLoading to false here, fetchDashboardData will handle it.
+    } finally {
+        // fetchDashboardData sets isLoading and isActivityLoading to false.
+        // If an error occurs before fetchDashboardData is called (e.g. in mock logic),
+        // ensure isActivityLoading is reset.
+        if (USE_MOCK_API) { // Only if mock, as real API call will refresh through fetchDashboardData
+            setIsActivityLoading(false);
+        }
     }
   };
 
@@ -236,14 +214,14 @@ export default function AdminDashboardPage() {
               <div className="text-2xl font-bold">{stats.totalFaculty}</div>
             </CardContent>
           </Card>
-          
-          <Card className="cursor-not-allowed opacity-75">
+
+          <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Upcoming Events/Tasks</CardTitle>
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Administrative Accounts</CardTitle>
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.upcomingEvents}</div>
+              <div className="text-2xl font-bold">{stats.totalAdmins}</div>
             </CardContent>
           </Card>
         </div>
@@ -306,4 +284,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
