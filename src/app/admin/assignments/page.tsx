@@ -209,7 +209,7 @@ export default function ScheduleAnnouncementsPage() {
 
     try {
         const updatedSectionData = await postData<{ sectionId: string, adviserId: number | null }, Section>(
-            `sections/adviser/update.php`, // This should be a POST or PATCH to /api/sections/{sectionId}/adviser
+            `sections/adviser/update.php`, 
             { sectionId: selectedSection.id, adviserId: adviserIdToAssign }
         );
 
@@ -237,8 +237,8 @@ export default function ScheduleAnnouncementsPage() {
       title: values.title,
       content: values.content,
       targetAudience: values.targetAudience,
-      target: { // This structure is for mock API, adjust if real API differs
-        course: values.targetProgramId === 'all' ? null : values.targetProgramId, // Mapped program to course for backend
+      target: { 
+        course: values.targetProgramId === 'all' ? null : values.targetProgramId, 
         yearLevel: values.targetYearLevel === 'all' ? null : values.targetYearLevel,
         section: values.targetSection === 'all' ? null : values.targetSection,
       }
@@ -300,7 +300,7 @@ export default function ScheduleAnnouncementsPage() {
       toast({ title: "Courses Assigned", description: `Courses assigned to ${targetProgram.name} - ${values.yearLevel} successfully.` });
       logActivity("Assigned Courses to Program", `${targetProgram.name} - ${values.yearLevel}`, "Admin");
       setIsAssignProgramCoursesModalOpen(false);
-      await loadData(); // Reload all data to reflect changes everywhere
+      await loadData(); 
     } catch (error: any) {
       console.error("Failed to assign courses:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign courses." });
@@ -400,7 +400,7 @@ export default function ScheduleAnnouncementsPage() {
             cell: ({ row }) => {
                  const target = row.original.target || {};
                  const audience = row.original.targetAudience || 'All';
-                 const { course: programId, yearLevel, section } = target; // Use 'course' for programId from backend
+                 const { course: programId, yearLevel, section } = target; 
                  const programName = programsList.find(p => p.id === programId)?.name;
 
                  let targetParts = [`Audience: ${audience}`];
@@ -409,8 +409,7 @@ export default function ScheduleAnnouncementsPage() {
                     if (yearLevel && yearLevel !== 'all') targetParts.push(`Year: ${yearLevel}`);
                     if (section && section !== 'all') targetParts.push(`Section: ${section}`);
                  } else if (audience === 'Faculty') {
-                     // For faculty, specific program/year/section might not be relevant unless explicitly targeted
-                     // This part can be adjusted based on how faculty targeting is implemented
+                    
                  }
 
                  if (targetParts.length === 1 && audience === 'All' && (!programId || programId === 'all') && (!yearLevel || yearLevel === 'all') && (!section || section === 'all')) {
@@ -421,7 +420,7 @@ export default function ScheduleAnnouncementsPage() {
              filterFn: (row, id, value) => {
                 const target = row.original.target || {};
                 const audience = row.original.targetAudience || 'All';
-                const programId = target.course; // Use 'course' for programId from backend
+                const programId = target.course; 
                 const yearLevel = target.yearLevel;
                 const section = target.section;
 
@@ -492,18 +491,18 @@ export default function ScheduleAnnouncementsPage() {
 
     return allCourses.filter(course => {
       if (course.type === 'Major' && !(course.programId?.includes(selectedProgramObject.id))) {
-          return false; // Major course not for this program
+          return false; 
       }
 
-      // Check if course is already assigned to a *different* year level in this program
+      
       for (const [year, assignedCoursesInYear] of Object.entries(selectedProgramObject.courses || {})) {
-        if (year as YearLevel !== watchedYearLevelForCourseAssignment) { // Don't check against current year
+        if (year as YearLevel !== watchedYearLevelForCourseAssignment) { 
           if (assignedCoursesInYear.some(assignedCourse => assignedCourse.id === course.id)) {
-            return false; // Already assigned to another year in this program
+            return false; 
           }
         }
       }
-      return true; // Available if minor, or major for this program AND not in another year of this program
+      return true; 
     });
   }, [watchedProgramIdForCourseAssignment, watchedYearLevelForCourseAssignment, allCourses, programsList]);
 
@@ -737,7 +736,7 @@ export default function ScheduleAnnouncementsPage() {
             </CardContent>
         </Card>
 
-      {/* Assign Adviser Modal */}
+      
       <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -801,7 +800,7 @@ export default function ScheduleAnnouncementsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Assign Courses to Program/Year Modal */}
+      
       <Dialog open={isAssignProgramCoursesModalOpen} onOpenChange={setIsAssignProgramCoursesModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -864,13 +863,17 @@ export default function ScheduleAnnouncementsPage() {
                                     <Checkbox
                                         checked={field.value?.includes(course.id)}
                                         onCheckedChange={(checked) => {
-                                        return checked
-                                            ? field.onChange([...(field.value || []), course.id])
-                                            : field.onChange(
-                                            (field.value || []).filter(
-                                                (value) => value !== course.id
-                                            )
-                                            )
+                                            setTimeout(() => {
+                                                if (checked) {
+                                                    field.onChange([...(field.value || []), course.id]);
+                                                } else {
+                                                    field.onChange(
+                                                        (field.value || []).filter(
+                                                            (value) => value !== course.id
+                                                        )
+                                                    );
+                                                }
+                                            }, 0);
                                         }}
                                         disabled={isSubmitting}
                                     />
@@ -905,5 +908,7 @@ export default function ScheduleAnnouncementsPage() {
     </div>
   );
 }
+
+    
 
     
