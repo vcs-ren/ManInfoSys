@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -6,11 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
-import { Loader2, ArrowLeft, Users, CalendarClock, BookOpen, Edit2, Trash2 } from "lucide-react";
+import { Loader2, ArrowLeft, Users, CalendarClock, BookOpen, Edit2, Trash2, UserPlus } from "lucide-react";
 import type { Section, Student, Course, SectionSubjectAssignment, ScheduleEntry, Faculty, Program, YearLevel } from "@/types";
 import { fetchData, postData, deleteData, USE_MOCK_API, mockSections, mockStudents, mockCourses, mockSectionAssignments, mockFaculty, mockApiPrograms, logActivity, mockTeacherTeachableCourses } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { format, addHours, setHours, setMinutes, setSeconds, nextMonday, isMonday } from 'date-fns';
+import { format, addHours, setHours, setMinutes, setSeconds, nextMonday, isMonday, addDays } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -55,31 +54,37 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 type AssignSubjectFormValues = z.infer<typeof assignSubjectSchema>;
 
+// Enhanced type for display in the main courses table
+interface DisplayableCourseAssignment {
+    courseId: string;
+    courseName?: string;
+    teacherId?: number | null;
+    teacherName?: string | null;
+    assignmentId?: string | null; // The ID of the SectionSubjectAssignment if it exists
+    isAssigned: boolean;
+}
+
+
 const generateScheduleForSection = (sectionId: string, assignments: SectionSubjectAssignment[]): ScheduleEntry[] => {
     const schedule: ScheduleEntry[] = [];
     const today = new Date();
-    let currentDay = isMonday(today) ? today : nextMonday(today); 
+    let currentClassDay = isMonday(today) ? 0 : (nextMonday(today).getDay() - 1); // 0 for Monday, 1 for Tuesday etc.
 
-    const timeSlots = [
-        { hour: 8, minute: 0 }, { hour: 9, minute: 0 }, { hour: 10, minute: 0 },
-        { hour: 11, minute: 0 }, { hour: 13, minute: 0 }, { hour: 14, minute: 0 },
-        { hour: 15, minute: 0 }, { hour: 16, minute: 0 }
+    const timeSlots = [ // 8 slots per day for 5 days = 40 slots
+        { hour: 8, minute: 0 }, { hour: 9, minute: 0 }, { hour: 10, minute: 0 }, { hour: 11, minute: 0 },
+        { hour: 13, minute: 0 }, { hour: 14, minute: 0 }, { hour: 15, minute: 0 }, { hour: 16, minute: 0 }
     ];
-    let dayIndex = 0; 
+    
     let timeSlotIndex = 0;
 
     assignments.forEach((assign, idx) => {
-        if (timeSlotIndex >= timeSlots.length) {
-            timeSlotIndex = 0;
-            dayIndex++;
-            if (dayIndex >= 5) { 
-                dayIndex = 0;
-                currentDay = nextMonday(addHours(currentDay, 24 * 5));
-            }
-        }
+        const dayOffset = Math.floor(idx / timeSlots.length) % 5; // Cycle through Mon-Fri
+        const currentDayDate = addDays(nextMonday(new Date(today.getFullYear(), today.getMonth(), today.getDate())), dayOffset + Math.floor(idx / (timeSlots.length * 5)) * 7);
 
-        const classDateWithDayOffset = addHours(currentDay, 24 * dayIndex);
-        const startDateTime = setSeconds(setMinutes(setHours(classDateWithDayOffset, timeSlots[timeSlotIndex].hour), timeSlots[timeSlotIndex].minute),0);
+
+        const slot = timeSlots[timeSlotIndex % timeSlots.length];
+        
+        const startDateTime = setSeconds(setMinutes(setHours(currentDayDate, slot.hour), slot.minute),0);
         const endDateTime = addHours(startDateTime, 1);
 
         schedule.push({
@@ -92,6 +97,7 @@ const generateScheduleForSection = (sectionId: string, assignments: SectionSubje
             teacher: assign.teacherName,
             section: sectionId,
         });
+
         timeSlotIndex++;
     });
     return schedule.sort((a,b) => a.start.getTime() - b.start.getTime());
@@ -106,17 +112,20 @@ export default function SectionDetailsPage() {
 
   const [section, setSection] = React.useState<Section | null>(null);
   const [students, setStudents] = React.useState<Student[]>([]);
-  const [assignedSubjects, setAssignedSubjects] = React.useState<SectionSubjectAssignment[]>([]);
+  const [currentAssignments, setCurrentAssignments] = React.useState<SectionSubjectAssignment[]>([]); // Existing assignments for this section
+  const [displayedCourses, setDisplayedCourses] = React.useState<DisplayableCourseAssignment[]>([]); // Courses to show in table (curriculum + assigned teachers)
   const [schedule, setSchedule] = React.useState<ScheduleEntry[]>([]);
-  const [allCourses, setAllCourses] = React.useState<Course[]>([]); // All system courses
-  const [programsList, setProgramsList] = React.useState<Program[]>([]); // All programs
+  
+  // Data for populating forms and lookups
+  const [allSystemCourses, setAllSystemCourses] = React.useState<Course[]>([]); 
+  const [programsList, setProgramsList] = React.useState<Program[]>([]); 
   const [teachingFaculty, setTeachingFaculty] = React.useState<Faculty[]>([]);
   const [teacherTeachableCourses, setTeacherTeachableCourses] = React.useState<{ teacherId: number; courseIds: string[] }[]>([]);
 
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAssignSubjectModalOpen, setIsAssignSubjectModalOpen] = React.useState(false);
-  const [selectedAssignmentToEdit, setSelectedAssignmentToEdit] = React.useState<SectionSubjectAssignment | null>(null);
+  const [selectedCourseForAssignment, setSelectedCourseForAssignment] = React.useState<DisplayableCourseAssignment | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
 
@@ -124,62 +133,85 @@ export default function SectionDetailsPage() {
     resolver: zodResolver(assignSubjectSchema),
   });
   
-  const watchedSubjectIdInModal = useWatch({
-    control: assignSubjectForm.control,
-    name: 'subjectId',
-  });
+  // No need to watch subjectId if it's fixed when modal opens for a specific course.
+  // const watchedSubjectIdInModal = useWatch({
+  //   control: assignSubjectForm.control,
+  //   name: 'subjectId',
+  // });
 
   const loadSectionData = React.useCallback(async () => {
     if (!sectionId) return;
     setIsLoading(true);
     try {
+        let fetchedSection: Section | null = null;
+        let fetchedStudents: Student[] = [];
+        let fetchedAssignments: SectionSubjectAssignment[] = [];
+        let fetchedSystemCourses: Course[] = [];
+        let fetchedPrograms: Program[] = [];
+        let fetchedFaculty: Faculty[] = [];
+        let fetchedTeachableCourses: { teacherId: number; courseIds: string[] }[] = [];
+
         if (USE_MOCK_API) {
             await new Promise(resolve => setTimeout(resolve, 300));
-            const foundSection = mockSections.find(s => s.id === sectionId);
-            setSection(foundSection || null);
-
-            const sectionStudents = mockStudents.filter(st => st.section === sectionId);
-            setStudents(sectionStudents);
-
-            const assignmentsForSection = mockSectionAssignments
+            fetchedSection = mockSections.find(s => s.id === sectionId) || null;
+            fetchedStudents = mockStudents.filter(st => st.section === sectionId);
+            fetchedAssignments = mockSectionAssignments
                 .filter(as => as.sectionId === sectionId)
                 .map(as => ({
                     ...as,
                     subjectName: mockCourses.find(c => c.id === as.subjectId)?.name || as.subjectId,
                     teacherName: mockFaculty.find(f => f.id === as.teacherId)?.firstName + " " + mockFaculty.find(f => f.id === as.teacherId)?.lastName
                 }));
-            setAssignedSubjects(assignmentsForSection);
-
-            setSchedule(generateScheduleForSection(sectionId, assignmentsForSection));
-            setAllCourses(mockCourses);
-            setProgramsList(mockApiPrograms); 
-            setTeachingFaculty(mockFaculty.filter(f => f.department === 'Teaching'));
-            setTeacherTeachableCourses(mockTeacherTeachableCourses);
+            fetchedSystemCourses = mockCourses;
+            fetchedPrograms = mockApiPrograms; 
+            fetchedFaculty = mockFaculty.filter(f => f.department === 'Teaching');
+            fetchedTeachableCourses = mockTeacherTeachableCourses;
         } else {
-            const [sectionDataArr, studentsData, assignmentsData, coursesData, facultyData, programsData, teachableCoursesData] = await Promise.all([
-                fetchData<Section[]>(`sections/read.php?id=${sectionId}`), 
-                fetchData<Student[]>(`students/read.php?section=${sectionId}`), 
-                fetchData<SectionSubjectAssignment[]>(`sections/assignments/read.php?sectionId=${sectionId}`),
-                fetchData<Course[]>('courses/read.php'),
-                fetchData<Faculty[]>('teachers/read.php'),
-                fetchData<Program[]>('programs/read.php'),
-                fetchData<{ teacherId: number; courseIds: string[] }[]>('teacher/teachable-courses/read.php')
-            ]);
-            const sectionData = sectionDataArr && sectionDataArr.length > 0 ? sectionDataArr[0] : null;
-            setSection(sectionData);
-            setStudents(studentsData || []);
-            const populatedAssignments = (assignmentsData || []).map(as => ({
-                ...as,
-                subjectName: coursesData?.find(c => c.id === as.subjectId)?.name || as.subjectId,
-                teacherName: facultyData?.find(f => f.id === as.teacherId)?.firstName + " " + facultyData?.find(f => f.id === as.teacherId)?.lastName
-            }));
-            setAssignedSubjects(populatedAssignments);
-            setSchedule(generateScheduleForSection(sectionId, populatedAssignments));
-            setAllCourses(coursesData || []);
-            setProgramsList(programsData || []);
-            setTeachingFaculty((facultyData || []).filter(f => f.department === 'Teaching'));
-            setTeacherTeachableCourses(teachableCoursesData || []);
+            // Real API calls
+            const sectionDataArr = await fetchData<Section[]>(`sections/read.php?id=${sectionId}`);
+            fetchedSection = sectionDataArr && sectionDataArr.length > 0 ? sectionDataArr[0] : null;
+            
+            if (fetchedSection) {
+                fetchedStudents = await fetchData<Student[]>(`students/read.php?section=${sectionId}`);
+                fetchedAssignments = await fetchData<SectionSubjectAssignment[]>(`sections/assignments/read.php?sectionId=${sectionId}`);
+            }
+            fetchedSystemCourses = await fetchData<Course[]>('courses/read.php');
+            fetchedPrograms = await fetchData<Program[]>('programs/read.php');
+            const allFaculty = await fetchData<Faculty[]>('teachers/read.php');
+            fetchedFaculty = (allFaculty || []).filter(f => f.department === 'Teaching');
+            fetchedTeachableCourses = await fetchData<{ teacherId: number; courseIds: string[] }[]>('teacher/teachable-courses/read.php');
         }
+
+        setSection(fetchedSection);
+        setStudents(fetchedStudents || []);
+        setCurrentAssignments(fetchedAssignments || []);
+        setSchedule(generateScheduleForSection(sectionId, fetchedAssignments || []));
+        setAllSystemCourses(fetchedSystemCourses || []);
+        setProgramsList(fetchedPrograms || []);
+        setTeachingFaculty(fetchedFaculty || []);
+        setTeacherTeachableCourses(fetchedTeachableCourses || []);
+
+        // Process curriculum and assignments for display
+        if (fetchedSection && fetchedPrograms.length > 0 && fetchedSystemCourses.length > 0) {
+            const programDetails = fetchedPrograms.find(p => p.id === fetchedSection!.programId);
+            const curriculumCourses: Course[] = programDetails?.courses[fetchedSection!.yearLevel] || [];
+            
+            const displayable: DisplayableCourseAssignment[] = curriculumCourses.map(course => {
+                const existingAssignment = (fetchedAssignments || []).find(a => a.subjectId === course.id);
+                return {
+                    courseId: course.id,
+                    courseName: course.name,
+                    teacherId: existingAssignment?.teacherId,
+                    teacherName: existingAssignment?.teacherName,
+                    assignmentId: existingAssignment?.id,
+                    isAssigned: !!existingAssignment,
+                };
+            });
+            setDisplayedCourses(displayable);
+        } else {
+            setDisplayedCourses([]);
+        }
+
     } catch (error: any) {
       console.error("Failed to load section details:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load section data." });
@@ -193,64 +225,60 @@ export default function SectionDetailsPage() {
   }, [loadSectionData]);
 
 
-  const handleOpenAssignSubjectModal = (assignment?: SectionSubjectAssignment) => {
-    if (assignment) {
-        setSelectedAssignmentToEdit(assignment);
-        assignSubjectForm.reset({ subjectId: assignment.subjectId, teacherId: assignment.teacherId });
-    } else {
-        setSelectedAssignmentToEdit(null);
-        assignSubjectForm.reset({ subjectId: "", teacherId: 0 });
-    }
+  const handleOpenAssignTeacherModal = (courseAssignment: DisplayableCourseAssignment) => {
+    setSelectedCourseForAssignment(courseAssignment);
+    assignSubjectForm.reset({ 
+        subjectId: courseAssignment.courseId, // This is the course ID from curriculum
+        teacherId: courseAssignment.teacherId || 0 
+    });
     setIsAssignSubjectModalOpen(true);
   };
 
-  const handleSaveSubjectAssignment = async (values: AssignSubjectFormValues) => {
-    if (!section) return;
+  const handleSaveTeacherAssignment = async (values: AssignSubjectFormValues) => {
+    if (!section || !selectedCourseForAssignment) return;
     setIsSubmitting(true);
+    
+    // `values.subjectId` here is the courseId from the form (which should be fixed to selectedCourseForAssignment.courseId)
     const payload = {
         sectionId: section.id,
-        subjectId: values.subjectId,
+        subjectId: selectedCourseForAssignment.courseId, 
         teacherId: values.teacherId,
     };
 
     try {
-        let responseData: SectionSubjectAssignment;
-        if (selectedAssignmentToEdit) { 
-            // Assuming create.php handles upsert by unique ID (sectionId-subjectId)
-            // or a dedicated update endpoint if available.
-            responseData = await postData<typeof payload, SectionSubjectAssignment>(`sections/assignments/create.php`, payload); 
-            toast({ title: "Course Assignment Updated", description: "Teacher assignment updated." });
-            logActivity("Updated Section Assignment", `Teacher for ${values.subjectId} in section ${section.id}`, "Admin");
-
+        // The backend should handle upsert: if an assignment for this sectionId-subjectId exists, update teacherId; otherwise, create new.
+        // The ID for section_subject_assignments is typically sectionId-subjectId.
+        const responseData = await postData<typeof payload, SectionSubjectAssignment>(`sections/assignments/create.php`, payload); 
+        
+        if (selectedCourseForAssignment.isAssigned) {
+            toast({ title: "Teacher Assignment Updated", description: `Teacher for ${selectedCourseForAssignment.courseName} updated.` });
+            logActivity("Updated Section Teacher Assignment", `Teacher for ${selectedCourseForAssignment.courseName} in section ${section.id}`, "Admin");
         } else {
-            responseData = await postData<typeof payload, SectionSubjectAssignment>(`sections/assignments/create.php`, payload);
-            toast({ title: "Course Assigned", description: "Course and teacher assigned to section." });
-            logActivity("Assigned Course to Section", `${values.subjectId} to section ${section.id}`, "Admin");
+            toast({ title: "Teacher Assigned", description: `Teacher assigned to ${selectedCourseForAssignment.courseName}.` });
+            logActivity("Assigned Teacher to Course in Section", `${selectedCourseForAssignment.courseName} to section ${section.id}`, "Admin");
         }
+        
         setIsAssignSubjectModalOpen(false);
         await loadSectionData(); 
     } catch (error: any) {
-        console.error("Failed to assign/update subject:", error);
-        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save assignment."});
+        console.error("Failed to assign/update teacher:", error);
+        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to save teacher assignment."});
     } finally {
         setIsSubmitting(false);
     }
   };
 
-  const handleDeleteSubjectAssignment = async (assignmentId: string) => {
-    if (!section) return;
+  const handleUnassignTeacher = async (courseAssignment: DisplayableCourseAssignment) => {
+    if (!section || !courseAssignment.assignmentId) return;
     setIsSubmitting(true);
     try {
-        await deleteData(`assignments/delete.php/${assignmentId}`); 
-        toast({ title: "Course Unassigned", description: "Course removed from this section."});
-        const deletedAssignment = assignedSubjects.find(a => a.id === assignmentId);
-        if (deletedAssignment) {
-            logActivity("Unassigned Course from Section", `${deletedAssignment.subjectName} from section ${section.id}`, "Admin");
-        }
+        await deleteData(`assignments/delete.php/${courseAssignment.assignmentId}`); 
+        toast({ title: "Teacher Unassigned", description: `Teacher unassigned from ${courseAssignment.courseName}.`});
+        logActivity("Unassigned Teacher from Course in Section", `${courseAssignment.courseName} from section ${section.id}`, "Admin");
         await loadSectionData(); 
     } catch (error: any) {
-        console.error("Failed to unassign subject:", error);
-        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove assignment."});
+        console.error("Failed to unassign teacher:", error);
+        toast({ variant: "destructive", title: "Error", description: error.message || "Failed to remove teacher assignment."});
     } finally {
         setIsSubmitting(false);
     }
@@ -264,44 +292,58 @@ export default function SectionDetailsPage() {
     { accessorKey: "email", header: "Email" },
   ];
 
-  const subjectAssignmentColumns: ColumnDef<SectionSubjectAssignment>[] = [
-    { accessorKey: "subjectName", header: "Course (Subject)" },
-    { accessorKey: "teacherName", header: "Assigned Teacher" },
+  // Columns for the DisplayableCourseAssignment
+  const courseAssignmentColumns: ColumnDef<DisplayableCourseAssignment>[] = [
+    { 
+        accessorKey: "courseName", 
+        header: "Course (Subject)",
+        cell: ({ row }) => row.original.courseName || row.original.courseId,
+    },
+    { 
+        accessorKey: "teacherName", 
+        header: "Assigned Teacher",
+        cell: ({row}) => row.original.teacherName || <span className="italic text-muted-foreground">Pending Assignment</span>
+    },
     {
         id: "actions",
-        cell: ({ row }) => (
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleOpenAssignSubjectModal(row.original)} disabled={isSubmitting}>
-                    <Edit2 className="mr-2 h-4 w-4" /> Edit Teacher
-                </Button>
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                         <Button variant="destructive" size="sm" disabled={isSubmitting}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Unassign
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Unassign Course?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Are you sure you want to remove "{row.original.subjectName}" from this section?
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={() => handleDeleteSubjectAssignment(row.original.id)}
-                                className={buttonVariants({variant: "destructive"})}
-                                disabled={isSubmitting}
-                            >
-                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Yes, Unassign
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                 </AlertDialog>
-            </div>
-        ),
+        cell: ({ row }) => {
+            const courseItem = row.original;
+            return (
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenAssignTeacherModal(courseItem)} disabled={isSubmitting}>
+                        <Edit2 className="mr-2 h-4 w-4" /> {courseItem.isAssigned ? "Edit Teacher" : "Assign Teacher"}
+                    </Button>
+                    {courseItem.isAssigned && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={isSubmitting}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> Unassign
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Unassign Teacher?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Are you sure you want to unassign {courseItem.teacherName} from "{courseItem.courseName}"?
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() => handleUnassignTeacher(courseItem)}
+                                        className={buttonVariants({variant: "destructive"})}
+                                        disabled={isSubmitting}
+                                    >
+                                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Yes, Unassign
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </div>
+            );
+        }
     }
   ];
 
@@ -326,19 +368,12 @@ export default function SectionDetailsPage() {
   }
 
   const programDetails = programsList.find(p => p.id === section.programId);
-  const coursesForThisSectionProgramAndYear = programDetails?.courses[section.yearLevel] || [];
-
-  const availableCoursesForModal = coursesForThisSectionProgramAndYear.filter(course => {
-    // If editing, allow the current subject. Otherwise, don't show already assigned subjects.
-    if (selectedAssignmentToEdit && selectedAssignmentToEdit.subjectId === course.id) return true;
-    return !assignedSubjects.some(as => as.subjectId === course.id);
-  });
   
   const availableTeachersForModal = teachingFaculty.filter(faculty => {
-      if (!watchedSubjectIdInModal) return true; // Show all if no subject selected yet
+      if (!selectedCourseForAssignment?.courseId) return true; 
       const teachableInfo = teacherTeachableCourses.find(ttc => ttc.teacherId === faculty.id);
-      if (!teachableInfo || teachableInfo.courseIds.length === 0) return true; // Assume can teach any if not specified
-      return teachableInfo.courseIds.includes(watchedSubjectIdInModal);
+      if (!teachableInfo || teachableInfo.courseIds.length === 0) return true; 
+      return teachableInfo.courseIds.includes(selectedCourseForAssignment.courseId);
   });
 
 
@@ -350,23 +385,26 @@ export default function SectionDetailsPage() {
             <p className="text-muted-foreground">{programDetails?.name || section.programId} - {section.yearLevel}</p>
              <p className="text-sm text-muted-foreground">Adviser: {section.adviserName || 'Not Assigned'}</p>
         </div>
-        <Button onClick={() => router.back()} variant="outline">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Sections
+        <Button onClick={() => router.push('/admin/assignments')} variant="outline">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Schedule & Announcements
         </Button>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center"><BookOpen className="mr-2 h-5 w-5 text-primary" /> Assigned Courses & Teachers</CardTitle>
+            <CardTitle className="flex items-center"><BookOpen className="mr-2 h-5 w-5 text-primary" /> Curriculum Courses & Teachers</CardTitle>
           </div>
-          <CardDescription>Manage teachers for courses automatically assigned to this section based on its program curriculum ({programDetails?.name} - {section.yearLevel}).</CardDescription>
+          <CardDescription>
+            Courses for this section are based on the curriculum for {programDetails?.name || section.programId} - {section.yearLevel}. 
+            Assign qualified teachers to each course.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {assignedSubjects.length > 0 ? (
-            <DataTable columns={subjectAssignmentColumns} data={assignedSubjects} />
+          {displayedCourses.length > 0 ? (
+            <DataTable columns={courseAssignmentColumns} data={displayedCourses} />
           ) : (
-            <p className="text-muted-foreground">No courses are currently assigned to this section, or no teachers have been assigned to the program's courses for this year level.</p>
+            <p className="text-muted-foreground">No curriculum courses defined for this program and year level, or an error occurred.</p>
           )}
         </CardContent>
       </Card>
@@ -374,7 +412,7 @@ export default function SectionDetailsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><CalendarClock className="mr-2 h-5 w-5 text-primary" /> Class Schedule</CardTitle>
-          <CardDescription>Generated class schedule based on assigned courses. (Mock: Mon-Fri, 8AM-5PM, 1hr slots)</CardDescription>
+          <CardDescription>Generated class schedule based on assigned courses and teachers. (Mock: Mon-Fri, 8AM-5PM, 1hr slots)</CardDescription>
         </CardHeader>
         <CardContent>
           {schedule.length > 0 ? (
@@ -391,7 +429,7 @@ export default function SectionDetailsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground">No schedule generated. Assign courses and teachers to see the schedule.</p>
+            <p className="text-muted-foreground">No schedule generated. Assign teachers to curriculum courses to see the schedule.</p>
           )}
         </CardContent>
       </Card>
@@ -413,38 +451,28 @@ export default function SectionDetailsPage() {
        <Dialog open={isAssignSubjectModalOpen} onOpenChange={setIsAssignSubjectModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedAssignmentToEdit ? 'Edit Teacher Assignment' : 'Assign Teacher to Course'}</DialogTitle>
+            <DialogTitle>{selectedCourseForAssignment?.isAssigned ? 'Edit Teacher Assignment' : 'Assign Teacher to Course'}</DialogTitle>
             <DialogDescription>
-              {selectedAssignmentToEdit ? `Update teacher for ${selectedAssignmentToEdit.subjectName} in section ${section.sectionCode}.` : `Assign a teacher to a course in section ${section.sectionCode}.`}
+              Assign a teacher for: <span className="font-semibold">{selectedCourseForAssignment?.courseName}</span> in section {section.sectionCode}.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] p-1 pr-4">
             <Form {...assignSubjectForm}>
-                <form onSubmit={assignSubjectForm.handleSubmit(handleSaveSubjectAssignment)} className="space-y-4 py-4">
+                <form onSubmit={assignSubjectForm.handleSubmit(handleSaveTeacherAssignment)} className="space-y-4 py-4">
                 <FormField
                     control={assignSubjectForm.control}
-                    name="subjectId"
+                    name="subjectId" // This is the Course ID
                     render={({ field }) => (
                     <FormItem>
                         <FormLabel>Course (Subject)</FormLabel>
                         <Select 
-                            onValueChange={(value) => {
-                                field.onChange(value);
-                                assignSubjectForm.setValue('teacherId', 0); // Reset teacher when subject changes
-                            }} 
-                            value={field.value} 
-                            disabled={isLoading || isSubmitting || !!selectedAssignmentToEdit}
+                            onValueChange={field.onChange} 
+                            value={field.value} // Should be pre-filled from selectedCourseForAssignment.courseId
+                            disabled={true} // Course is fixed based on what was clicked
                         >
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select a course" /></SelectTrigger></FormControl>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
-                            {availableCoursesForModal.map(course => (
-                            <SelectItem key={course.id} value={course.id}>{course.name} ({course.id})</SelectItem>
-                            ))}
-                            {selectedAssignmentToEdit && 
-                                !availableCoursesForModal.some(c => c.id === selectedAssignmentToEdit.subjectId) && 
-                                <SelectItem value={selectedAssignmentToEdit.subjectId}>{selectedAssignmentToEdit.subjectName}</SelectItem> 
-                            }
-                            {availableCoursesForModal.length === 0 && !selectedAssignmentToEdit && <SelectItem value="none" disabled>No available courses for this section/year.</SelectItem>}
+                           {selectedCourseForAssignment && <SelectItem value={selectedCourseForAssignment.courseId}>{selectedCourseForAssignment.courseName}</SelectItem>}
                         </SelectContent>
                         </Select>
                         <FormMessage />
@@ -460,14 +488,17 @@ export default function SectionDetailsPage() {
                         <Select 
                             onValueChange={(value) => field.onChange(parseInt(value))} 
                             value={field.value ? String(field.value) : ""} 
-                            disabled={isLoading || isSubmitting || !watchedSubjectIdInModal}
+                            disabled={isLoading || isSubmitting || !selectedCourseForAssignment?.courseId}
                         >
-                        <FormControl><SelectTrigger><SelectValue placeholder={!watchedSubjectIdInModal ? "Select a course first" : "Select a teacher"} /></SelectTrigger></FormControl>
+                        <FormControl><SelectTrigger><SelectValue placeholder={!selectedCourseForAssignment?.courseId ? "Course not selected" : "Select a teacher"} /></SelectTrigger></FormControl>
                         <SelectContent>
+                             <SelectItem value={"0"}>--- Unassign Teacher ---</SelectItem>
                             {availableTeachersForModal.map(faculty => (
                             <SelectItem key={faculty.id} value={String(faculty.id)}>{faculty.firstName} {faculty.lastName}</SelectItem>
                             ))}
-                            {watchedSubjectIdInModal && availableTeachersForModal.length === 0 && <SelectItem value="none" disabled>No qualified teachers for this course.</SelectItem>}
+                            {selectedCourseForAssignment?.courseId && availableTeachersForModal.length === 0 && 
+                                <SelectItem value="none" disabled>No qualified teachers for this course.</SelectItem>
+                            }
                         </SelectContent>
                         </Select>
                         <FormMessage />
@@ -476,9 +507,9 @@ export default function SectionDetailsPage() {
                 />
                 <DialogFooter className="mt-4 pt-4 border-t">
                     <Button type="button" variant="outline" onClick={() => setIsAssignSubjectModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
-                    <Button type="submit" disabled={isSubmitting || !watchedSubjectIdInModal}>
+                    <Button type="submit" disabled={isSubmitting || !selectedCourseForAssignment?.courseId}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {selectedAssignmentToEdit ? 'Save Changes' : 'Assign Teacher'}
+                        {selectedCourseForAssignment?.isAssigned ? 'Update Teacher' : 'Assign Teacher'}
                     </Button>
                 </DialogFooter>
                 </form>
@@ -490,5 +521,4 @@ export default function SectionDetailsPage() {
     </div>
   );
 }
-
     
