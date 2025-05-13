@@ -3,12 +3,13 @@
 
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { fetchData } from "@/lib/api";
+import { fetchData, USE_MOCK_API, mockFaculty } from "@/lib/api"; // Updated to use mockFaculty from api.ts
 import type { Faculty, DepartmentType, EmploymentType } from "@/types";
 import { Loader2, Briefcase, Building, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation"; // Import useRouter
 
 interface PopulationData {
   [department: string]: {
@@ -22,12 +23,20 @@ export default function FacultyPopulationPage() {
   const [totalFaculty, setTotalFaculty] = React.useState<number>(0);
   const [isLoading, setIsLoading] = React.useState(true);
   const { toast } = useToast();
+  const router = useRouter(); // Initialize useRouter
 
   React.useEffect(() => {
     const fetchFacultyData = async () => {
       setIsLoading(true);
       try {
-        const facultyList = await fetchData<Faculty[]>("teachers/read.php"); // Endpoint for faculty is 'teachers'
+        let facultyList: Faculty[] | null = null;
+        if (USE_MOCK_API) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            facultyList = mockFaculty;
+        } else {
+            facultyList = await fetchData<Faculty[]>("teachers/read.php");
+        }
+        
         if (facultyList) {
           const breakdown: PopulationData = {};
           let currentTotal = 0;
@@ -65,6 +74,10 @@ export default function FacultyPopulationPage() {
 
     fetchFacultyData();
   }, [toast]);
+
+  const handleCardClick = (department: DepartmentType) => {
+    router.push(`/admin/teachers?department=${encodeURIComponent(department)}`);
+  };
 
   if (isLoading) {
     return (
@@ -123,13 +136,18 @@ export default function FacultyPopulationPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2"> {/* Max 2 columns for department cards */}
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         {Object.entries(populationData)
-            .sort(([deptA], [deptB]) => deptA.localeCompare(deptB)) // Sort by department name
+            .sort(([deptA], [deptB]) => deptA.localeCompare(deptB)) 
             .map(([department, typeData]) => {
                 const DepartmentIcon = departmentIcons[department as DepartmentType] || Briefcase;
+                const isAdministrativeCard = department === 'Administrative';
                 return (
-                    <Card key={department} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-200">
+                    <Card 
+                        key={department} 
+                        className={`flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-200 ${isAdministrativeCard ? 'cursor-pointer' : ''}`}
+                        onClick={isAdministrativeCard ? () => handleCardClick('Administrative') : undefined}
+                    >
                         <CardHeader>
                         <CardTitle className="text-xl text-primary flex items-center gap-2">
                             <DepartmentIcon className="h-5 w-5" />
@@ -141,7 +159,7 @@ export default function FacultyPopulationPage() {
                         <ul className="space-y-2">
                             {Object.entries(typeData)
                             .filter(([key]) => key !== 'total')
-                            .sort(([typeA], [typeB]) => typeA.localeCompare(typeB)) // Sort by employment type
+                            .sort(([typeA], [typeB]) => typeA.localeCompare(typeB)) 
                             .map(([type, count]) => (
                             <li key={type} className="flex justify-between items-center text-sm p-3 bg-secondary/60 rounded-md border border-border">
                                 <span className="text-muted-foreground">{type}:</span>
@@ -157,3 +175,4 @@ export default function FacultyPopulationPage() {
     </div>
   );
 }
+
