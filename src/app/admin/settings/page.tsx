@@ -1,11 +1,10 @@
-
 "use client";
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import { Loader2, LockKeyhole, Eye, EyeOff } from "lucide-react";
+import { Loader2, LockKeyhole, Eye, EyeOff, User, InfoIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +25,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { passwordChangeSchema } from "@/lib/schemas";
-import { postData, USE_MOCK_API } from "@/lib/api"; // Import USE_MOCK_API for conditional logic
+import { postData, USE_MOCK_API, mockApiAdmins, mockFaculty, fetchData } from "@/lib/api";
+import type { AdminUser, Faculty, AdminRole } from "@/types";
 
 type PasswordFormValues = z.infer<typeof passwordChangeSchema>;
 
@@ -35,6 +35,66 @@ export default function AdminSettingsPage() {
   const [showCurrentPassword, setShowCurrentPassword] = React.useState(false);
   const [showNewPassword, setShowNewPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+
+  const [isCurrentUserSuperAdmin, setIsCurrentUserSuperAdmin] = React.useState(false);
+  const [currentUserId, setCurrentUserId] = React.useState<number | null>(null);
+  const [currentUserDetails, setCurrentUserDetails] = React.useState<AdminUser | null>(null);
+  const [currentFacultyDetails, setCurrentFacultyDetails] = React.useState<Faculty | null>(null);
+  const [isLoadingInfo, setIsLoadingInfo] = React.useState(true);
+
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedUserId = localStorage.getItem('userId');
+      const parsedUserId = storedUserId ? parseInt(storedUserId, 10) : null;
+      setCurrentUserId(parsedUserId);
+      setIsCurrentUserSuperAdmin(parsedUserId === 0); // Super Admin ID is 0
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const fetchAdminInfo = async () => {
+        if (currentUserId === null) return;
+        setIsLoadingInfo(true);
+        try {
+            if (USE_MOCK_API) {
+                const admin = mockApiAdmins.find(a => a.id === currentUserId);
+                setCurrentUserDetails(admin || null);
+                if (admin && !admin.isSuperAdmin) {
+                    const faculty = mockFaculty.find(f => f.id === currentUserId);
+                    setCurrentFacultyDetails(faculty || null);
+                }
+            } else {
+                // In a real API, you'd fetch the current admin's details.
+                // This might involve fetching from an 'admins' endpoint and potentially a 'faculty' endpoint if the sub-admin is faculty.
+                // For now, we'll simulate based on role for the placeholder.
+                // If it's super admin (ID 0), we can assume some basic info.
+                // If it's sub-admin, we'd need to fetch their faculty record to get employment type.
+                
+                // Placeholder: Fetch admin details (you'd need an endpoint like 'admins/profile/read.php')
+                // For simplicity, assuming 'mockApiAdmins' and 'mockFaculty' are up-to-date or a similar fetch happens.
+                // This part would need real API calls if not using mock.
+                const allAdmins = await fetchData<AdminUser[]>('admins/read.php'); // Assuming this fetches all admins
+                const admin = allAdmins.find(a => a.id === currentUserId);
+                setCurrentUserDetails(admin || null);
+
+                if (admin && !admin.isSuperAdmin) {
+                    const allFaculty = await fetchData<Faculty[]>('teachers/read.php');
+                    const faculty = allFaculty.find(f => f.id === currentUserId);
+                    setCurrentFacultyDetails(faculty || null);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch admin/faculty info:", error);
+            toast({ variant: "destructive", title: "Error", description: "Could not load user information." });
+        } finally {
+            setIsLoadingInfo(false);
+        }
+    };
+
+    fetchAdminInfo();
+  }, [currentUserId, toast]);
+
 
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordChangeSchema),
@@ -88,6 +148,53 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Settings</h1>
+
+        <Card>
+            <CardHeader>
+                <div className="flex items-center space-x-2">
+                    <InfoIcon className="h-6 w-6 text-primary" />
+                    <CardTitle>General Information</CardTitle>
+                </div>
+                <CardDescription>Basic information about your account.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoadingInfo ? (
+                     <div className="flex items-center space-x-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Loading information...</span>
+                    </div>
+                ) : isCurrentUserSuperAdmin && currentUserId === 0 && currentUserDetails ? (
+                    <div className="space-y-2 text-sm">
+                        <p><strong>Name:</strong> {currentUserDetails.firstName} {currentUserDetails.lastName}</p>
+                        <p><strong>Username:</strong> {currentUserDetails.username}</p>
+                        <p><strong>Role:</strong> {currentUserDetails.role}</p>
+                        <p className="mt-2 text-muted-foreground">System Information:</p>
+                        <ul className="list-disc list-inside pl-4 text-xs">
+                            <li>Version: 1.0.0</li>
+                            <li>Environment: {USE_MOCK_API ? "Mock API" : "Live API"}</li>
+                            {/* Add more system info if needed */}
+                        </ul>
+                    </div>
+                ) : !isCurrentUserSuperAdmin && currentUserDetails && currentFacultyDetails ? (
+                    <div className="space-y-2 text-sm">
+                        <p><strong>Name:</strong> {currentFacultyDetails.firstName} {currentFacultyDetails.lastName}</p>
+                        <p><strong>Username:</strong> {currentUserDetails.username}</p>
+                        <p><strong>Role:</strong> Sub Admin</p>
+                        <p><strong>Department:</strong> {currentFacultyDetails.department}</p>
+                        <p><strong>Employment Type:</strong> {currentFacultyDetails.employmentType}</p>
+                    </div>
+                ) : !isCurrentUserSuperAdmin && currentUserDetails && !currentFacultyDetails && currentUserDetails.role === 'Sub Admin' ? (
+                     <div className="space-y-2 text-sm">
+                        <p><strong>Username:</strong> {currentUserDetails.username}</p>
+                        <p><strong>Role:</strong> {currentUserDetails.role}</p>
+                        <p className="text-muted-foreground italic">This is an explicit Sub Admin account not directly linked to a faculty record.</p>
+                    </div>
+                ) : (
+                    <p className="text-muted-foreground">Could not load account information.</p>
+                )}
+            </CardContent>
+        </Card>
+
        <Card>
           <CardHeader>
              <div className="flex items-center space-x-2">
