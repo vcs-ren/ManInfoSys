@@ -1,9 +1,8 @@
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState, ColumnFiltersState } from "@tanstack/react-table";
-import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil, Edit3, UserCog, Users, Library, ClipboardList, Settings as SettingsIcon, LayoutDashboard } from "lucide-react"; // Added missing icons
 import { format, formatDistanceToNow } from 'date-fns';
 import { useSearchParams } from 'next/navigation'; // Import useSearchParams
 
@@ -11,7 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form";
 import { teacherSchema } from "@/lib/schemas";
-import type { Faculty, EmploymentType, DepartmentType, AdminUser } from "@/types";
+import type { Faculty, EmploymentType, DepartmentType, AdminUser, AdminRole } from "@/types"; // Added AdminRole
 import {
     AlertDialog,
     AlertDialogAction,
@@ -28,6 +27,8 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuTrigger, // Added DropdownMenuTrigger
+    DropdownMenuLabel, // Added DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -51,7 +52,6 @@ const genderOptions = [
     { value: "Other", label: "Other" },
 ];
 
-// Modified getFacultyFormFields to include currentUserIsSuperAdmin for conditional disabling
 const getFacultyFormFields = (isCurrentUserSuperAdmin: boolean): FormFieldConfig<Faculty>[] => [
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
@@ -61,16 +61,15 @@ const getFacultyFormFields = (isCurrentUserSuperAdmin: boolean): FormFieldConfig
   { name: "birthday", label: "Birthday", placeholder: "YYYY-MM-DD (optional)", type: "date", section: 'personal' },
   { name: "address", label: "Address", placeholder: "Enter full address (optional)", type: "textarea", section: 'personal' },
   { name: "employmentType", label: "Employment Type", type: "select", options: employmentTypeOptions, placeholder: "Select employment type", required: true, section: 'employee' },
-  { 
-    name: "department", 
-    label: "Department", 
-    type: "select", 
-    options: departmentOptions, 
-    placeholder: "Select department", 
-    required: true, 
+  {
+    name: "department",
+    label: "Department",
+    type: "select",
+    options: departmentOptions,
+    placeholder: "Select department",
+    required: true,
     section: 'employee',
     disabled: (data, isSuperAdmin, isEditMode, initialDepartment) => {
-        // Field is disabled if not super admin AND editing an existing administrative staff
         if (!isSuperAdmin && isEditMode && initialDepartment === 'Administrative') {
             return true;
         }
@@ -94,9 +93,11 @@ export default function ManageFacultyPage() {
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isCurrentUserSuperAdmin, setIsCurrentUserSuperAdmin] = React.useState(false);
+  const [currentUserId, setCurrentUserId] = React.useState<number | null>(null);
+  const [currentUserRole, setCurrentUserRole] = React.useState<AdminRole | null>(null);
   const { toast } = useToast();
-  const searchParams = useSearchParams(); // Get search params
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]); // For DataTable
+  const searchParams = useSearchParams();
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
      middleName: false,
@@ -117,8 +118,12 @@ export default function ManageFacultyPage() {
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const userId = localStorage.getItem('userId');
-      setIsCurrentUserSuperAdmin(userId === '0'); // Super Admin ID is 0
+      const storedUserId = localStorage.getItem('userId');
+      const storedUserRole = localStorage.getItem('userRole') as AdminRole | null; // Cast to AdminRole
+      const parsedUserId = storedUserId ? parseInt(storedUserId, 10) : null;
+      setCurrentUserId(parsedUserId);
+      setCurrentUserRole(storedUserRole);
+      setIsCurrentUserSuperAdmin(parsedUserId === 0 && storedUserRole === 'Super Admin');
     }
   }, []);
 
@@ -135,26 +140,38 @@ export default function ManageFacultyPage() {
         } else {
             data = await fetchData<Faculty[]>('teachers/read.php');
         }
-        setFaculty(data || []);
+
+        let facultyList = data || [];
+        // If current user is a Sub Admin, filter themselves out
+        if (currentUserRole === 'Sub Admin' && currentUserId !== null) {
+            facultyList = facultyList.filter(f => f.id !== currentUserId);
+        }
+
+        setFaculty(facultyList);
       } catch (error: any) {
         console.error("Failed to fetch faculty:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load faculty data." });
       } finally {
         setIsLoading(false);
       }
-    }, [toast]);
+    }, [toast, currentUserRole, currentUserId]);
 
   React.useEffect(() => {
-    fetchFacultyData();
-  }, [fetchFacultyData]);
+    // Fetch data only after user role and ID are determined
+    if (currentUserRole !== null && currentUserId !== null) {
+        fetchFacultyData();
+    } else if (currentUserRole === null && typeof window !== 'undefined' && !localStorage.getItem('userId')) {
+        // If role/id couldn't be determined (e.g., not logged in), still attempt fetch or show empty/error
+        fetchFacultyData();
+    }
+  }, [fetchFacultyData, currentUserRole, currentUserId]);
 
-  // Effect to apply department filter from URL
+
   React.useEffect(() => {
     const departmentQuery = searchParams.get('department');
     if (departmentQuery) {
         setColumnFilters([{ id: 'department', value: [departmentQuery] }]);
     } else {
-        // Clear filter if no department in query, or set to initial if needed
         setColumnFilters(prevFilters => prevFilters.filter(f => f.id !== 'department'));
     }
   }, [searchParams]);
@@ -162,24 +179,23 @@ export default function ManageFacultyPage() {
   const handleSaveFaculty = async (values: Faculty) => {
     setIsSubmitting(true);
 
-    // Restriction: Only Super Admin can set department to "Administrative"
     if (values.department === 'Administrative' && !isCurrentUserSuperAdmin) {
         toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admin can assign faculty to Administrative department."});
         setIsSubmitting(false);
         throw new Error("Unauthorized department change");
     }
-    
-    const nameExists = faculty.some(
-        (f) =>
-            f.firstName.toLowerCase() === values.firstName.toLowerCase() &&
-            f.lastName.toLowerCase() === values.lastName.toLowerCase() &&
-            (!isEditMode || (isEditMode && selectedFaculty && f.id !== selectedFaculty.id))
+
+    const isDuplicate = faculty.some(
+      (f) =>
+        f.firstName.toLowerCase() === values.firstName.toLowerCase() &&
+        f.lastName.toLowerCase() === values.lastName.toLowerCase() &&
+        (!isEditMode || (isEditMode && selectedFaculty && f.id !== selectedFaculty.id))
     );
 
-    if (nameExists) {
-        toast({ variant: "destructive", title: "Duplicate Name", description: `A faculty member named ${values.firstName} ${values.lastName} already exists.` });
-        setIsSubmitting(false);
-        throw new Error("Duplicate name");
+    if (isDuplicate) {
+      toast({ variant: "destructive", title: "Duplicate Name", description: `A faculty member named ${values.firstName} ${values.lastName} already exists.` });
+      setIsSubmitting(false);
+      throw new Error("Duplicate name");
     }
 
      const payload = { ...values, id: isEditMode ? selectedFaculty?.id : undefined };
@@ -191,10 +207,10 @@ export default function ManageFacultyPage() {
              logActivity("Updated Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName}`, "Admin", savedFacultyResponse.id, "faculty");
          } else {
               savedFacultyResponse = await postData<Omit<typeof payload, 'id' | 'facultyId' | 'username' | 'lastAccessed'>, Faculty>('teachers/create.php', payload);
-             logActivity("Added Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} (${savedFacultyResponse.username})`, "Admin", savedFacultyResponse.id, "faculty", true, { ...savedFacultyResponse, passwordHash: "mock_hash" }); 
+             logActivity("Added Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} (${savedFacultyResponse.username})`, "Admin", savedFacultyResponse.id, "faculty", true, { ...savedFacultyResponse, passwordHash: "mock_hash" });
          }
-         
-         await fetchFacultyData(); 
+
+         await fetchFacultyData();
          toast({ title: isEditMode ? "Faculty Updated" : "Faculty Added", description: `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} has been ${isEditMode ? 'updated' : 'added'}.` });
          closeModal();
      } catch (error: any) {
@@ -212,10 +228,10 @@ export default function ManageFacultyPage() {
       const facultyToDelete = faculty.find(f => f.id === facultyId);
       try {
              await deleteData(`teachers/delete.php/${facultyId}`);
-            await fetchFacultyData(); 
+            await fetchFacultyData();
             toast({ title: "Faculty Deleted", description: `Faculty record has been removed.` });
             if (facultyToDelete) {
-                logActivity("Deleted Faculty", `${facultyToDelete.firstName} ${facultyToDelete.lastName} (${facultyToDelete.username})`, "Admin", facultyId, "faculty", true, facultyToDelete); 
+                logActivity("Deleted Faculty", `${facultyToDelete.firstName} ${facultyToDelete.lastName} (${facultyToDelete.username})`, "Admin", facultyId, "faculty", true, facultyToDelete);
             }
       } catch (error: any) {
           console.error("Failed to delete faculty:", error);
@@ -478,7 +494,7 @@ export default function ManageFacultyPage() {
                  filterableColumnHeaders={[
                     { columnId: "department", title: "Department", options: departmentOptions }
                 ]}
-                initialColumnFilters={columnFilters} // Pass initial filters to DataTable
+                initialColumnFilters={columnFilters}
             />
         )}
 
@@ -493,7 +509,7 @@ export default function ManageFacultyPage() {
           isEditMode={isEditMode}
           initialData={isEditMode ? selectedFaculty : undefined}
           startReadOnly={isEditMode}
-          currentUserIsSuperAdmin={isCurrentUserSuperAdmin} // Pass super admin status
+          currentUserIsSuperAdmin={isCurrentUserSuperAdmin}
         />
     </div>
   );
