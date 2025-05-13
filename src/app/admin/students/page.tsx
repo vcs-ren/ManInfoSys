@@ -2,15 +2,16 @@
 "use client";
 
 import * as React from "react";
-import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil, UserCheck, CheckSquare } from "lucide-react"; // Added Pencil
+import type { ColumnDef, VisibilityState, ColumnFiltersState } from "@tanstack/react-table";
+import { PlusCircle, Trash2, Loader2, RotateCcw, Pencil, CheckSquare } from "lucide-react"; 
 import { format, formatDistanceToNow } from 'date-fns';
+import { useSearchParams } from 'next/navigation';
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form";
 import { studentSchema } from "@/lib/schemas";
-import type { Student, Program, YearLevel, EnrollmentType } from "@/types";
+import type { Student, Program, YearLevel, EnrollmentType, Section as SectionType } from "@/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -30,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockStudents, logActivity, mockSections } from "@/lib/api";
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockStudents, logActivity, mockSections, defaultUSE_MOCK_API } from "@/lib/api";
 import { generateDefaultPasswordDisplay } from "@/lib/utils";
 
 
@@ -38,7 +39,7 @@ const enrollmentTypeOptions: { value: EnrollmentType; label: string }[] = [
     { value: "New", label: "New" },
     { value: "Transferee", label: "Transferee" },
     { value: "Returnee", label: "Returnee" },
-    { value: "Continuing", label: "Continuing" },
+    // "Continuing" is set via Promote action
 ];
 
 const yearLevelOptions: { value: YearLevel; label: string }[] = [
@@ -58,24 +59,17 @@ const getStudentFormFields = (programs: Program[]): FormFieldConfig<Student>[] =
   const programOptions = programs.map(p => ({ value: p.id, label: p.name }));
 
   return [
-    // Personal Information Section
     { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
     { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
     { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
     { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr. (optional)", section: 'personal' },
     { name: "birthday", label: "Birthday", type: "date", placeholder: "YYYY-MM-DD (optional)", section: 'personal' },
     { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
-
-    // Enrollment Information Section
     { name: "enrollmentType", label: "Enrollment Type", type: "select", options: enrollmentTypeOptions, placeholder: "Select enrollment type", required: true, section: 'enrollment' },
-    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.enrollmentType ? ['Transferee', 'Returnee', 'Continuing'].includes(data.enrollmentType) : false },
+    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.enrollmentType ? ['Transferee', 'Returnee', 'Continuing'].includes(data.enrollmentType as EnrollmentType) : false },
     { name: "program", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' },
-    
-    // Contact/Account Details Section
     { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
     { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
-
-    // Emergency Contact Information Section
     { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
     { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father (optional)", type: "text", section: 'emergency' },
     { name: "emergencyContactPhone", label: "Emergency Contact Phone", placeholder: "Emergency contact number (optional)", type: "tel", section: 'emergency' },
@@ -93,6 +87,8 @@ export default function ManageStudentsPage() {
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
     emergencyContactName: false,
     emergencyContactRelationship: false,
@@ -124,7 +120,7 @@ export default function ManageStudentsPage() {
         const [studentsData, programsData, sectionsDataResult] = await Promise.all([
           fetchData<Student[]>('students/read.php'),
           fetchData<Program[]>('programs/read.php'),
-          fetchData<Section[]>('sections/read.php') 
+          fetchData<SectionType[]>('sections/read.php') 
         ]);
         setStudents(studentsData || []);
         setPrograms(programsData || []);
@@ -141,6 +137,15 @@ export default function ManageStudentsPage() {
   React.useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  React.useEffect(() => {
+    const programQuery = searchParams.get('program');
+    if (programQuery) {
+        setColumnFilters([{ id: 'program', value: [programQuery] }]);
+    } else {
+        setColumnFilters(prevFilters => prevFilters.filter(f => f.id !== 'program'));
+    }
+  }, [searchParams]);
 
   const handleSaveStudent = async (values: Student) => {
     setIsSubmitting(true);
@@ -180,10 +185,7 @@ export default function ManageStudentsPage() {
             logActivity("Updated Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName}`, "Admin", savedStudentResponse.id, "student");
         } else {
              savedStudentResponse = await postData<Omit<typeof payload, 'id' | 'studentId' | 'username' | 'section' | 'lastAccessed'>, Student>('students/create.php', payload);
-            // The logActivity for "Added Student" is now inside postData for mock, so it will capture the auto-generated section and username
-            // No need to logActivity("Added Student", ...) here if using mock.
-            // If not using mock, the logActivity here is fine, but ensure it has all necessary details.
-            if (!USE_MOCK_API) { // Only log here if not using mock, as mock logs internally
+            if (!USE_MOCK_API) { 
               logActivity("Added Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} (${savedStudentResponse.username})`, "Admin", savedStudentResponse.id, "student", true, { ...savedStudentResponse});
             }
         }
@@ -192,7 +194,7 @@ export default function ManageStudentsPage() {
         toast({ title: isEditMode ? "Student Updated" : "Student Added", description: `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} has been ${isEditMode ? 'updated' : 'added'}.` });
         closeModal();
     } catch (error: any) {
-        if (error.message !== "Duplicate name") { // Only show generic error if not the duplicate name error
+        if (error.message !== "Duplicate name") { 
             console.error(`Failed to ${isEditMode ? 'update' : 'add'} student:`, error);
             toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Student`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} student. Please try again.` });
         }
@@ -289,7 +291,7 @@ export default function ManageStudentsPage() {
 
    const closeModal = () => {
     setIsModalOpen(false);
-     setTimeout(() => { // Delay resetting state until after modal close animation
+     setTimeout(() => { 
         setSelectedStudent(null);
         setIsEditMode(false);
      }, 150);
@@ -474,7 +476,7 @@ export default function ManageStudentsPage() {
             View / Edit Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        {student.year && student.year !== '4th Year' && ( // Only show if not 4th year
+        {student.year && student.year !== '4th Year' && ( 
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-green-600 focus:text-green-600 focus:bg-green-100" disabled={isSubmitting}>
@@ -496,7 +498,7 @@ export default function ManageStudentsPage() {
                                 e.stopPropagation();
                                 await handlePromoteStudent(student);
                             }}
-                            className={cn(buttonVariants({ variant: "default" }), "bg-green-600 hover:bg-green-700 text-white")} // Custom styling for promote
+                            className={cn(buttonVariants({ variant: "default" }), "bg-green-600 hover:bg-green-700 text-white")} 
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -517,7 +519,7 @@ export default function ManageStudentsPage() {
                  <AlertDialogHeader>
                      <AlertDialogTitle>Reset Password?</AlertDialogTitle>
                      <AlertDialogDescription>
-                          This will reset the password for {student.firstName} {student.lastName}. Default: {generateDefaultPasswordDisplay(student.lastName)}. Are you sure?
+                          This will reset the password for {student.firstName} ${student.lastName}. Default: {generateDefaultPasswordDisplay(student.lastName)}. Are you sure?
                      </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
@@ -589,7 +591,7 @@ export default function ManageStudentsPage() {
                 columns={columns}
                 data={students}
                 searchPlaceholder="Search by name..."
-                searchColumnId="firstName" // Or "lastName", or implement multi-column search
+                searchColumnId="firstName" 
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
@@ -599,12 +601,13 @@ export default function ManageStudentsPage() {
                     { columnId: "enrollmentType", title: "Enrollment Type", options: enrollmentTypeOptions },
                     { columnId: "section", title: "Section", options: sectionOptions },
                 ]}
+                initialColumnFilters={columnFilters}
             />
         )}
 
       <UserForm<Student>
             isOpen={isModalOpen}
-            onOpenChange={setIsModalOpen} // Pass setIsOpen directly
+            onOpenChange={setIsModalOpen} 
             formSchema={studentSchema}
             onSubmit={handleSaveStudent}
             title={isEditMode ? `Student Details: ${selectedStudent?.firstName} ${selectedStudent?.lastName}` : 'Add New Student'}

@@ -3,12 +3,13 @@
 
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { fetchData, USE_MOCK_API, mockStudents, mockApiPrograms } from "@/lib/api"; // Updated mockApiPrograms
+import { fetchData, USE_MOCK_API, mockStudents, mockApiPrograms } from "@/lib/api"; 
 import type { Student, Program } from "@/types"; 
 import { Loader2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation"; // Import useRouter
 
 interface PopulationData {
   [programIdentifier: string]: { 
@@ -26,6 +27,7 @@ export default function StudentPopulationPage() {
   const [programsList, setProgramsList] = React.useState<Program[]>([]); 
   const [isLoading, setIsLoading] = React.useState(true);
   const { toast } = useToast();
+  const router = useRouter(); // Initialize useRouter
 
   React.useEffect(() => {
     const fetchAllData = async () => {
@@ -85,6 +87,15 @@ export default function StudentPopulationPage() {
     fetchAllData();
   }, [toast]);
 
+  const handleCardClick = (programIdentifier: string) => {
+    if (programIdentifier === DEFAULT_PROGRAM_LABEL) {
+        // Optionally handle clicks on "Program Not Specified" differently, e.g., show all or do nothing
+        router.push(`/admin/students`); // Or a specific filter for unspecified if desired
+    } else {
+        router.push(`/admin/students?program=${encodeURIComponent(programIdentifier)}`);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
@@ -142,7 +153,7 @@ export default function StudentPopulationPage() {
             .sort(([programA], [programB]) => {
                 const nameA = programsList.find(p => p.id === programA)?.name || programA;
                 const nameB = programsList.find(p => p.id === programB)?.name || programB;
-                if (nameA === DEFAULT_PROGRAM_LABEL) return 1; // Push default to end
+                if (nameA === DEFAULT_PROGRAM_LABEL) return 1; 
                 if (nameB === DEFAULT_PROGRAM_LABEL) return -1;
                 return nameA.localeCompare(nameB);
             })
@@ -151,7 +162,11 @@ export default function StudentPopulationPage() {
                 const displayName = programDetails?.name || programIdentifier; 
 
                 return (
-                  <Card key={programIdentifier} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-200">
+                  <Card 
+                    key={programIdentifier} 
+                    className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-200 cursor-pointer"
+                    onClick={() => handleCardClick(programIdentifier)} // Added onClick handler
+                  >
                     <CardHeader>
                       <CardTitle className="text-xl text-primary">{displayName}</CardTitle>
                       <CardDescription>Total Students: <span className="font-semibold text-foreground">{yearData.total}</span></CardDescription>
@@ -161,7 +176,7 @@ export default function StudentPopulationPage() {
                         {Object.entries(yearData)
                           .filter(([key]) => key !== 'total')
                           .sort(([yearA], [yearB]) => {
-                              if (yearA === DEFAULT_YEAR_LABEL) return 1; // Push default to end
+                              if (yearA === DEFAULT_YEAR_LABEL) return 1; 
                               if (yearB === DEFAULT_YEAR_LABEL) return -1;
                               const yearNumA = parseInt(yearA.match(/\d+/)?.[0] || '0');
                               const yearNumB = parseInt(yearB.match(/\d+/)?.[0] || '0');
