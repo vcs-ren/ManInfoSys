@@ -212,5 +212,3 @@ export const assignCoursesToProgramSchema = z.object({
   yearLevel: z.enum(yearLevelEnum, { required_error: "Year level selection is required." }),
   courseIds: z.array(z.string()).min(0),
 });
-
-```

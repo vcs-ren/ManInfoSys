@@ -38,6 +38,7 @@ const enrollmentTypeOptions: { value: EnrollmentType; label: string }[] = [
     { value: "New", label: "New" },
     { value: "Transferee", label: "Transferee" },
     { value: "Returnee", label: "Returnee" },
+    { value: "Continuing", label: "Continuing" },
 ];
 
 const yearLevelOptions: { value: YearLevel; label: string }[] = [
@@ -57,17 +58,24 @@ const getStudentFormFields = (programs: Program[]): FormFieldConfig<Student>[] =
   const programOptions = programs.map(p => ({ value: p.id, label: p.name }));
 
   return [
+    // Personal Information Section
     { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
     { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
     { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
     { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr. (optional)", section: 'personal' },
     { name: "birthday", label: "Birthday", type: "date", placeholder: "YYYY-MM-DD (optional)", section: 'personal' },
     { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
+
+    // Enrollment Information Section
     { name: "enrollmentType", label: "Enrollment Type", type: "select", options: enrollmentTypeOptions, placeholder: "Select enrollment type", required: true, section: 'enrollment' },
-    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.enrollmentType ? ['Transferee', 'Returnee'].includes(data.enrollmentType) : false },
+    { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.enrollmentType ? ['Transferee', 'Returnee', 'Continuing'].includes(data.enrollmentType) : false },
     { name: "program", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' },
+    
+    // Contact/Account Details Section
     { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
     { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
+
+    // Emergency Contact Information Section
     { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
     { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father (optional)", type: "text", section: 'emergency' },
     { name: "emergencyContactPhone", label: "Emergency Contact Phone", placeholder: "Emergency contact number (optional)", type: "tel", section: 'emergency' },
@@ -113,14 +121,14 @@ export default function ManageStudentsPage() {
         const distinctSections = [...new Set(mockSections.map(s => s.id).filter(Boolean))].sort();
         setSections(distinctSections);
       } else {
-        const [studentsData, programsData, sectionsData] = await Promise.all([
+        const [studentsData, programsData, sectionsDataResult] = await Promise.all([
           fetchData<Student[]>('students/read.php'),
           fetchData<Program[]>('programs/read.php'),
-          fetchData<string[]>('sections/list.php') // Assuming a simple endpoint to list section codes
+          fetchData<Section[]>('sections/read.php') 
         ]);
         setStudents(studentsData || []);
         setPrograms(programsData || []);
-        setSections(sectionsData || []);
+        setSections((sectionsDataResult || []).map(s => s.id).sort());
       }
     } catch (error: any) {
       console.error("Failed to fetch initial data:", error);
@@ -139,7 +147,7 @@ export default function ManageStudentsPage() {
     let year = values.year;
     if (values.enrollmentType === 'New') {
       year = '1st Year';
-    } else if (['Transferee', 'Returnee'].includes(values.enrollmentType) && !year) {
+    } else if (['Transferee', 'Returnee', 'Continuing'].includes(values.enrollmentType) && !year) {
         toast({ variant: "destructive", title: "Validation Error", description: "Year level is required for this enrollment type." });
         setIsSubmitting(false);
         throw new Error("Year level missing");
@@ -172,14 +180,19 @@ export default function ManageStudentsPage() {
             logActivity("Updated Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName}`, "Admin", savedStudentResponse.id, "student");
         } else {
              savedStudentResponse = await postData<Omit<typeof payload, 'id' | 'studentId' | 'username' | 'section' | 'lastAccessed'>, Student>('students/create.php', payload);
-            logActivity("Added Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} (${savedStudentResponse.username})`, "Admin", savedStudentResponse.id, "student", true, { ...savedStudentResponse});
+            // The logActivity for "Added Student" is now inside postData for mock, so it will capture the auto-generated section and username
+            // No need to logActivity("Added Student", ...) here if using mock.
+            // If not using mock, the logActivity here is fine, but ensure it has all necessary details.
+            if (!USE_MOCK_API) { // Only log here if not using mock, as mock logs internally
+              logActivity("Added Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} (${savedStudentResponse.username})`, "Admin", savedStudentResponse.id, "student", true, { ...savedStudentResponse});
+            }
         }
         
         await loadInitialData(); 
         toast({ title: isEditMode ? "Student Updated" : "Student Added", description: `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} has been ${isEditMode ? 'updated' : 'added'}.` });
         closeModal();
     } catch (error: any) {
-        if (error.message !== "Duplicate name") {
+        if (error.message !== "Duplicate name") { // Only show generic error if not the duplicate name error
             console.error(`Failed to ${isEditMode ? 'update' : 'add'} student:`, error);
             toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Student`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} student. Please try again.` });
         }
@@ -246,12 +259,12 @@ export default function ManageStudentsPage() {
     try {
         const payload = {
             ...student,
-            enrollmentType: 'Returnee' as EnrollmentType, // Or "Continuing" if you add that type
+            enrollmentType: 'Continuing' as EnrollmentType, 
             year: nextYearLevel,
         };
         const updatedStudent = await putData<Student, Student>(`students/update.php/${student.id}`, payload);
         await loadInitialData();
-        toast({ title: "Student Promoted", description: `${student.firstName} ${student.lastName} promoted to ${nextYearLevel}. Enrollment type set to Returnee.` });
+        toast({ title: "Student Promoted", description: `${student.firstName} ${student.lastName} promoted to ${nextYearLevel}. Enrollment type set to Continuing.` });
         logActivity("Promoted Student", `${student.firstName} ${student.lastName} to ${nextYearLevel}`, "Admin", student.id, "student");
     } catch (error: any) {
         console.error("Failed to promote student:", error);
@@ -276,16 +289,15 @@ export default function ManageStudentsPage() {
 
    const closeModal = () => {
     setIsModalOpen(false);
-     setTimeout(() => {
+     setTimeout(() => { // Delay resetting state until after modal close animation
         setSelectedStudent(null);
         setIsEditMode(false);
      }, 150);
    };
 
     const sectionOptions = React.useMemo(() => {
-        const distinctSections = [...new Set(students.map(s => s.section).filter(Boolean))].sort();
-        return distinctSections.map(sec => ({ label: sec, value: sec }));
-    }, [students]);
+        return sections.map(sec => ({ label: sec, value: sec }));
+    }, [sections]);
 
     const programOptions = React.useMemo(() => {
         return programs.map(p => ({ value: p.id, label: p.name}));
@@ -474,7 +486,7 @@ export default function ManageStudentsPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Promote Student?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will promote {student.firstName} {student.lastName} to the next year level and set their enrollment type to 'Returnee'. Are you sure?
+                            This will promote {student.firstName} {student.lastName} to the next year level and set their enrollment type to 'Continuing'. Are you sure?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -577,7 +589,7 @@ export default function ManageStudentsPage() {
                 columns={columns}
                 data={students}
                 searchPlaceholder="Search by name..."
-                searchColumnId="firstName"
+                searchColumnId="firstName" // Or "lastName", or implement multi-column search
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
@@ -592,7 +604,7 @@ export default function ManageStudentsPage() {
 
       <UserForm<Student>
             isOpen={isModalOpen}
-            onOpenChange={setIsModalOpen}
+            onOpenChange={setIsModalOpen} // Pass setIsOpen directly
             formSchema={studentSchema}
             onSubmit={handleSaveStudent}
             title={isEditMode ? `Student Details: ${selectedStudent?.firstName} ${selectedStudent?.lastName}` : 'Add New Student'}
@@ -605,4 +617,3 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-```
