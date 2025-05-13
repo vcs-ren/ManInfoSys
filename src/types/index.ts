@@ -69,37 +69,38 @@ export interface Course {
     name: string;
     description?: string;
     type: CourseType;
-    programId?: string[];
-    yearLevel?: YearLevel;
+    programId?: string[]; // Can belong to multiple programs if Major (though typically one), or none if Minor
+    yearLevel?: YearLevel; // The year level this course is typically taught
 }
 
 export interface Program {
-    id: string;
-    name: string;
+    id: string; // e.g., CS, IT, BSED-ENG
+    name: string; // e.g., Bachelor of Science in Computer Science
     description?: string;
+    // Defines which courses are part of this program for each year level
     courses: {
         [key in YearLevel]: Course[];
     };
 }
 
 export interface Section {
-    id: string;
-    sectionCode: string;
-    programId: string;
-    programName?: string;
+    id: string; // Auto-generated, e.g., CS1A, IT2B
+    sectionCode: string; // Same as ID, but explicitly named
+    programId: string; // FK to Program
+    programName?: string; // For display
     yearLevel: YearLevel;
-    adviserId?: number;
-    adviserName?: string;
-    studentCount?: number;
+    adviserId?: number; // FK to Faculty
+    adviserName?: string; // For display
+    studentCount?: number; // For display
 }
 
 export interface SectionSubjectAssignment {
-    id: string;
-    sectionId: string;
-    subjectId: string;
-    subjectName?: string;
-    teacherId: number;
-    teacherName?: string;
+    id: string; // Auto-generated, e.g., CS1A-CS101
+    sectionId: string; // FK to Section
+    subjectId: string; // FK to Course (Subject)
+    subjectName?: string; // For display
+    teacherId: number; // FK to Faculty
+    teacherName?: string; // For display
 }
 
 export interface Announcement {
@@ -109,27 +110,27 @@ export interface Announcement {
     date: Date;
     targetAudience?: 'Student' | 'Faculty' | 'All';
     target: {
-        programId?: string | 'all' | null; // Changed from program
+        programId?: string | 'all' | null;
         yearLevel?: string | 'all' | null;
         section?: string | 'all' | null;
     };
-    author?: string;
-    author_type?: 'Admin' | 'Teacher';
+    author?: string; // Name of the author
+    author_type?: 'Admin' | 'Teacher'; // Role of the author
 }
 
 export interface ScheduleEntry {
-    id: string;
-    title: string;
-    start: Date;
-    end: Date;
+    id: string; // Unique ID for the schedule entry (e.g., sectionId-courseId-day-time)
+    title: string; // e.g., "CS101 - Intro to Programming"
+    start: Date; // Start date and time
+    end: Date;   // End date and time
     type: 'class' | 'event' | 'exam';
-    location?: string;
-    teacher?: string;
-    section?: string;
+    location?: string; // e.g., "Room 301"
+    teacher?: string;  // Name of the teacher
+    section?: string;  // Section code, e.g., "CS1A"
 }
 
 export interface StudentSubjectAssignmentWithGrades {
-    assignmentId: string;
+    assignmentId: string; // Unique ID for this specific student-subject-section context, e.g., CS1A-CS101-student123
     studentId: number;
     studentName: string;
     subjectId: string;
@@ -146,7 +147,7 @@ export interface StudentSubjectAssignmentWithGrades {
 }
 
 export interface StudentTermGrade {
-    id: string;
+    id: string; // subjectId
     subjectName: string;
     prelimGrade?: number | null;
     midtermGrade?: number | null;
@@ -156,37 +157,38 @@ export interface StudentTermGrade {
 }
 
 export interface AdminUser {
-  id: number;
+  id: number; // Database ID
   username: string;
   firstName?: string;
   lastName?: string;
   email?: string;
   role: AdminRole;
-  isSuperAdmin?: boolean;
+  isSuperAdmin?: boolean; // True for the main 'admin' account
 }
 
 export interface DashboardStats {
     totalStudents: number;
-    totalFacultyStaff: number; // Renamed from totalTeachers/totalFaculty
-    totalAdminUsers: number;  // Renamed from totalAdmins
-    upcomingEvents: number;
+    totalTeachingStaff: number;
+    totalAdministrativeStaff: number;
+    totalEventsAnnouncements: number; // Changed from totalAdminUsers
 }
 
 export interface UpcomingItem {
     id: string;
     title: string;
-    date?: string;
-    type: string;
+    date?: string; // ISO string format
+    type: string; // e.g., 'assignment', 'event', 'class'
 }
 
 export interface ActivityLogEntry {
   id: string;
   timestamp: Date;
-  user: string;
-  action: string;
-  description: string;
-  targetId?: number | string;
-  targetType?: 'student' | 'faculty' | 'program' | 'course' | 'section' | 'announcement' | 'admin';
+  user: string; // Username or role of the user performing the action
+  action: string; // e.g., "Added Student", "Deleted Faculty"
+  description: string; // More details, e.g., "Student John Doe (s100123) was added."
+  targetId?: number | string; // ID of the entity affected (studentId, facultyId, etc.)
+  targetType?: 'student' | 'faculty' | 'program' | 'course' | 'section' | 'announcement' | 'admin' | 'grade' | 'assignment' | 'login' | 'logout' | 'password_change' | 'system';
   canUndo: boolean;
-  originalData?: any;
+  originalData?: any; // To store data needed for undo operation
 }
+```

@@ -26,9 +26,9 @@ $db = $database->getConnection();
 // Initialize stats array
 $stats = array(
     "totalStudents" => 0,
-    "totalTeachers" => 0, // Represents Teaching Staff (department = 'Teaching')
-    "totalAdmins" => 0, // Represents Administrative Staff (department = 'Administrative')
-    "upcomingEvents" => 0 // Placeholder, implement event fetching if needed
+    "totalTeachingStaff" => 0, 
+    "totalAdministrativeStaff" => 0,
+    "totalEventsAnnouncements" => 0 // Changed from totalAdmins
 );
 
 try {
@@ -40,25 +40,26 @@ try {
     $stats["totalStudents"] = (int)$rowStudents['count'];
 
     // Query for total teaching staff (from teachers table where department is 'Teaching')
-    $queryTeachers = "SELECT COUNT(*) as count FROM teachers WHERE department = 'Teaching'";
-    $stmtTeachers = $db->prepare($queryTeachers);
-    $stmtTeachers->execute();
-    $rowTeachers = $stmtTeachers->fetch(PDO::FETCH_ASSOC);
-    $stats["totalTeachers"] = (int)$rowTeachers['count'];
+    $queryTeaching = "SELECT COUNT(*) as count FROM teachers WHERE department = 'Teaching'";
+    $stmtTeaching = $db->prepare($queryTeaching);
+    $stmtTeaching->execute();
+    $rowTeaching = $stmtTeaching->fetch(PDO::FETCH_ASSOC);
+    $stats["totalTeachingStaff"] = (int)$rowTeaching['count'];
 
     // Query for total administrative staff (from teachers table where department is 'Administrative')
-    $queryAdmins = "SELECT COUNT(*) as count FROM teachers WHERE department = 'Administrative'";
-    $stmtAdmins = $db->prepare($queryAdmins);
-    $stmtAdmins->execute();
-    $rowAdmins = $stmtAdmins->fetch(PDO::FETCH_ASSOC);
-    $stats["totalAdmins"] = (int)$rowAdmins['count'];
+    $queryAdministrative = "SELECT COUNT(*) as count FROM teachers WHERE department = 'Administrative'";
+    $stmtAdministrative = $db->prepare($queryAdministrative);
+    $stmtAdministrative->execute();
+    $rowAdministrative = $stmtAdministrative->fetch(PDO::FETCH_ASSOC);
+    $stats["totalAdministrativeStaff"] = (int)$rowAdministrative['count'];
 
+    // Query for total events/announcements
+    $queryEventsAnnouncements = "SELECT COUNT(*) as count FROM announcements";
+    $stmtEventsAnnouncements = $db->prepare($queryEventsAnnouncements);
+    $stmtEventsAnnouncements->execute();
+    $rowEventsAnnouncements = $stmtEventsAnnouncements->fetch(PDO::FETCH_ASSOC);
+    $stats["totalEventsAnnouncements"] = (int)$rowEventsAnnouncements['count'];
 
-    // Placeholder for Upcoming Events count
-    // You would need an 'events' table and logic to count future events
-    // $queryEvents = "SELECT COUNT(*) as count FROM events WHERE event_date >= CURDATE()";
-    // ... execute query and set $stats["upcomingEvents"] ...
-    $stats["upcomingEvents"] = 0; // Set to 0 for now
 
     // Set response code - 200 OK
     http_response_code(200);
@@ -75,3 +76,4 @@ try {
 }
 
 ?>
+```

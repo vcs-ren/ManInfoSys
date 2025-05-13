@@ -1,3 +1,4 @@
+// src/lib/api.ts
 'use client';
 
 import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry, EmploymentType, EnrollmentType } from '@/types';
@@ -8,7 +9,7 @@ let nextStudentDbId = 3;
 let nextFacultyDbId = 4;
 let nextProgramDbId = 3;
 let nextCourseDbId = 10;
-let nextActivityLogId = 1;
+let nextActivityLogId = 1; // Start from 1 for new logs
 
 export let mockCourses: Course[] = [
     { id: "CS101", name: "Introduction to Programming", description: "Fundamentals of programming.", type: "Major", programId: ["CS"], yearLevel: "1st Year" },
@@ -71,7 +72,7 @@ export let mockApiAdmins: AdminUser[] = [
 ];
 
 export let mockActivityLog: ActivityLogEntry[] = [
-    { id: `log-${nextActivityLogId++}-${Date.now()}`, timestamp: new Date(Date.now() - 1000 * 60 * 5), user: "System", action: "System Startup", description: "System initialized successfully.", canUndo: false }
+    { id: `log-${nextActivityLogId++}-${Date.now()}`, timestamp: new Date(Date.now() - 1000 * 60 * 5), user: "System", action: "System Startup", description: "System initialized successfully.", canUndo: false, targetType: 'system' }
 ];
 
 
@@ -90,7 +91,7 @@ export const logActivity = (
     originalData?: any
 ) => {
     const newLogEntry: ActivityLogEntry = {
-        id: `log-${nextActivityLogId++}-${Date.now()}`,
+        id: `log-${nextActivityLogId++}-${Date.now()}`, // Ensure unique ID with timestamp component
         timestamp: new Date(),
         user,
         action,
@@ -104,6 +105,10 @@ export const logActivity = (
     if (mockActivityLog.length > 50) { // Keep only the last 50 logs
         mockActivityLog.pop();
     }
+    // Also update dashboard stats if relevant entities were changed (e.g., student/faculty counts)
+    if (targetType === 'student' || targetType === 'faculty' || targetType === 'admin' || targetType === 'announcement') {
+        recalculateDashboardStats();
+    }
 };
 
 export let mockDashboardStats: DashboardStats = {} as DashboardStats;
@@ -116,28 +121,28 @@ const recalculateMockSectionCounts = () => {
 
 
 export const recalculateDashboardStats = () => {
-    const totalFacultyCount = mockFaculty.length; // All faculty members
-    const totalAdminUsersCount = mockApiAdmins.length; // All admin users from mockApiAdmins
+    const teachingStaffCount = mockFaculty.filter(f => f.department === 'Teaching').length;
+    const adminStaffCount = mockFaculty.filter(f => f.department === 'Administrative').length;
+    const totalEventsAnnouncementsCount = mockAnnouncements.length;
 
     mockDashboardStats = {
         totalStudents: mockStudents.length,
-        totalFacultyStaff: totalFacultyCount,
-        totalAdminUsers: totalAdminUsersCount,
-        upcomingEvents: mockAnnouncements.filter(a => a.date > new Date()).length,
+        totalTeachingStaff: teachingStaffCount,
+        totalAdministrativeStaff: adminStaffCount,
+        totalEventsAnnouncements: totalEventsAnnouncementsCount,
     };
 };
 recalculateDashboardStats(); // Initial calculation
 
 let mockTestUsers = [
-    { username: "admin", password: "defadmin", role: "Admin" as const, userId: 0, id: 0 },
-    { username: mockStudents[0].username, password: "password", role: "Student" as const, userId: mockStudents[0].id, id: mockStudents[0].id },
-    { username: mockStudents[1].username, password: "password", role: "Student" as const, userId: mockStudents[1].id, id: mockStudents[1].id },
-    { username: mockFaculty[0].username, password: "password", role: "Teacher" as const, userId: mockFaculty[0].id, id: mockFaculty[0].id },
-    { username: mockFaculty[1].username, password: "password", role: "Teacher" as const, userId: mockFaculty[1].id, id: mockFaculty[1].id },
+    { username: "admin",password: "defadmin", role: "Admin" as const, userId: 0, id: 0 },
+    { username: "s1001",password: "password", role: "Student" as const, userId: 1, id:1 },
+    { username: "t1001",password: "password", role: "Teacher" as const, userId: 1, id:1 }
 ];
 
 
-export const USE_MOCK_API = true;
+// --- API CONFIGURATION ---
+export const USE_MOCK_API = true; // Set to true to use mock data, false for real API
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 export function executeUndoAddStudent(studentId: number, originalStudentData: Student) {
@@ -146,7 +151,7 @@ export function executeUndoAddStudent(studentId: number, originalStudentData: St
     mockStudents.splice(studentIndex, 1);
     recalculateMockSectionCounts();
     recalculateDashboardStats();
-    logActivity("Undone Action: Add Student", `Reverted addition of ${originalStudentData.firstName} ${originalStudentData.lastName}`, "System");
+    logActivity("Undone Action: Add Student", `Reverted addition of ${originalStudentData.firstName} ${originalStudentData.lastName}`, "System", studentId, "student");
   }
 }
 
@@ -155,22 +160,22 @@ export function executeUndoDeleteStudent(originalStudentData: Student) {
     mockStudents.push(originalStudentData);
     recalculateMockSectionCounts();
     recalculateDashboardStats();
-    logActivity("Undone Action: Delete Student", `Restored student ${originalStudentData.firstName} ${originalStudentData.lastName}`, "System");
+    logActivity("Undone Action: Delete Student", `Restored student ${originalStudentData.firstName} ${originalStudentData.lastName}`, "System", originalStudentData.id, "student");
   }
 }
 
 export function executeUndoAddFaculty(facultyId: number, originalFacultyData: Faculty) {
     const facultyIndex = mockFaculty.findIndex(f => f.id === facultyId);
     if (facultyIndex > -1) {
-        const removedFaculty = mockFaculty.splice(facultyIndex, 1)[0];
-        if (removedFaculty.department === 'Administrative') {
-            const adminIndex = mockApiAdmins.findIndex(a => a.id === facultyId && !a.isSuperAdmin);
-            if (adminIndex > -1) {
+        mockFaculty.splice(facultyIndex, 1);
+        if (originalFacultyData.department === 'Administrative') {
+             const adminIndex = mockApiAdmins.findIndex(a => a.id === facultyId && !a.isSuperAdmin);
+             if (adminIndex > -1) {
                 mockApiAdmins.splice(adminIndex, 1);
-            }
+             }
         }
         recalculateDashboardStats();
-        logActivity("Undone Action: Add Faculty", `Reverted addition of ${originalFacultyData.firstName} ${originalFacultyData.lastName}`, "System");
+        logActivity("Undone Action: Add Faculty", `Reverted addition of ${originalFacultyData.firstName} ${originalFacultyData.lastName}`, "System", facultyId, "faculty");
     }
 }
 
@@ -187,31 +192,38 @@ export function executeUndoDeleteFaculty(originalFacultyData: Faculty) {
             }
         }
         recalculateDashboardStats();
-        logActivity("Undone Action: Delete Faculty", `Restored faculty ${originalFacultyData.firstName} ${originalFacultyData.lastName}`, "System");
+        logActivity("Undone Action: Delete Faculty", `Restored faculty ${originalFacultyData.firstName} ${originalFacultyData.lastName}`, "System", originalFacultyData.id, "faculty");
     }
 }
 
 export function executeUndoRemoveAdminRole(adminData: AdminUser & { originalDepartment?: DepartmentType }): boolean {
+    // If the admin was faculty-derived, restore their department
     const facultyMember = mockFaculty.find(f => f.id === adminData.id);
     if (facultyMember) {
         facultyMember.department = adminData.originalDepartment || 'Administrative'; // Restore original or set to Admin
-        if (!mockApiAdmins.some(a => a.id === adminData.id)) {
-            mockApiAdmins.push({ // Ensure the admin entry is restored/added
+        // Ensure they are in mockApiAdmins if they are now administrative
+        if (facultyMember.department === 'Administrative' && !mockApiAdmins.some(a => a.id === adminData.id)) {
+             mockApiAdmins.push({
                 id: adminData.id, username: adminData.username, firstName: adminData.firstName,
                 lastName: adminData.lastName, email: adminData.email, role: 'Sub Admin', isSuperAdmin: false
             });
+        } else if (facultyMember.department !== 'Administrative' && mockApiAdmins.some(a => a.id === adminData.id && !a.isSuperAdmin)) {
+            // If department changed away from Administrative, remove from sub-admins (unless it was an explicit admin)
+             const adminIndex = mockApiAdmins.findIndex(a => a.id === adminData.id && !a.isSuperAdmin);
+             if(adminIndex > -1 && !adminData.isSuperAdmin) mockApiAdmins.splice(adminIndex, 1);
         }
         recalculateDashboardStats();
-        logActivity("Undone Action: Remove Admin Role", `Restored admin role for ${adminData.username}`, "System");
+        logActivity("Undone Action: Remove Admin Role", `Restored admin role (via faculty department) for ${adminData.username}`, "System", adminData.id, "admin");
         return true;
     }
-    // If it was an explicit admin not tied to faculty (rare in current setup but possible)
+    // If it was an explicit admin not tied to faculty (shouldn't happen with current setup, but good to handle)
     if (!facultyMember && !mockApiAdmins.some(a => a.id === adminData.id) && adminData.role !== 'Super Admin') {
-        mockApiAdmins.push(adminData);
+        mockApiAdmins.push(adminData); // Add them back to mockApiAdmins
         recalculateDashboardStats();
-        logActivity("Undone Action: Remove Admin Role", `Restored explicit admin role for ${adminData.username}`, "System");
+        logActivity("Undone Action: Remove Admin Role", `Restored explicit admin role for ${adminData.username}`, "System", adminData.id, "admin");
         return true;
     }
+    console.warn("Could not fully undo admin role removal: No corresponding faculty or explicit admin found for ID:", adminData.id);
     return false;
 }
 
@@ -263,12 +275,13 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
         if (phpPath === 'students/read.php') return [...mockStudents] as T;
         if (phpPath === 'teachers/read.php') return [...mockFaculty] as T;
         if (phpPath === 'admins/read.php') {
-            const superAdmin = mockApiAdmins.find(a => a.isSuperAdmin && a.id === 0);
+            // Admins list now dynamically includes faculty with 'Administrative' department
+            const superAdmin = mockApiAdmins.find(a => a.isSuperAdmin && a.id === 0); // Assuming ID 0 is super admin
             const facultyAdmins: AdminUser[] = mockFaculty
                 .filter(f => f.department === 'Administrative')
                 .map(f => ({
                     id: f.id,
-                    username: f.username,
+                    username: f.username, // Faculty username (e.g., a1000YYYY)
                     firstName: f.firstName,
                     lastName: f.lastName,
                     email: f.email,
@@ -279,12 +292,6 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
             let allAdmins: AdminUser[] = [];
             if(superAdmin) allAdmins.push(superAdmin);
             allAdmins = [...allAdmins, ...facultyAdmins];
-            // Add explicit non-faculty admins from mockApiAdmins if they aren't already included via faculty
-            mockApiAdmins.forEach(explicitAdmin => {
-                if (!explicitAdmin.isSuperAdmin && !facultyAdmins.some(fa => fa.id === explicitAdmin.id)) {
-                    allAdmins.push(explicitAdmin);
-                }
-            });
 
             // Ensure uniqueness just in case (though should be managed by add/delete logic)
             const uniqueAdmins = Array.from(new Map(allAdmins.map(admin => [admin.id, admin])).values());
@@ -544,7 +551,9 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
              return upcoming.slice(0, 5) as T;
          }
          if (phpPath === 'admin/activity-log/read.php') {
-            return [...mockActivityLog].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10) as T;
+            // Ensure unique IDs for logs before returning
+            const uniqueLogs = Array.from(new Map(mockActivityLog.map(log => [log.id, log])).values());
+            return uniqueLogs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10) as T;
         }
          if (phpPath.startsWith('sections/read.php/')) { // To fetch a single section by ID if needed
             const sectionId = phpPath.split('/').pop();
@@ -954,10 +963,18 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
             const { logId } = data as { logId: string };
             const logEntryIndex = mockActivityLog.findIndex(entry => entry.id === logId);
 
-            if (logEntryIndex === -1 || !mockActivityLog[logEntryIndex].canUndo) {
-                throw new Error("Action cannot be undone or log not found.");
+            if (logEntryIndex === -1) {
+                console.error(`Undo failed: Log entry with ID ${logId} not found.`);
+                throw new Error("Action cannot be undone: Log entry not found.");
             }
             const logEntry = mockActivityLog[logEntryIndex];
+
+            if (!logEntry.canUndo) {
+                 console.error(`Undo failed: Action "${logEntry.action}" for log ID ${logId} is not undoable.`);
+                throw new Error("This action cannot be undone.");
+            }
+
+
             let undoSuccess = false;
             let specificUndoMessage: string | undefined;
 
@@ -980,6 +997,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                     specificUndoMessage = "Could not fully undo admin role removal: Corresponding faculty record might not exist or was not a faculty-derived admin.";
                 }
             } else {
+                 console.error(`Undo failed: Undo logic for action type "${logEntry.action}" is not implemented or data missing for log ID ${logId}.`);
                  throw new Error(`Undo for action type "${logEntry.action}" is not implemented in mock or data missing.`);
             }
 
@@ -1429,40 +1447,34 @@ export const fetchData = async <T>(path: string): Promise<T> => {
     try {
         responseBodyText = await response.text(); // Read the body as text first
     } catch (readError) {
-        // This catch block might not be strictly necessary if response.ok is checked first,
-        // but it's a safeguard if text() itself throws for some reason on a bad response.
         console.warn(`Failed to read response body as text for GET ${url}:`, readError);
-         if (!response.ok) { // If response is not OK and reading text failed
+         if (!response.ok) {
             handleFetchError({ name: 'ReadError', message: `HTTP error! status: ${response.status}. Failed to read response body.` }, path, 'GET');
         }
-        // If response was OK but reading failed (unlikely for simple text), proceed to check status
     }
 
     if (!response.ok) {
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
-        if (responseBodyText) { // Use the already read text
+        if (responseBodyText) {
             try {
-                 errorData = JSON.parse(responseBodyText); // Try to parse as JSON for more detailed error
-                 errorMessage = errorData?.message || responseBodyText || errorMessage; // Use parsed message, or full text, or default
+                 errorData = JSON.parse(responseBodyText);
+                 errorMessage = errorData?.message || responseBodyText || errorMessage;
             } catch (jsonParseError) {
-                 // If parsing fails, the body wasn't JSON, so use the raw text as the message
                  errorMessage = responseBodyText || errorMessage;
-                 errorData = { message: errorMessage }; // Update errorData with the text message
+                 errorData = { message: errorMessage };
             }
         }
         console.error("API Error Response Text (fetchData):", responseBodyText || "(empty body)");
         handleFetchError({ ...errorData, name: 'HTTPError', message: errorMessage }, path, 'GET');
     }
 
-    // Handle 204 No Content or empty body for successful responses
     if (response.status === 204 || !responseBodyText) {
-        // console.log(`GET request to ${url} successful with status ${response.status}, returning empty object/array.`);
-        return {} as T; // Or [] as T if an array is always expected and {} causes issues
+        return {} as T;
     }
 
     try {
-        return JSON.parse(responseBodyText) as T; // Parse the text read earlier
+        return JSON.parse(responseBodyText) as T;
     } catch (jsonError: any) {
         console.error("Failed to parse JSON response (fetchData):", jsonError, "Body was:", responseBodyText);
         handleFetchError({ name: 'JSONError', message: 'Failed to parse JSON response.' }, path, 'GET');
@@ -1474,13 +1486,13 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
 
     const url = getApiUrl(path);
     let response: Response;
-     console.log(`Posting data to: ${url}`, data); // Log the URL and data
+     console.log(`Posting data to: ${url}`, data);
     try {
         response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json', // Important for PHP to know we expect JSON back
+                'Accept': 'application/json',
             },
             body: JSON.stringify(data),
         });
@@ -1490,10 +1502,10 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
 
     let responseBodyText = "";
     try {
-        responseBodyText = await response.text(); // Read the body as text first
+        responseBodyText = await response.text();
     } catch (readError) {
         console.warn(`Failed to read response body as text for POST ${url}:`, readError);
-        if (!response.ok) { // If response is not OK and reading text failed
+        if (!response.ok) {
              handleFetchError({ name: 'ReadError', message: `HTTP error! status: ${response.status}. Failed to read response body.` }, path, 'POST');
         }
     }
@@ -1501,7 +1513,7 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
     if (!response.ok) {
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
-        if (responseBodyText) { // Use the already read text
+        if (responseBodyText) {
             try {
                  errorData = JSON.parse(responseBodyText);
                  errorMessage = errorData?.message || responseBodyText || errorMessage;
@@ -1514,22 +1526,14 @@ export const postData = async <Payload, ResponseData>(path: string, data: Payloa
         handleFetchError({ ...errorData, name: 'HTTPError', message: errorMessage }, path, 'POST');
     }
 
-    // Handle 201 Created (often returns the created resource) or 204 No Content
     if (response.status === 204 || (response.status === 201 && !responseBodyText)) {
-        console.log(`POST to ${url} successful with status ${response.status}, but no JSON body or 204/empty 201.`);
-        // For 201, it's better if the server sends back the created resource.
-        // For 204, this is expected.
-        // Returning a generic success might be okay, or an empty object if the type allows.
         return { success: true, message: `Operation successful (Status ${response.status})` } as unknown as ResponseData;
     }
 
     try {
         return JSON.parse(responseBodyText) as ResponseData;
     } catch (jsonError: any) {
-        // This case handles if the server sends a 200/201 with non-JSON text.
         console.error("Failed to parse JSON response on successful POST:", jsonError, "Body was:", responseBodyText);
-        // Depending on expectations, you might throw an error or return a specific structure.
-        // If a JSON response is always expected on success (other than 204), this is an issue.
         return { success: true, message: "Operation successful, but response body could not be parsed.", rawResponse: responseBodyText } as unknown as ResponseData;
     }
 };
@@ -1551,10 +1555,10 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
 
     let responseBodyText = "";
     try {
-        responseBodyText = await response.text(); // Read the body as text first
+        responseBodyText = await response.text();
     } catch (readError) {
         console.warn(`Failed to read response body as text for PUT ${url}:`, readError);
-         if (!response.ok) { // If response is not OK and reading text failed
+         if (!response.ok) {
             handleFetchError({ name: 'ReadError', message: `HTTP error! status: ${response.status}. Failed to read response body.` }, path, 'PUT');
         }
     }
@@ -1562,7 +1566,7 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
     if (!response.ok) {
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
-         if (responseBodyText) { // Use the already read text
+         if (responseBodyText) {
              try {
                  errorData = JSON.parse(responseBodyText);
                  errorMessage = errorData?.message || responseBodyText || errorMessage;
@@ -1576,7 +1580,6 @@ export const putData = async <Payload, ResponseData>(path: string, data: Payload
     }
 
     if (response.status === 204 || !responseBodyText) {
-        console.log(`PUT to ${url} successful with status ${response.status}, but no JSON body or 204.`);
         return { success: true, message: `Update successful (Status ${response.status})` } as unknown as ResponseData;
     }
 
@@ -1601,22 +1604,18 @@ export const deleteData = async (path: string): Promise<void> => {
 
     let responseBodyText = "";
     try {
-        responseBodyText = await response.text(); // Read the body as text first
+        responseBodyText = await response.text();
     } catch (readError) {
         console.warn(`Failed to read response body as text for DELETE ${url}:`, readError);
-         // For DELETE, a 204 No Content is a common successful response.
-         // If not OK and not 204, and reading failed, then it's an issue.
          if (!response.ok && response.status !== 204) {
             handleFetchError({ name: 'ReadError', message: `HTTP error! status: ${response.status}. Failed to read response body.` }, path, 'DELETE');
         }
     }
 
-    // A DELETE request might return 200 OK with a body, or 204 No Content.
-    // Both are successful.
-    if (!response.ok && response.status !== 204) { // Check if not OK and also not 204
+    if (!response.ok && response.status !== 204) {
         let errorData: any = { message: `HTTP error! status: ${response.status}` };
         let errorMessage = errorData.message;
-         if (responseBodyText) { // Use the already read text
+         if (responseBodyText) {
              try {
                  errorData = JSON.parse(responseBodyText);
                  errorMessage = errorData?.message || responseBodyText || errorMessage;
@@ -1628,19 +1627,13 @@ export const deleteData = async (path: string): Promise<void> => {
         console.error("API Error Response Text (deleteData):", responseBodyText || "(empty body)");
         handleFetchError({ ...errorData, name: 'HTTPError', message: errorMessage }, path, 'DELETE');
     }
-
-    // If successful (200 or 204), no specific data needs to be returned typically for DELETE.
-    console.log(`DELETE ${url} successful with status ${response.status}.`);
-    if (responseBodyText && response.status !== 204) { // Log body if it exists and wasn't a 204
+    if (responseBodyText && response.status !== 204) {
         try {
-            const jsonData = JSON.parse(responseBodyText);
-            console.log("Response data on DELETE:", jsonData);
-            // return jsonData as ResponseData; // Or handle as needed if DELETE returns data
+            JSON.parse(responseBodyText);
         } catch (e) {
-            // Not JSON, or empty, which is fine for DELETE
+            // Not JSON, or empty
         }
     }
-    // For void return type, just complete.
 };
 
 function formatDate(date: Date): string {
@@ -1652,4 +1645,6 @@ function formatDate(date: Date): string {
 
 
 export { USE_MOCK_API as defaultUSE_MOCK_API };
-export { mockApiPrograms, mockCourses, mockStudents, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments, mockApiAdmins as mockAdmins }; // Ensure mockAdmins is exported as mockApiAdmins
+export { mockApiPrograms, mockCourses, mockStudents, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments, mockApiAdmins as mockAdmins };
+
+```
