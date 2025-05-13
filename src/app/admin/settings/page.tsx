@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -67,13 +68,9 @@ export default function AdminSettingsPage() {
             } else {
                 // In a real API, you'd fetch the current admin's details.
                 // This might involve fetching from an 'admins' endpoint and potentially a 'faculty' endpoint if the sub-admin is faculty.
-                // For now, we'll simulate based on role for the placeholder.
-                // If it's super admin (ID 0), we can assume some basic info.
-                // If it's sub-admin, we'd need to fetch their faculty record to get employment type.
+                // For simplicity, assuming 'mockApiAdmins' and 'mockFaculty' are up-to-date or a similar fetch happens.
                 
                 // Placeholder: Fetch admin details (you'd need an endpoint like 'admins/profile/read.php')
-                // For simplicity, assuming 'mockApiAdmins' and 'mockFaculty' are up-to-date or a similar fetch happens.
-                // This part would need real API calls if not using mock.
                 const allAdmins = await fetchData<AdminUser[]>('admins/read.php'); // Assuming this fetches all admins
                 const admin = allAdmins.find(a => a.id === currentUserId);
                 setCurrentUserDetails(admin || null);
@@ -165,13 +162,14 @@ export default function AdminSettingsPage() {
                     </div>
                 ) : isCurrentUserSuperAdmin && currentUserId === 0 && currentUserDetails ? (
                     <div className="space-y-2 text-sm">
-                        <p><strong>Name:</strong> {currentUserDetails.firstName} {currentUserDetails.lastName}</p>
+                        {/* Name removed for Super Admin */}
                         <p><strong>Username:</strong> {currentUserDetails.username}</p>
                         <p><strong>Role:</strong> {currentUserDetails.role}</p>
                         <p className="mt-2 text-muted-foreground">System Information:</p>
                         <ul className="list-disc list-inside pl-4 text-xs">
                             <li>Version: 1.0.0</li>
                             <li>Environment: {USE_MOCK_API ? "Mock API" : "Live API"}</li>
+                            <li>Developed by: Ren</li> {/* Added developer info */}
                             {/* Add more system info if needed */}
                         </ul>
                     </div>
@@ -307,3 +305,4 @@ export default function AdminSettingsPage() {
     </div>
   );
 }
+
