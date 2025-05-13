@@ -1,7 +1,7 @@
 // src/lib/api.ts
 'use client';
 
-import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry, EmploymentType, EnrollmentType } from '@/types';
+import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry, EmploymentType, EnrollmentType } from '@/types'; // Added EnrollmentType
 import { generateStudentUsername, generateTeacherId, generateSectionCode, generateAdminUsername, generateTeacherUsername, generateStudentId as generateFrontendStudentId } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -61,7 +61,7 @@ export let mockAnnouncements: Announcement[] = [
   { id: "ann1", title: "Welcome Back Students!", content: "Welcome to the new academic year.", date: new Date(2024, 7, 15), targetAudience: "All", target: { programId: "all" }, author: "Admin" },
 ];
 
-let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[] = [
+export let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[] = [
     { assignmentId: `CS2A-CS201-${mockStudents[0].id}`, studentId: mockStudents[0].id, studentName: "Alice Smith", subjectId: "CS201", subjectName: "Data Structures", section: "CS2A", year: "2nd Year", prelimGrade: 85, prelimRemarks: "Good start", midtermGrade: 90, midtermRemarks: "Excellent", finalGrade: 88, finalRemarks: "Very Good", status: "Complete" },
     { assignmentId: `IT1A-IT101-${mockStudents[1].id}`, studentId: mockStudents[1].id, studentName: "Bob Johnson", subjectId: "IT101", subjectName: "IT Fundamentals", section: "IT1A", year: "1st Year", prelimGrade: null, prelimRemarks: "", midtermGrade: null, midtermRemarks: "", finalGrade: null, finalRemarks: "", status: "Not Submitted" },
 ];
@@ -69,6 +69,7 @@ let mockStudentSubjectAssignmentsWithGrades: StudentSubjectAssignmentWithGrades[
 export let mockApiAdmins: AdminUser[] = [
     { id: 0, username: "admin", firstName: "Super", lastName: "Admin", email: "superadmin@example.com", role: "Super Admin", isSuperAdmin: true },
     { id: 2, username: mockFaculty.find(f=>f.id === 2)!.username, firstName: mockFaculty.find(f=>f.id === 2)!.firstName, lastName: mockFaculty.find(f=>f.id === 2)!.lastName, email: mockFaculty.find(f=>f.id === 2)!.email, role: "Sub Admin", isSuperAdmin: false },
+    { id: 1001, username: "a1001", firstName: "Test", lastName: "SubAdmin", email: "subadmin.test@example.com", role: "Sub Admin", isSuperAdmin: false },
 ];
 
 export let mockActivityLog: ActivityLogEntry[] = [
@@ -101,11 +102,18 @@ export const logActivity = (
         canUndo,
         originalData
     };
-    mockActivityLog.unshift(newLogEntry);
-    if (mockActivityLog.length > 50) { // Keep only the last 50 logs
-        mockActivityLog.pop();
+    const existingLogIndex = mockActivityLog.findIndex(log => log.id === newLogEntry.id);
+    if (existingLogIndex === -1) {
+        mockActivityLog.unshift(newLogEntry);
+        if (mockActivityLog.length > 50) {
+            mockActivityLog.pop();
+        }
+    } else {
+        // If a log with the same ID exists (should be rare with timestamp), update it or handle as needed
+        // For now, we'll assume IDs are unique enough and this branch is unlikely
+        console.warn("Attempted to add duplicate log ID:", newLogEntry.id);
     }
-    // Also update dashboard stats if relevant entities were changed (e.g., student/faculty counts)
+
     if (targetType === 'student' || targetType === 'faculty' || targetType === 'admin' || targetType === 'announcement') {
         recalculateDashboardStats();
     }
@@ -134,10 +142,11 @@ export const recalculateDashboardStats = () => {
 };
 recalculateDashboardStats(); // Initial calculation
 
-let mockTestUsers = [
-    { username: "admin",password: "defadmin", role: "Admin" as const, userId: 0, id: 0 },
-    { username: "s1001",password: "password", role: "Student" as const, userId: 1, id:1 },
-    { username: "t1001",password: "password", role: "Teacher" as const, userId: 1, id:1 }
+export let mockTestUsers: { username: string; password?: string; role: AdminRole | 'Student' | 'Teacher'; userId: number; id: number; }[] = [
+    { username: "admin", password: "defadmin", role: "Super Admin", userId: 0, id: 0 },
+    { username: "s1001", password: "password", role: "Student", userId: 1, id: 1 }, // Corresponds to Alice Smith
+    { username: "t1001", password: "password", role: "Teacher", userId: 1, id: 1 }, // Corresponds to David Lee
+    { username: "a1001", password: "password", role: "Sub Admin", userId: 1001, id: 1001 }, // Test Sub Admin
 ];
 
 
@@ -258,13 +267,26 @@ const handleFetchError = (error: any, path: string, method: string, isNetworkErr
 
 
     console.error("Detailed Fetch Error Log:", detailedLog);
+    // Re-throw a new error with the processed, more user-friendly message
     throw new Error(errorMessage);
 };
 
-const finalMockPath = (path: string) => {
-     const formattedPath = path.startsWith('/') ? path.substring(1) : path;
-     return formattedPath;
-}
+/**
+ * Converts a full PHP path (e.g., /api/students/read.php) to a path suitable for mock API lookups
+ * (e.g., students/read.php).
+ */
+const finalMockPath = (path: string): string => {
+    let formattedPath = path;
+    // Remove leading '/api/' if present
+    if (formattedPath.startsWith('/api/')) {
+        formattedPath = formattedPath.substring(5);
+    }
+    // Remove leading '/' if still present (e.g., if original path was '/students/read.php')
+    if (formattedPath.startsWith('/')) {
+        formattedPath = formattedPath.substring(1);
+    }
+    return formattedPath;
+};
 
 const mockFetchData = async <T>(path: string): Promise<T> => {
     const phpPath = finalMockPath(path);
@@ -289,9 +311,13 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
                     isSuperAdmin: false,
                 }));
 
+            // Include explicitly defined Sub Admins from mockApiAdmins who are not faculty-derived
+            const explicitSubAdmins = mockApiAdmins.filter(a => !a.isSuperAdmin && !facultyAdmins.some(fa => fa.id === a.id));
+
+
             let allAdmins: AdminUser[] = [];
             if(superAdmin) allAdmins.push(superAdmin);
-            allAdmins = [...allAdmins, ...facultyAdmins];
+            allAdmins = [...allAdmins, ...facultyAdmins, ...explicitSubAdmins];
 
             // Ensure uniqueness just in case (though should be managed by add/delete logic)
             const uniqueAdmins = Array.from(new Map(allAdmins.map(admin => [admin.id, admin])).values());
@@ -370,13 +396,14 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
             return { ...mockDashboardStats } as T;
         }
          if (phpPath.startsWith('sections/assignments/read.php')) {
-            const sectionIdMatch = phpPath.match(/sectionId=([^&]+)/);
-            const allMatch = phpPath.match(/all=true/); // Check if 'all' param is present
+            const url = new URL(`http://localhost?${phpPath.split('?')[1] || ''}`);
+            const sectionIdParam = url.searchParams.get('sectionId');
+            const allParam = url.searchParams.get('all');
+            
             let assignmentsToReturn = mockSectionAssignments;
 
-            if (sectionIdMatch && !allMatch) { // If sectionId is present AND 'all' is not true
-                const sectionId = sectionIdMatch[1];
-                assignmentsToReturn = mockSectionAssignments.filter(a => a.sectionId === sectionId);
+            if (sectionIdParam && allParam !== 'true') {
+                 assignmentsToReturn = mockSectionAssignments.filter(a => a.sectionId === sectionIdParam);
             }
             // If 'all=true' or no sectionId, return all assignments
              return assignmentsToReturn.map(a => ({
@@ -591,12 +618,22 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
             // Find user by username (case-insensitive for mock)
             let user = mockTestUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
 
-            // Mock password check (very basic for testing)
-            if (user && (user.username === 'admin' ? password === 'defadmin' : true )) { // Simplified password check for mock
-                const redirectPath = user.role === 'Admin' ? '/admin/dashboard' : user.role === 'Student' ? '/student/dashboard' : '/teacher/dashboard';
+            // Mock password check
+            if (user && password === user.password) {
+                let roleToReturn: AdminRole | 'Student' | 'Teacher' = user.role;
+                if (user.role === 'Super Admin' || user.role === 'Sub Admin') {
+                    const adminUserDetails = mockApiAdmins.find(a => a.id === user.userId);
+                    if (adminUserDetails) {
+                         roleToReturn = adminUserDetails.role; // Use specific Super Admin or Sub Admin role
+                    }
+                }
+
+                const redirectPath = roleToReturn === 'Super Admin' || roleToReturn === 'Sub Admin' ? '/admin/dashboard'
+                                 : user.role === 'Student' ? '/student/dashboard'
+                                 : '/teacher/dashboard';
                 // Simulate setting session/token
                 if (typeof window !== 'undefined') {
-                    localStorage.setItem('userRole', user.role);
+                    localStorage.setItem('userRole', roleToReturn); // Store specific admin role
                     localStorage.setItem('userId', String(user.userId)); // Store userId from mockTestUsers
                 }
                 // Update lastAccessed for students and teachers
@@ -606,7 +643,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 } else if (user.role === 'Teacher') {
                     const facultyIndex = mockFaculty.findIndex(f => f.id === user.userId);
                     if (facultyIndex > -1) mockFaculty[facultyIndex].lastAccessed = new Date().toISOString();
-                } else if (user.role === 'Admin' && user.userId !== 0) { // For sub-admins if they are faculty
+                } else if (user.role === 'Sub Admin') { // For sub-admins if they are faculty
                     const facultyAdmin = mockFaculty.find(f => f.id === user.userId && f.department === 'Administrative');
                     if (facultyAdmin) {
                          const facultyIndex = mockFaculty.findIndex(f => f.id === user.userId);
@@ -614,10 +651,10 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                     }
                 }
 
-                logActivity("User Login", `${user.username} logged in.`, user.username, user.userId, user.role.toLowerCase() as ActivityLogEntry['targetType']);
-                return { success: true, role: user.role as any, redirectPath: redirectPath, userId: user.userId } as ResponseData;
+                logActivity("User Login", `${user.username} logged in.`, user.username, user.userId, roleToReturn.toLowerCase().replace(' ', '_') as ActivityLogEntry['targetType']);
+                return { success: true, role: roleToReturn as any, redirectPath: redirectPath, userId: user.userId } as ResponseData;
              }
-             throw new Error("Invalid mock credentials or password mismatch for admin.");
+             throw new Error("Invalid mock credentials or password mismatch.");
         }
          if (phpPath === 'students/create.php') {
             const newStudentData = data as unknown as Omit<Student, 'id' | 'studentId' | 'section' | 'username' | 'lastAccessed'>; // Ensure correct type for data
@@ -1645,6 +1682,4 @@ function formatDate(date: Date): string {
 
 
 export { USE_MOCK_API as defaultUSE_MOCK_API };
-export { mockApiPrograms, mockCourses, mockStudents, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments, mockApiAdmins as mockAdmins };
-
-```
+export { mockApiPrograms, mockCourses, mockStudents, mockFaculty, mockSections, mockAnnouncements, mockSectionAssignments, mockApiAdmins, mockActivityLog, mockDashboardStats, mockTestUsers, mockStudentSubjectAssignmentsWithGrades, mockTeacherTeachableCourses };
