@@ -170,7 +170,8 @@ export interface DashboardStats {
     totalStudents: number;
     totalTeachingStaff: number;
     totalAdministrativeStaff: number;
-    totalEventsAnnouncements: number; // Changed from totalAdminUsers
+    totalEventsAnnouncements: number;
+    totalAdmins: number; // Total number of Sub Admins (excluding Super Admin)
 }
 
 export interface UpcomingItem {
@@ -191,4 +192,3 @@ export interface ActivityLogEntry {
   canUndo: boolean;
   originalData?: any; // To store data needed for undo operation
 }
-```

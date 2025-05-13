@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase, Megaphone } from "lucide-react"; // Added Megaphone
+import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase, Megaphone, ShieldAlert } from "lucide-react"; // Added Megaphone, ShieldAlert
 import * as React from 'react';
 import {
     fetchData,
@@ -17,9 +17,10 @@ import {
     executeUndoRemoveAdminRole,
     recalculateDashboardStats,
     mockDashboardStats,
-    mockStudents, // Import mockStudents for direct length check
-    mockFaculty, // Import mockFaculty for direct length check
-    mockAnnouncements // Import mockAnnouncements for direct length check
+    mockStudents, 
+    mockFaculty, 
+    mockAnnouncements,
+    mockApiAdmins, 
 } from "@/lib/api";
 import type { DashboardStats, ActivityLogEntry, Student, Faculty, AdminUser, DepartmentType } from "@/types";
 import Link from "next/link";
@@ -36,8 +37,16 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isActivityLoading, setIsActivityLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [isCurrentUserSuperAdmin, setIsCurrentUserSuperAdmin] = React.useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const userId = localStorage.getItem('userId');
+      setIsCurrentUserSuperAdmin(userId === '0'); // Super Admin ID is 0
+    }
+  }, []);
 
   const fetchDashboardData = React.useCallback(async () => {
       setIsLoading(true);
@@ -48,18 +57,20 @@ export default function AdminDashboardPage() {
         let activityDataResult: ActivityLogEntry[] = [];
 
         if (USE_MOCK_API) {
-            recalculateDashboardStats();
-            statsData = {
+            recalculateDashboardStats(); // Recalculate based on current mock data state
+             statsData = {
                 totalStudents: mockStudents.length,
                 totalTeachingStaff: mockFaculty.filter(f => f.department === 'Teaching').length,
                 totalAdministrativeStaff: mockFaculty.filter(f => f.department === 'Administrative').length,
                 totalEventsAnnouncements: mockAnnouncements.length,
+                totalAdmins: mockApiAdmins.filter(a => !a.isSuperAdmin).length, // Count only Sub Admins for this card
             };
             activityDataResult = mockActivityLog.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10);
         } else {
             const [fetchedStats, fetchedActivities] = await Promise.all([
               fetchData<DashboardStats>('admin/dashboard-stats.php'),
-              fetchData<ActivityLogEntry[]>('admin/activity-log/read.php')
+              // Only fetch activity log if super admin for real API
+              isCurrentUserSuperAdmin ? fetchData<ActivityLogEntry[]>('admin/activity-log/read.php') : Promise.resolve([])
             ]);
             statsData = fetchedStats;
             activityDataResult = fetchedActivities || [];
@@ -81,7 +92,7 @@ export default function AdminDashboardPage() {
         setIsLoading(false);
         setIsActivityLoading(false);
       }
-    }, [toast]);
+    }, [toast, isCurrentUserSuperAdmin]);
 
 
   React.useEffect(() => {
@@ -95,6 +106,10 @@ export default function AdminDashboardPage() {
   };
 
  const handleUndoActivity = async (logId: string) => {
+    if (!isCurrentUserSuperAdmin) {
+        toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can undo actions." });
+        return;
+    }
     setIsActivityLoading(true);
     try {
       const logEntry = USE_MOCK_API ? mockActivityLog.find(l => l.id === logId) : activityLog.find(l => l.id === logId);
@@ -147,8 +162,6 @@ export default function AdminDashboardPage() {
 
       if (undoSuccess) {
           toast({ title: "Action Undone", description: "The selected action has been successfully reverted." });
-          // Remove the undone log entry from the local state to avoid re-display
-          // and also from mockActivityLog for mock consistency
           if (USE_MOCK_API) {
                 const indexInMockLog = mockActivityLog.findIndex(log => log.id === logId);
                 if (indexInMockLog > -1) {
@@ -156,7 +169,6 @@ export default function AdminDashboardPage() {
                 }
             }
           setActivityLog(prev => prev.filter(log => log.id !== logId));
-          // Fetch fresh data to ensure UI consistency for the "Undone Action: ..." log and stats
           await fetchDashboardData();
       } else {
           throw new Error(specificErrorMessage || "Undo operation failed for an unknown reason.");
@@ -165,7 +177,7 @@ export default function AdminDashboardPage() {
       console.error("Failed to undo activity:", err);
       toast({ variant: "destructive", title: "Undo Failed", description: err.message || "Could not undo the action." });
     } finally {
-        setIsActivityLoading(false); // Ensure loading state is reset even on error
+        setIsActivityLoading(false); 
     }
   };
 
@@ -182,7 +194,7 @@ export default function AdminDashboardPage() {
       {error && <p className="text-destructive text-center py-4">{error}</p>}
 
       {stats && !isLoading && !error && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"> {/* Changed to 4 columns */}
           <Card onClick={() => handleCardClick('/admin/students/population')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle>
@@ -202,7 +214,7 @@ export default function AdminDashboardPage() {
               <div className="text-2xl font-bold">{stats.totalTeachingStaff + stats.totalAdministrativeStaff}</div>
             </CardContent>
           </Card>
-
+           
           <Card onClick={() => handleCardClick('/admin/assignments')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Events & Announcements</CardTitle>
@@ -212,63 +224,76 @@ export default function AdminDashboardPage() {
               <div className="text-2xl font-bold">{stats.totalEventsAnnouncements}</div>
             </CardContent>
           </Card>
+
+          <Card onClick={() => isCurrentUserSuperAdmin ? handleCardClick('/admin/admins') : null} className={isCurrentUserSuperAdmin ? "cursor-pointer hover:shadow-md transition-shadow" : "cursor-not-allowed opacity-70"}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Administrative Accounts</CardTitle>
+              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalAdmins}</div>
+               {!isCurrentUserSuperAdmin && <p className="text-xs text-muted-foreground">View/Manage access restricted.</p>}
+            </CardContent>
+          </Card>
         </div>
       )}
-       <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                    <ListChecks className="h-6 w-6 text-primary" />
-                    <CardTitle>Recent Activity</CardTitle>
+       {isCurrentUserSuperAdmin && (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                        <ListChecks className="h-6 w-6 text-primary" />
+                        <CardTitle>Recent Activity</CardTitle>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={fetchDashboardData} disabled={isActivityLoading || isLoading}>
+                        {isActivityLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                        Refresh
+                    </Button>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchDashboardData} disabled={isActivityLoading || isLoading}>
-                    {isActivityLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
-                    Refresh
-                </Button>
-            </div>
-             <CardDescription>
-                Overview of recent system actions. Some actions may be undoable.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isActivityLoading && (!activityLog || activityLog.length === 0) ? (
-                <div className="flex items-center justify-center py-10">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" /> Loading activities...
-                </div>
-            ) : activityLog && activityLog.length > 0 ? (
-                <ScrollArea className="h-[300px]">
-                    <ul className="space-y-3">
-                        {activityLog.map((log) => (
-                        <li key={log.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                            <div>
-                                <p className="text-sm font-medium">
-                                    <span className="font-bold text-primary">{log.action}:</span> {log.description}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    By {log.user} - {log.timestamp ? formatDistanceToNow(new Date(log.timestamp), { addSuffix: true }) : 'Unknown time'}
-                                </p>
-                            </div>
-                            {log.canUndo && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleUndoActivity(log.id)}
-                                className="text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-100"
-                                disabled={isActivityLoading}
-                                aria-label={`Undo action: ${log.action} - ${log.description}`}
-                            >
-                                <RotateCcw className="mr-1 h-3 w-3" /> Undo
-                            </Button>
-                            )}
-                        </li>
-                        ))}
-                    </ul>
-                </ScrollArea>
-            ) : (
-                <p className="text-sm text-muted-foreground text-center py-10">No recent activities found.</p>
-            )}
-          </CardContent>
-       </Card>
+                <CardDescription>
+                    Overview of recent system actions. Some actions may be undoable.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isActivityLoading && (!activityLog || activityLog.length === 0) ? (
+                    <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" /> Loading activities...
+                    </div>
+                ) : activityLog && activityLog.length > 0 ? (
+                    <ScrollArea className="h-[300px]">
+                        <ul className="space-y-3">
+                            {activityLog.map((log) => (
+                            <li key={log.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                <div>
+                                    <p className="text-sm font-medium">
+                                        <span className="font-bold text-primary">{log.action}:</span> {log.description}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        By {log.user} - {log.timestamp ? formatDistanceToNow(new Date(log.timestamp), { addSuffix: true }) : 'Unknown time'}
+                                    </p>
+                                </div>
+                                {log.canUndo && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleUndoActivity(log.id)}
+                                    className="text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-100"
+                                    disabled={isActivityLoading}
+                                    aria-label={`Undo action: ${log.action} - ${log.description}`}
+                                >
+                                    <RotateCcw className="mr-1 h-3 w-3" /> Undo
+                                </Button>
+                                )}
+                            </li>
+                            ))}
+                        </ul>
+                    </ScrollArea>
+                ) : (
+                    <p className="text-sm text-muted-foreground text-center py-10">No recent activities found.</p>
+                )}
+            </CardContent>
+        </Card>
+       )}
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -33,13 +32,13 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { Student, Faculty as Teacher, AdminUser } from "@/types"; // Renamed Teacher to Faculty
+import type { Student, Faculty, AdminUser, DepartmentType } from "@/types"; 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Pencil } from "lucide-react";
 
-interface UserFormProps<T extends Student | Teacher | AdminUser> {
+interface UserFormProps<T extends Student | Faculty | AdminUser> {
   trigger?: React.ReactNode;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -52,6 +51,7 @@ interface UserFormProps<T extends Student | Teacher | AdminUser> {
   isEditMode?: boolean;
   initialData?: T;
   startReadOnly?: boolean;
+  currentUserIsSuperAdmin?: boolean; // New prop
 }
 
 export type FormFieldConfig<T> = {
@@ -60,13 +60,14 @@ export type FormFieldConfig<T> = {
   placeholder?: string;
   type?: React.HTMLInputTypeAttribute | "select" | "textarea";
   required?: boolean;
-  disabled?: boolean;
-  options?: { value: string | number; label: string }[];
+  // disabled can now be a boolean or a function
+  disabled?: boolean | ((data: Partial<T> | null | undefined, currentUserIsSuperAdmin?: boolean, isEditMode?: boolean, initialDepartment?: DepartmentType) => boolean);
+  options?: { value: string | number; label: string, disabled?: boolean }[]; // options can also have a disabled property
   condition?: (data: Partial<T> | null | undefined) => boolean;
   section?: 'personal' | 'enrollment' | 'employee' | 'emergency' | 'account' | 'contact';
 };
 
-export function UserForm<T extends Student | Teacher | AdminUser>({
+export function UserForm<T extends Student | Faculty | AdminUser>({
   trigger,
   isOpen: isOpenProp,
   onOpenChange: onOpenChangeProp,
@@ -79,6 +80,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
   isEditMode = false,
   initialData,
   startReadOnly = false,
+  currentUserIsSuperAdmin = false, // Default to false
 }: UserFormProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [isReadOnly, setIsReadOnly] = React.useState(startReadOnly && isEditMode);
@@ -93,7 +95,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
     defaultValues: isEditMode ? (initialData as any) : (defaultValues as any),
   });
 
-  const watchedEnrollmentType = useWatch({ control: form.control, name: 'enrollmentType' as any }); // Changed from watchedStatus
+  const watchedEnrollmentType = useWatch({ control: form.control, name: 'enrollmentType' as any });
   const currentFormValues = useWatch({ control: form.control });
 
   React.useEffect(() => {
@@ -106,21 +108,21 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
   }, [isOpen, isEditMode, initialData, defaultValues, form, startReadOnly]);
 
   React.useEffect(() => {
-    if (initialData && 'enrollmentType' in initialData) { // Changed from 'status'
-        if (watchedEnrollmentType === 'New') { // Changed from watchedStatus
+    if (initialData && 'enrollmentType' in initialData) { 
+        if (watchedEnrollmentType === 'New') { 
             form.setValue('year' as any, '1st Year', { shouldValidate: false });
-        } else if (isEditMode && (initialData as Student).enrollmentType !== 'New') { // Changed from status
+        } else if (isEditMode && (initialData as Student).enrollmentType !== 'New') { 
              form.setValue('year' as any, (initialData as Student)?.year || '', { shouldValidate: true });
-        } else if (!isEditMode && watchedEnrollmentType !== 'New') { // Changed from watchedStatus
+        } else if (!isEditMode && watchedEnrollmentType !== 'New') { 
              form.setValue('year' as any, '', { shouldValidate: true });
         }
     }
-  }, [watchedEnrollmentType, form, isEditMode, initialData]); // Changed from watchedStatus
+  }, [watchedEnrollmentType, form, isEditMode, initialData]); 
 
 
   const handleFormSubmit = async (values: T) => {
     try {
-      if ('enrollmentType' in values && (values as Student).enrollmentType === 'New') { // Changed from status
+      if ('enrollmentType' in values && (values as Student).enrollmentType === 'New') { 
         (values as Student).year = '1st Year';
       }
       console.log("Submitting values:", values);
@@ -155,9 +157,17 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
 
     const isStudentForm = initialData && 'studentId' in initialData;
     const isYearField = fieldConfig.name === 'year';
-    const disableYearField = isStudentForm && isYearField && watchedEnrollmentType === 'New'; // Changed from watchedStatus
-    const isDisabled = isReadOnly || disableYearField || fieldConfig.disabled || form.formState.isSubmitting;
+    const disableYearField = isStudentForm && isYearField && watchedEnrollmentType === 'New'; 
 
+    let effectiveDisabled = isReadOnly || disableYearField || form.formState.isSubmitting;
+    if (typeof fieldConfig.disabled === 'function') {
+        // Pass initialData's department if editing, otherwise undefined
+        const initialDepartment = (isEditMode && initialData && 'department' in initialData) ? (initialData as Faculty).department : undefined;
+        effectiveDisabled = isReadOnly || disableYearField || form.formState.isSubmitting || fieldConfig.disabled(currentFormValues, currentUserIsSuperAdmin, isEditMode, initialDepartment);
+    } else if (typeof fieldConfig.disabled === 'boolean') {
+        effectiveDisabled = isReadOnly || disableYearField || form.formState.isSubmitting || fieldConfig.disabled;
+    }
+    
     return (
       <FormField
         key={String(fieldConfig.name)}
@@ -165,39 +175,41 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
         name={fieldConfig.name as any}
         render={({ field }) => (
           <FormItem className="grid grid-cols-4 items-center gap-x-4 gap-y-1">
-            <FormLabel className="text-right text-sm">{fieldConfig.label}{fieldConfig.required && !disableYearField ? '*' : ''}</FormLabel>
+            <FormLabel className="text-right text-sm">{fieldConfig.label}{fieldConfig.required && !effectiveDisabled ? '*' : ''}</FormLabel>
             <FormControl className="col-span-3">
               {fieldConfig.type === 'select' ? (
                 <Select
                   onValueChange={field.onChange}
                   value={field.value ? String(field.value) : undefined}
-                  disabled={isDisabled}
+                  disabled={effectiveDisabled}
                 >
                   <SelectTrigger className="w-full text-sm h-10">
                     <SelectValue placeholder={fieldConfig.placeholder || "Select an option"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {(fieldConfig.options || []).map((option) => (
-                      <SelectItem key={option.value} value={String(option.value)} className="text-sm">
-                        {option.label}
-                      </SelectItem>
-                    ))}
+                    {(fieldConfig.options || []).map((option) => {
+                        return (
+                          <SelectItem key={option.value} value={String(option.value)} className="text-sm" disabled={option.disabled}>
+                            {option.label}
+                          </SelectItem>
+                        );
+                    })}
                   </SelectContent>
                 </Select>
               ) : fieldConfig.type === 'textarea' ? (
                 <Textarea
                   placeholder={fieldConfig.placeholder}
-                  disabled={isDisabled}
+                  disabled={effectiveDisabled}
                   {...field}
                   value={field.value ?? ''}
                   className="text-sm min-h-[60px]"
-                  readOnly={isReadOnly}
+                  readOnly={isReadOnly && !effectiveDisabled} // Only truly readOnly if form isReadOnly and field is not specifically enabled by logic
                 />
               ) : (
                 <Input
                   placeholder={fieldConfig.placeholder}
                   type={fieldConfig.type || "text"}
-                  disabled={isDisabled}
+                  disabled={effectiveDisabled}
                   {...field}
                   value={fieldConfig.type === 'date' && field.value ? String(field.value).split('T')[0] : (field.value ?? '')}
                   onChange={(e) => {
@@ -209,7 +221,7 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
                     }
                   }}
                   className="text-sm h-10"
-                  readOnly={isReadOnly}
+                  readOnly={isReadOnly && !effectiveDisabled}
                 />
               )}
             </FormControl>
@@ -231,13 +243,13 @@ export function UserForm<T extends Student | Teacher | AdminUser>({
   const emergencyFields = formFields.filter(f => f.section === 'emergency');
 
   const isStudent = initialData && 'studentId' in initialData;
-  const isTeacher = initialData && 'facultyId' in initialData; // Changed from teacherId
+  const isTeacher = initialData && 'facultyId' in initialData; 
   const isAdmin = initialData && 'username' in initialData && !isStudent && !isTeacher;
 
-  const idLabel = isStudent ? 'Student ID' : isTeacher ? 'Faculty ID' : isAdmin ? 'Username' : 'ID'; // Changed label
-  const idValue = isStudent ? (initialData as Student)?.studentId : isTeacher ? (initialData as Teacher)?.facultyId : isAdmin ? (initialData as AdminUser)?.username : 'N/A'; // Changed field
+  const idLabel = isStudent ? 'Student ID' : isTeacher ? 'Faculty ID' : isAdmin ? 'Username' : 'ID'; 
+  const idValue = isStudent ? (initialData as Student)?.studentId : isTeacher ? (initialData as Faculty)?.facultyId : isAdmin ? (initialData as AdminUser)?.username : 'N/A'; 
   const usernameLabel = 'Username';
-  const usernameValue = initialData ? (initialData as Student)?.username || (initialData as Teacher)?.username || (initialData as AdminUser)?.username || 'N/A' : 'N/A';
+  const usernameValue = initialData ? (initialData as Student)?.username || (initialData as Faculty)?.username || (initialData as AdminUser)?.username || 'N/A' : 'N/A';
 
 
   return (

@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -36,7 +35,7 @@ import Link from "next/link";
 import { generateDefaultPasswordDisplay } from "@/lib/utils";
 
 
-const CURRENT_SUPER_ADMIN_ID = 0;
+const CURRENT_SUPER_ADMIN_ID = 0; // Assuming ID 0 is the super admin
 
 export default function ManageAdminsPage() {
   const [admins, setAdmins] = React.useState<AdminUser[]>([]);
@@ -44,39 +43,51 @@ export default function ManageAdminsPage() {
   const [selectedAdminForView, setSelectedAdminForView] = React.useState<AdminUser | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isCurrentUserSuperAdmin, setIsCurrentUserSuperAdmin] = React.useState(false);
+  const [currentUserId, setCurrentUserId] = React.useState<number | null>(null);
   const { toast } = useToast();
 
-  const isCurrentUserSuperAdmin = true; 
-  const currentUserId = 0; 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const userId = localStorage.getItem('userId');
+      const parsedUserId = userId ? parseInt(userId, 10) : null;
+      setCurrentUserId(parsedUserId);
+      setIsCurrentUserSuperAdmin(parsedUserId === CURRENT_SUPER_ADMIN_ID);
+    }
+  }, []);
 
   React.useEffect(() => {
     const fetchAdminsData = async () => {
       setIsLoading(true);
       try {
         if (USE_MOCK_API) {
+            // Ensure mockApiAdmins is populated correctly (Super Admin + Administrative Faculty)
             const facultyAdmins: AdminUser[] = mockFaculty
                 .filter(f => f.department === 'Administrative')
                 .map(f => ({
-                    id: f.id, 
-                    username: f.username,
+                    id: f.id, // Use faculty ID as admin ID
+                    username: f.username, // Use faculty username
                     firstName: f.firstName,
                     lastName: f.lastName,
                     email: f.email,
-                    role: 'Sub Admin',
+                    role: 'Sub Admin' as AdminRole,
                     isSuperAdmin: false,
                 }));
 
             const superAdmin = mockApiAdmins.find(a => a.id === CURRENT_SUPER_ADMIN_ID && a.isSuperAdmin);
-            const otherExplicitSubAdmins = mockApiAdmins.filter(a => a.id !== CURRENT_SUPER_ADMIN_ID && !facultyAdmins.some(fa => fa.id === a.id));
-
+            // Include explicit sub-admins from mockApiAdmins that are not faculty-derived
+            const otherExplicitSubAdmins = mockApiAdmins.filter(a => a.id !== CURRENT_SUPER_ADMIN_ID && !a.isSuperAdmin && !facultyAdmins.some(fa => fa.id === a.id));
+            
             let combinedAdmins: AdminUser[] = [];
             if (superAdmin) combinedAdmins.push(superAdmin);
             combinedAdmins = [...combinedAdmins, ...facultyAdmins, ...otherExplicitSubAdmins];
             
+            // Ensure uniqueness by ID
             const uniqueAdmins = Array.from(new Map(combinedAdmins.map(admin => [admin.id, admin])).values());
             setAdmins(uniqueAdmins);
 
         } else {
+            // For real API, it should return all admins (super and sub-admins from faculty)
             const data = await fetchData<AdminUser[]>('admins/read.php');
             setAdmins(data || []);
         }
@@ -96,15 +107,16 @@ export default function ManageAdminsPage() {
          toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can remove admin roles." });
          return;
       }
-       if (adminId === CURRENT_SUPER_ADMIN_ID) {
+       if (adminId === CURRENT_SUPER_ADMIN_ID) { // Prevent deleting the super admin
            toast({ variant: "destructive", title: "Error", description: "Cannot remove the main Super Admin account." });
            return;
        }
       setIsSubmitting(true);
       try {
-          await deleteData(`admins/delete.php/${adminId}`);
+          await deleteData(`admins/delete.php/${adminId}`); // Endpoint expects adminId
           setAdmins(prev => prev.filter(a => a.id !== adminId));
           toast({ title: "Admin Role Removed", description: `Admin role for ${adminUsername || `ID ${adminId}`} has been removed.` });
+          // Logging this action
           logActivity("Removed Admin Role", `For ${adminUsername || `ID ${adminId}`}`, "Admin", adminId, "admin", true, admins.find(a => a.id === adminId));
       } catch (error: any) {
            console.error("Failed to remove admin role:", error);
@@ -119,14 +131,18 @@ export default function ManageAdminsPage() {
             toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can reset passwords." });
             return;
         }
+      // Prevent super admin password reset from this page (should be via Settings)
       if (userId === CURRENT_SUPER_ADMIN_ID) {
          toast({ variant: "warning", title: "Action Not Allowed", description: "Super Admin password must be changed via Settings." });
          return;
       }
       setIsSubmitting(true);
+      // Find the admin to get lastName for default password generation
       const adminToReset = admins.find(a => a.id === userId);
+      // For sub-admins (who are faculty), use 'teacher' type for reset endpoint.
+      // For any other explicit sub-admins not in faculty (if any), use 'admin' type.
       const userTypeForReset = mockFaculty.some(f => f.id === userId && f.department === 'Administrative') ? 'teacher' : 'admin';
-      const lastNameForPassword = adminToReset?.lastName || 'user';
+      const lastNameForPassword = adminToReset?.lastName || 'user'; // Fallback if lastName is missing
 
       try {
            await postData('admin/reset_password.php', { userId, userType: userTypeForReset, lastName: lastNameForPassword });
@@ -158,6 +174,7 @@ export default function ManageAdminsPage() {
        setSelectedAdminForView(null);
    };
 
+   // Define columns for the DataTable
    const columns: ColumnDef<AdminUser>[] = React.useMemo(() => [
     {
         accessorKey: "username",
@@ -188,7 +205,9 @@ export default function ManageAdminsPage() {
         ),
          filterFn: (row, id, value) => value.includes(row.getValue(id)),
     }
-   ], []);
+    // Actions column is added by DataTable component if actionMenuItems is provided
+   ], []); // No dependencies that would change frequently
+
 
     const generateActionMenuItems = (admin: AdminUser) => (
         <>
@@ -269,6 +288,7 @@ export default function ManageAdminsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Manage Admins</h1>
+        {/* "Add Admin" button is removed. Admins are created via Manage Faculty. */}
       </div>
        <p className="text-sm text-muted-foreground">
             This page lists all administrators. The Super Admin is a system default.
@@ -288,14 +308,15 @@ export default function ManageAdminsPage() {
                 columns={columns}
                 data={admins}
                 searchPlaceholder="Search by username or email..."
-                searchColumnId="username"
+                searchColumnId="username" // Or other relevant field like email
                  filterableColumnHeaders={[
                     { columnId: 'role', title: 'Role', options: [{value: 'Super Admin', label: 'Super Admin'}, {value: 'Sub Admin', label: 'Sub Admin'}] }
                  ]}
-                actionMenuItems={generateActionMenuItems}
+                actionMenuItems={generateActionMenuItems} // Pass the generator function
             />
         )}
 
+        {/* View Admin Details Modal */}
         <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
             <DialogContent>
                 <DialogHeader>
@@ -310,6 +331,7 @@ export default function ManageAdminsPage() {
                      {selectedAdminForView?.firstName && <p><strong>First Name:</strong> {selectedAdminForView.firstName}</p>}
                      {selectedAdminForView?.lastName && <p><strong>Last Name:</strong> {selectedAdminForView.lastName}</p>}
                      <p><strong>Role:</strong> <Badge variant={selectedAdminForView?.role === 'Super Admin' ? 'destructive' : 'secondary'}>{selectedAdminForView?.role}</Badge></p>
+                     {/* Add logic to differentiate if sub-admin is faculty-derived or explicit (if needed) */}
                      {selectedAdminForView?.role !== 'Super Admin' && (
                         <p className="text-xs text-muted-foreground">
                             {mockFaculty.some(f => f.id === selectedAdminForView?.id && f.department === 'Administrative')
@@ -326,4 +348,3 @@ export default function ManageAdminsPage() {
     </div>
   );
 }
-```

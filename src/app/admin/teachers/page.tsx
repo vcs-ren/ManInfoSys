@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -11,7 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form";
 import { teacherSchema } from "@/lib/schemas";
-import type { Faculty, EmploymentType, DepartmentType } from "@/types";
+import type { Faculty, EmploymentType, DepartmentType, AdminUser } from "@/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -51,7 +50,8 @@ const genderOptions = [
     { value: "Other", label: "Other" },
 ];
 
-const facultyFormFields: FormFieldConfig<Faculty>[] = [
+// Modified getFacultyFormFields to include currentUserIsSuperAdmin for conditional disabling
+const getFacultyFormFields = (isCurrentUserSuperAdmin: boolean): FormFieldConfig<Faculty>[] => [
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
   { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
@@ -60,7 +60,22 @@ const facultyFormFields: FormFieldConfig<Faculty>[] = [
   { name: "birthday", label: "Birthday", placeholder: "YYYY-MM-DD (optional)", type: "date", section: 'personal' },
   { name: "address", label: "Address", placeholder: "Enter full address (optional)", type: "textarea", section: 'personal' },
   { name: "employmentType", label: "Employment Type", type: "select", options: employmentTypeOptions, placeholder: "Select employment type", required: true, section: 'employee' },
-  { name: "department", label: "Department", type: "select", options: departmentOptions, placeholder: "Select department", required: true, section: 'employee' },
+  { 
+    name: "department", 
+    label: "Department", 
+    type: "select", 
+    options: departmentOptions, 
+    placeholder: "Select department", 
+    required: true, 
+    section: 'employee',
+    disabled: (data, isSuperAdmin, isEditMode, initialDepartment) => {
+        // Field is disabled if not super admin AND editing an existing administrative staff
+        if (!isSuperAdmin && isEditMode && initialDepartment === 'Administrative') {
+            return true;
+        }
+        return false;
+    }
+  },
   { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
   { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian/Spouse Name (optional)", type: "text", section: 'emergency' },
@@ -77,6 +92,7 @@ export default function ManageFacultyPage() {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isCurrentUserSuperAdmin, setIsCurrentUserSuperAdmin] = React.useState(false);
    const { toast } = useToast();
    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
      middleName: false,
@@ -94,6 +110,15 @@ export default function ManageFacultyPage() {
      username: false,
      lastAccessed: false,
    });
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const userId = localStorage.getItem('userId');
+      setIsCurrentUserSuperAdmin(userId === '0'); // Super Admin ID is 0
+    }
+  }, []);
+
+  const facultyFormFields = React.useMemo(() => getFacultyFormFields(isCurrentUserSuperAdmin), [isCurrentUserSuperAdmin]);
 
 
     const fetchFacultyData = React.useCallback(async () => {
@@ -120,6 +145,14 @@ export default function ManageFacultyPage() {
 
   const handleSaveFaculty = async (values: Faculty) => {
     setIsSubmitting(true);
+
+    // Restriction: Only Super Admin can set department to "Administrative"
+    if (values.department === 'Administrative' && !isCurrentUserSuperAdmin) {
+        toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admin can assign faculty to Administrative department."});
+        setIsSubmitting(false);
+        throw new Error("Unauthorized department change");
+    }
+    
     const nameExists = faculty.some(
         (f) =>
             f.firstName.toLowerCase() === values.firstName.toLowerCase() &&
@@ -142,14 +175,14 @@ export default function ManageFacultyPage() {
              logActivity("Updated Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName}`, "Admin", savedFacultyResponse.id, "faculty");
          } else {
               savedFacultyResponse = await postData<Omit<typeof payload, 'id' | 'facultyId' | 'username' | 'lastAccessed'>, Faculty>('teachers/create.php', payload);
-             logActivity("Added Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} (${savedFacultyResponse.username})`, "Admin", savedFacultyResponse.id, "faculty", true, { ...savedFacultyResponse, passwordHash: "mock_hash" }); // Original data for undo
+             logActivity("Added Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} (${savedFacultyResponse.username})`, "Admin", savedFacultyResponse.id, "faculty", true, { ...savedFacultyResponse, passwordHash: "mock_hash" }); 
          }
          
          await fetchFacultyData(); 
          toast({ title: isEditMode ? "Faculty Updated" : "Faculty Added", description: `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} has been ${isEditMode ? 'updated' : 'added'}.` });
          closeModal();
      } catch (error: any) {
-        if (error.message !== "Duplicate name") {
+        if (error.message !== "Duplicate name" && error.message !== "Unauthorized department change") {
              console.error(`Failed to ${isEditMode ? 'update' : 'add'} faculty:`, error);
              toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Faculty`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} faculty.` });
         }
@@ -166,7 +199,7 @@ export default function ManageFacultyPage() {
             await fetchFacultyData(); 
             toast({ title: "Faculty Deleted", description: `Faculty record has been removed.` });
             if (facultyToDelete) {
-                logActivity("Deleted Faculty", `${facultyToDelete.firstName} ${facultyToDelete.lastName} (${facultyToDelete.username})`, "Admin", facultyId, "faculty", true, facultyToDelete); // Original data for undo
+                logActivity("Deleted Faculty", `${facultyToDelete.firstName} ${facultyToDelete.lastName} (${facultyToDelete.username})`, "Admin", facultyId, "faculty", true, facultyToDelete); 
             }
       } catch (error: any) {
           console.error("Failed to delete faculty:", error);
@@ -443,6 +476,7 @@ export default function ManageFacultyPage() {
           isEditMode={isEditMode}
           initialData={isEditMode ? selectedFaculty : undefined}
           startReadOnly={isEditMode}
+          currentUserIsSuperAdmin={isCurrentUserSuperAdmin} // Pass super admin status
         />
     </div>
   );
