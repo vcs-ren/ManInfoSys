@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -152,9 +151,10 @@ export default function FacultyPopulationPage() {
                             <DepartmentIcon className="h-5 w-5" />
                             {department}
                         </CardTitle>
-                        <CardDescription>Total in Department: <span className="font-semibold text-foreground">{typeData.total}</span></CardDescription>
+                        {/* CardDescription removed here */}
                         </CardHeader>
                         <CardContent className="flex-grow">
+                        <p className="text-sm text-muted-foreground mb-3">Total in Department: <span className="font-semibold text-foreground">{typeData.total}</span></p>
                         <ul className="space-y-2">
                             {Object.entries(typeData)
                             .filter(([key]) => key !== 'total')
@@ -173,5 +173,3 @@ export default function FacultyPopulationPage() {
       </div>
     </div>
   );
-}
-
