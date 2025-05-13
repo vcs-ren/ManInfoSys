@@ -1,10 +1,11 @@
+
 "use client";
 
 import * as React from "react";
-import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
+import type { ColumnDef, VisibilityState, ColumnFiltersState } from "@tanstack/react-table";
 import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react";
 import { format, formatDistanceToNow } from 'date-fns';
-
+import { useSearchParams } from 'next/navigation'; // Import useSearchParams
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -93,7 +94,10 @@ export default function ManageFacultyPage() {
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isCurrentUserSuperAdmin, setIsCurrentUserSuperAdmin] = React.useState(false);
-   const { toast } = useToast();
+  const { toast } = useToast();
+  const searchParams = useSearchParams(); // Get search params
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]); // For DataTable
+
    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
      middleName: false,
      suffix: false,
@@ -124,13 +128,14 @@ export default function ManageFacultyPage() {
     const fetchFacultyData = React.useCallback(async () => {
       setIsLoading(true);
        try {
+        let data;
         if (USE_MOCK_API) {
             await new Promise(resolve => setTimeout(resolve, 300));
-            setFaculty(mockFaculty);
+            data = mockFaculty;
         } else {
-            const data = await fetchData<Faculty[]>('teachers/read.php');
-            setFaculty(data || []);
+            data = await fetchData<Faculty[]>('teachers/read.php');
         }
+        setFaculty(data || []);
       } catch (error: any) {
         console.error("Failed to fetch faculty:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Failed to load faculty data." });
@@ -142,6 +147,17 @@ export default function ManageFacultyPage() {
   React.useEffect(() => {
     fetchFacultyData();
   }, [fetchFacultyData]);
+
+  // Effect to apply department filter from URL
+  React.useEffect(() => {
+    const departmentQuery = searchParams.get('department');
+    if (departmentQuery) {
+        setColumnFilters([{ id: 'department', value: [departmentQuery] }]);
+    } else {
+        // Clear filter if no department in query, or set to initial if needed
+        setColumnFilters(prevFilters => prevFilters.filter(f => f.id !== 'department'));
+    }
+  }, [searchParams]);
 
   const handleSaveFaculty = async (values: Faculty) => {
     setIsSubmitting(true);
@@ -462,6 +478,7 @@ export default function ManageFacultyPage() {
                  filterableColumnHeaders={[
                     { columnId: "department", title: "Department", options: departmentOptions }
                 ]}
+                initialColumnFilters={columnFilters} // Pass initial filters to DataTable
             />
         )}
 

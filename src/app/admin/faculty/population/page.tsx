@@ -3,13 +3,13 @@
 
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { fetchData, USE_MOCK_API, mockFaculty } from "@/lib/api"; // Updated to use mockFaculty from api.ts
+import { fetchData, USE_MOCK_API, mockFaculty } from "@/lib/api"; 
 import type { Faculty, DepartmentType, EmploymentType } from "@/types";
 import { Loader2, Briefcase, Building, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation"; // Import useRouter
+import { useRouter } from "next/navigation"; 
 
 interface PopulationData {
   [department: string]: {
@@ -23,7 +23,7 @@ export default function FacultyPopulationPage() {
   const [totalFaculty, setTotalFaculty] = React.useState<number>(0);
   const [isLoading, setIsLoading] = React.useState(true);
   const { toast } = useToast();
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter(); 
 
   React.useEffect(() => {
     const fetchFacultyData = async () => {
@@ -141,12 +141,11 @@ export default function FacultyPopulationPage() {
             .sort(([deptA], [deptB]) => deptA.localeCompare(deptB)) 
             .map(([department, typeData]) => {
                 const DepartmentIcon = departmentIcons[department as DepartmentType] || Briefcase;
-                const isAdministrativeCard = department === 'Administrative';
                 return (
                     <Card 
                         key={department} 
-                        className={`flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-200 ${isAdministrativeCard ? 'cursor-pointer' : ''}`}
-                        onClick={isAdministrativeCard ? () => handleCardClick('Administrative') : undefined}
+                        className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-200 cursor-pointer"
+                        onClick={() => handleCardClick(department as DepartmentType)}
                     >
                         <CardHeader>
                         <CardTitle className="text-xl text-primary flex items-center gap-2">
