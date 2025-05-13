@@ -3,24 +3,27 @@
 
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { fetchData } from "@/lib/api";
-import type { Student, Program } from "@/types"; // Import Program type
+import { fetchData, USE_MOCK_API, mockStudents, mockApiPrograms } from "@/lib/api"; // Updated mockApiPrograms
+import type { Student, Program } from "@/types"; 
 import { Loader2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 interface PopulationData {
-  [programIdentifier: string]: { // Key can be program ID or name
+  [programIdentifier: string]: { 
     [year: string]: number;
     total: number;
   };
 }
 
+const DEFAULT_PROGRAM_LABEL = "Program Not Specified";
+const DEFAULT_YEAR_LABEL = "Year Not Specified";
+
 export default function StudentPopulationPage() {
   const [populationData, setPopulationData] = React.useState<PopulationData | null>(null);
   const [totalStudents, setTotalStudents] = React.useState<number>(0);
-  const [programsList, setProgramsList] = React.useState<Program[]>([]); // State for programs
+  const [programsList, setProgramsList] = React.useState<Program[]>([]); 
   const [isLoading, setIsLoading] = React.useState(true);
   const { toast } = useToast();
 
@@ -28,21 +31,28 @@ export default function StudentPopulationPage() {
     const fetchAllData = async () => {
       setIsLoading(true);
       try {
-        // Fetch both students and programs
-        const [students, programs] = await Promise.all([
-          fetchData<Student[]>("students/read.php"),
-          fetchData<Program[]>("programs/read.php") // Fetch programs
-        ]);
+        let studentsData: Student[] | null = null;
+        let programsData: Program[] | null = null;
 
-        setProgramsList(programs || []);
+        if (USE_MOCK_API) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            studentsData = mockStudents;
+            programsData = mockApiPrograms;
+        } else {
+            [studentsData, programsData] = await Promise.all([
+                fetchData<Student[]>("students/read.php"),
+                fetchData<Program[]>("programs/read.php")
+            ]);
+        }
+        
+        setProgramsList(programsData || []);
 
-        if (students) {
+        if (studentsData) {
           const breakdown: PopulationData = {};
           let currentTotal = 0;
-          students.forEach(student => {
-            // 'student.course' might be an ID or a name. We use it as the key.
-            const programIdentifier = student.course || "Unspecified Program";
-            const year = student.year || "Unspecified Year";
+          studentsData.forEach(student => {
+            const programIdentifier = student.program || DEFAULT_PROGRAM_LABEL;
+            const year = student.year || DEFAULT_YEAR_LABEL;
             currentTotal++;
 
             if (!breakdown[programIdentifier]) {
@@ -130,14 +140,15 @@ export default function StudentPopulationPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {Object.entries(populationData)
             .sort(([programA], [programB]) => {
-                const nameA = programsList.find(p => p.id === programA || p.name === programA)?.name || programA;
-                const nameB = programsList.find(p => p.id === programB || p.name === programB)?.name || programB;
+                const nameA = programsList.find(p => p.id === programA)?.name || programA;
+                const nameB = programsList.find(p => p.id === programB)?.name || programB;
+                if (nameA === DEFAULT_PROGRAM_LABEL) return 1; // Push default to end
+                if (nameB === DEFAULT_PROGRAM_LABEL) return -1;
                 return nameA.localeCompare(nameB);
             })
             .map(([programIdentifier, yearData]) => {
-                // Find the program name for display. student.course could be an ID or a name.
-                const programDetails = programsList.find(p => p.id === programIdentifier || p.name === programIdentifier);
-                const displayName = programDetails?.name || programIdentifier; // Fallback to identifier if name not found
+                const programDetails = programsList.find(p => p.id === programIdentifier);
+                const displayName = programDetails?.name || programIdentifier; 
 
                 return (
                   <Card key={programIdentifier} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-200">
@@ -150,6 +161,8 @@ export default function StudentPopulationPage() {
                         {Object.entries(yearData)
                           .filter(([key]) => key !== 'total')
                           .sort(([yearA], [yearB]) => {
+                              if (yearA === DEFAULT_YEAR_LABEL) return 1; // Push default to end
+                              if (yearB === DEFAULT_YEAR_LABEL) return -1;
                               const yearNumA = parseInt(yearA.match(/\d+/)?.[0] || '0');
                               const yearNumB = parseInt(yearB.match(/\d+/)?.[0] || '0');
                               if (yearNumA !== yearNumB) return yearNumA - yearNumB;
