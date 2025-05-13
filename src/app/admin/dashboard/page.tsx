@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase, Megaphone } from "lucide-react"; // Removed ShieldAlert
+import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase, Megaphone } from "lucide-react";
 import * as React from 'react';
 import {
     fetchData,
@@ -63,7 +63,6 @@ export default function AdminDashboardPage() {
                 totalTeachingStaff: mockFaculty.filter(f => f.department === 'Teaching').length,
                 totalAdministrativeStaff: mockFaculty.filter(f => f.department === 'Administrative').length,
                 totalEventsAnnouncements: mockAnnouncements.length,
-                totalAdmins: mockApiAdmins.filter(a => !a.isSuperAdmin).length,
             };
             activityDataResult = mockActivityLog.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10);
         } else {
@@ -166,15 +165,11 @@ export default function AdminDashboardPage() {
       if (undoSuccess) {
           toast({ title: "Action Undone", description: "The selected action has been successfully reverted." });
           
-          // Correctly remove the log entry from the local state and the mock source if applicable
           setActivityLog(prev => prev.filter(log => log.id !== logId));
           if (USE_MOCK_API) {
-              const indexInMockLog = mockActivityLog.findIndex(log => log.id === logId);
-              if (indexInMockLog > -1) {
-                  mockActivityLog.splice(indexInMockLog, 1);
-              }
+              // The actual removal from mockActivityLog happens inside the undo functions in api.ts
           }
-          await fetchDashboardData(); // Refresh dashboard, which includes activity log
+          await fetchDashboardData(); 
       } else {
           throw new Error(specificErrorMessage || "Undo operation failed for an unknown reason.");
       }
@@ -199,7 +194,7 @@ export default function AdminDashboardPage() {
       {error && <p className="text-destructive text-center py-4">{error}</p>}
 
       {stats && !isLoading && !error && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"> {/* Adjusted to 3 columns */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card onClick={() => handleCardClick('/admin/students/population')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle>
@@ -217,9 +212,7 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalTeachingStaff + stats.totalAdministrativeStaff}</div>
-              <p className="text-xs text-muted-foreground">
-                Teaching: {stats.totalTeachingStaff} | Administrative: {stats.totalAdministrativeStaff}
-              </p>
+              {/* Removed the p tag that showed breakdown by department */}
             </CardContent>
           </Card>
            
@@ -232,8 +225,6 @@ export default function AdminDashboardPage() {
               <div className="text-2xl font-bold">{stats.totalEventsAnnouncements}</div>
             </CardContent>
           </Card>
-
-          {/* Administrative Accounts card removed */}
         </div>
       )}
        {isCurrentUserSuperAdmin && (
