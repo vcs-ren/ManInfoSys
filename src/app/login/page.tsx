@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -27,8 +28,9 @@ import { useToast } from "@/hooks/use-toast";
 import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import { loginSchema } from "@/lib/schemas";
 import Link from "next/link";
-import { postData, USE_MOCK_API, mockStudents, mockFaculty, mockApiAdmins, logActivity } from "@/lib/api"; // Import necessary mock data and helpers
+import { postData, USE_MOCK_API, mockStudents, mockFaculty, mockApiAdmins, logActivity } from "@/lib/api"; 
 import type { AdminRole } from "@/types";
+import { generateDefaultPasswordDisplay } from "@/lib/utils";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
@@ -59,38 +61,53 @@ export default function LoginPage() {
     
     if (USE_MOCK_API) {
         console.log("Mock Login attempt:", data.username);
-        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 300)); 
 
         let response: LoginResponse = { success: false, message: "Invalid username or password." };
-        const defaultPasswordCheck = (lastName: string | undefined): boolean => {
+        
+        const checkMockPassword = (lastName: string | undefined, inputPassword: string): boolean => {
             if (!lastName) return false;
-            return data.password === `${lastName.substring(0, 2).toLowerCase()}1000`;
+            const expectedPassword = generateDefaultPasswordDisplay(lastName); // Uses @ + first 2 letters (UPPER) + 1001
+            return inputPassword === expectedPassword;
         };
 
         // Check Super Admin
         const superAdmin = mockApiAdmins.find(a => a.username.toLowerCase() === data.username.toLowerCase() && a.isSuperAdmin);
-        if (superAdmin && data.password === "defadmin") { // Super admin specific password
+        if (superAdmin && data.password === "defadmin") { 
             response = { success: true, message: "Login successful.", role: "Super Admin", redirectPath: "/admin/dashboard", userId: superAdmin.id };
         } else {
-            // Check Sub Admin (from mockApiAdmins, not derived from faculty here explicitly for login unless username matches)
-            const subAdmin = mockApiAdmins.find(a => a.username.toLowerCase() === data.username.toLowerCase() && !a.isSuperAdmin);
-            if (subAdmin && defaultPasswordCheck(subAdmin.lastName)) {
-                 // Also update lastAccessed if this sub-admin is in mockFaculty
-                const facultyRecord = mockFaculty.find(f => f.id === subAdmin.id && f.department === 'Administrative');
-                if (facultyRecord) facultyRecord.lastAccessed = new Date().toISOString();
-                response = { success: true, message: "Login successful.", role: "Sub Admin", redirectPath: "/admin/dashboard", userId: subAdmin.id };
+            // Check Student
+            const student = mockStudents.find(s => s.username.toLowerCase() === data.username.toLowerCase());
+            if (student && checkMockPassword(student.lastName, data.password)) {
+                student.lastAccessed = new Date().toISOString();
+                response = { success: true, message: "Login successful.", role: "Student", redirectPath: "/student/dashboard", userId: student.id };
             } else {
-                // Check Student
-                const student = mockStudents.find(s => s.username.toLowerCase() === data.username.toLowerCase());
-                if (student && defaultPasswordCheck(student.lastName)) {
-                    student.lastAccessed = new Date().toISOString();
-                    response = { success: true, message: "Login successful.", role: "Student", redirectPath: "/student/dashboard", userId: student.id };
-                } else {
-                    // Check Faculty (Teacher)
-                    const facultyMember = mockFaculty.find(f => f.username.toLowerCase() === data.username.toLowerCase() && f.department === 'Teaching');
-                    if (facultyMember && defaultPasswordCheck(facultyMember.lastName)) {
-                        facultyMember.lastAccessed = new Date().toISOString();
+                // Check Faculty (Teacher or Administrative Staff acting as Sub Admin)
+                const facultyMember = mockFaculty.find(f => f.username.toLowerCase() === data.username.toLowerCase());
+                if (facultyMember && checkMockPassword(facultyMember.lastName, data.password)) {
+                    facultyMember.lastAccessed = new Date().toISOString();
+                    if (facultyMember.department === 'Administrative') {
+                        // Ensure this faculty member is also in mockApiAdmins as a Sub Admin for consistency
+                        if (!mockApiAdmins.some(a => a.id === facultyMember.id && a.role === 'Sub Admin')) {
+                             mockApiAdmins.push({
+                                id: facultyMember.id,
+                                username: facultyMember.username,
+                                firstName: facultyMember.firstName,
+                                lastName: facultyMember.lastName,
+                                email: facultyMember.email,
+                                role: 'Sub Admin',
+                                isSuperAdmin: false
+                            });
+                        }
+                        response = { success: true, message: "Login successful.", role: "Sub Admin", redirectPath: "/admin/dashboard", userId: facultyMember.id };
+                    } else { // Teaching staff
                         response = { success: true, message: "Login successful.", role: "Teacher", redirectPath: "/teacher/dashboard", userId: facultyMember.id };
+                    }
+                } else {
+                    // Check explicit Sub Admins from mockApiAdmins (not derived from faculty)
+                    const explicitSubAdmin = mockApiAdmins.find(a => a.username.toLowerCase() === data.username.toLowerCase() && !a.isSuperAdmin && !mockFaculty.some(f => f.id === a.id));
+                    if (explicitSubAdmin && checkMockPassword(explicitSubAdmin.lastName, data.password)) {
+                        response = { success: true, message: "Login successful.", role: "Sub Admin", redirectPath: "/admin/dashboard", userId: explicitSubAdmin.id };
                     }
                 }
             }
@@ -206,5 +223,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
