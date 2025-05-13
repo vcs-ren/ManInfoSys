@@ -46,8 +46,8 @@ class Student {
                     suffix,
                     gender,
                     birthday,
-                    program, -- Renamed from course
-                    enrollment_type as enrollmentType, -- Renamed from status
+                    program, 
+                    enrollment_type as enrollmentType, 
                     year,
                     section,
                     email,
@@ -56,7 +56,7 @@ class Student {
                     emergency_contact_relationship as emergencyContactRelationship,
                     emergency_contact_phone as emergencyContactPhone,
                     emergency_contact_address as emergencyContactAddress,
-                    last_accessed as lastAccessed -- Added last_accessed
+                    last_accessed as lastAccessed
                   FROM
                     " . $this->table . "
                   ORDER BY
@@ -71,7 +71,7 @@ class Student {
     public function create() {
         $this->studentId = $this->generateStudentId();
         $this->username = $this->generateStudentUsername($this->studentId);
-        $this->section = $this->generateSection($this->program, $this->year); // Added program to section generation
+        $this->section = $this->generateSection($this->program, $this->year);
         $this->passwordHash = $this->generateDefaultPassword($this->lastName);
 
         // Insert query including username
@@ -85,8 +85,8 @@ class Student {
                         suffix = :suffix,
                         gender = :gender,
                         birthday = :birthday,
-                        program = :program, -- Renamed from course
-                        enrollment_type = :enrollmentType, -- Renamed from status
+                        program = :program, 
+                        enrollment_type = :enrollmentType, 
                         year = :year,
                         section = :section,
                         email = :email,
@@ -96,7 +96,7 @@ class Student {
                         emergency_contact_relationship = :emergencyContactRelationship,
                         emergency_contact_phone = :emergencyContactPhone,
                         emergency_contact_address = :emergencyContactAddress,
-                        last_accessed = NULL"; // Initialize last_accessed to NULL
+                        last_accessed = NULL"; 
 
         // Prepare statement
         $stmt = $this->conn->prepare($query);
@@ -108,8 +108,8 @@ class Student {
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
         $this->gender = !empty($this->gender) ? htmlspecialchars(strip_tags($this->gender)) : null;
         $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
-        $this->program = htmlspecialchars(strip_tags($this->program)); // Renamed from course
-        $this->enrollmentType = htmlspecialchars(strip_tags($this->enrollmentType)); // Renamed from status
+        $this->program = htmlspecialchars(strip_tags($this->program));
+        $this->enrollmentType = htmlspecialchars(strip_tags($this->enrollmentType));
         $this->year = htmlspecialchars(strip_tags($this->year));
         $this->section = htmlspecialchars(strip_tags($this->section));
         $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
@@ -128,8 +128,8 @@ class Student {
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':gender', $this->gender, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
-        $stmt->bindParam(':program', $this->program); // Renamed from course
-        $stmt->bindParam(':enrollmentType', $this->enrollmentType); // Renamed from status
+        $stmt->bindParam(':program', $this->program);
+        $stmt->bindParam(':enrollmentType', $this->enrollmentType);
         $stmt->bindParam(':year', $this->year);
         $stmt->bindParam(':section', $this->section);
         $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -213,8 +213,8 @@ class Student {
                         suffix = :suffix,
                         gender = :gender,
                         birthday = :birthday,
-                        program = :program, -- Renamed from course
-                        enrollment_type = :enrollmentType, -- Renamed from status
+                        program = :program, 
+                        enrollment_type = :enrollmentType, 
                         year = :year,
                         email = :email,
                         phone = :phone,
@@ -233,8 +233,8 @@ class Student {
         $this->suffix = !empty($this->suffix) ? htmlspecialchars(strip_tags($this->suffix)) : null;
         $this->gender = !empty($this->gender) ? htmlspecialchars(strip_tags($this->gender)) : null;
         $this->birthday = !empty($this->birthday) ? htmlspecialchars(strip_tags($this->birthday)) : null;
-        $this->program = htmlspecialchars(strip_tags($this->program)); // Renamed from course
-        $this->enrollmentType = htmlspecialchars(strip_tags($this->enrollmentType)); // Renamed from status
+        $this->program = htmlspecialchars(strip_tags($this->program));
+        $this->enrollmentType = htmlspecialchars(strip_tags($this->enrollmentType));
         $this->year = htmlspecialchars(strip_tags($this->year));
         $this->email = !empty($this->email) ? htmlspecialchars(strip_tags($this->email)) : null;
         $this->phone = !empty($this->phone) ? htmlspecialchars(strip_tags($this->phone)) : null;
@@ -250,8 +250,8 @@ class Student {
         $stmt->bindParam(':suffix', $this->suffix, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':gender', $this->gender, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
-        $stmt->bindParam(':program', $this->program); // Renamed from course
-        $stmt->bindParam(':enrollmentType', $this->enrollmentType); // Renamed from status
+        $stmt->bindParam(':program', $this->program);
+        $stmt->bindParam(':enrollmentType', $this->enrollmentType);
         $stmt->bindParam(':year', $this->year);
         $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':phone', $this->phone, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -284,12 +284,12 @@ class Student {
         $query = "SELECT
                     id, student_id as studentId, username,
                     first_name as firstName, last_name as lastName, middle_name as middleName, suffix, gender, birthday,
-                    program, enrollment_type as enrollmentType, year, section, email, phone, -- Renamed course to program, status to enrollmentType
+                    program, enrollment_type as enrollmentType, year, section, email, phone, 
                     emergency_contact_name as emergencyContactName,
                     emergency_contact_relationship as emergencyContactRelationship,
                     emergency_contact_phone as emergencyContactPhone,
                     emergency_contact_address as emergencyContactAddress,
-                    last_accessed as lastAccessed -- Added last_accessed
+                    last_accessed as lastAccessed
                 FROM " . $this->table . "
                 WHERE id = :id LIMIT 0,1";
 
@@ -307,8 +307,8 @@ class Student {
             $this->suffix = $row['suffix'];
             $this->gender = $row['gender'];
             $this->birthday = $row['birthday'];
-            $this->program = $row['program']; // Renamed from course
-            $this->enrollmentType = $row['enrollmentType']; // Renamed from status
+            $this->program = $row['program'];
+            $this->enrollmentType = $row['enrollmentType'];
             $this->year = $row['year'];
             $this->section = $row['section'];
             $this->email = $row['email'];
@@ -317,7 +317,7 @@ class Student {
             $this->emergencyContactRelationship = $row['emergencyContactRelationship'];
             $this->emergencyContactPhone = $row['emergencyContactPhone'];
             $this->emergencyContactAddress = $row['emergencyContactAddress'];
-            $this->lastAccessed = $row['lastAccessed']; // Added lastAccessed
+            $this->lastAccessed = $row['lastAccessed'];
              return [
                  "id" => (int)$this->id,
                  "studentId" => $this->studentId,
@@ -328,8 +328,8 @@ class Student {
                  "suffix" => $this->suffix,
                  "gender" => $this->gender,
                  "birthday" => $this->birthday,
-                 "program" => $this->program, // Renamed from course
-                 "enrollmentType" => $this->enrollmentType, // Renamed from status
+                 "program" => $this->program,
+                 "enrollmentType" => $this->enrollmentType,
                  "year" => $this->year,
                  "section" => $this->section,
                  "email" => $this->email,
@@ -338,7 +338,7 @@ class Student {
                  "emergencyContactRelationship" => $this->emergencyContactRelationship,
                  "emergencyContactPhone" => $this->emergencyContactPhone,
                  "emergencyContactAddress" => $this->emergencyContactAddress,
-                 "lastAccessed" => $this->lastAccessed, // Added lastAccessed
+                 "lastAccessed" => $this->lastAccessed,
              ];
         }
         return null;
@@ -383,12 +383,13 @@ class Student {
          }
     }
 
-     private function generateDefaultPassword($lastName) {
-         if (empty($lastName) || strlen($lastName) < 2) {
-             $lastName = "user";
-         }
-         $defaultPassword = strtolower(substr($lastName, 0, 2)) . '1000';
-         return password_hash($defaultPassword, PASSWORD_DEFAULT);
+    private function generateDefaultPassword($lastName) {
+        if (empty($lastName) || strlen($lastName) < 2) {
+            $lastName = "User"; // Fallback if lastName is too short
+        }
+        // New format: @ + first 2 letters of lastname (capitalized) + 1001
+        $defaultPassword = '@' . strtoupper(substr($lastName, 0, 2)) . '1001';
+        return password_hash($defaultPassword, PASSWORD_DEFAULT);
     }
 
     public function resetPassword($userId, $lastName) {
@@ -416,6 +417,21 @@ class Student {
         if (!$student || !password_verify($currentPassword, $student['password_hash'])) {
              throw new Exception("Incorrect current password.");
         }
+        
+        // Validate new password strength (basic validation, enhance as needed)
+        if (strlen($newPassword) < 7) {
+            throw new Exception("New password must be at least 7 characters long.");
+        }
+        if (!preg_match('/[a-zA-Z]/', $newPassword)) {
+            throw new Exception("New password must contain at least one letter.");
+        }
+        if (!preg_match('/[0-9]/', $newPassword)) {
+            throw new Exception("New password must contain at least one number.");
+        }
+        if (!preg_match('/[@#&?*]/', $newPassword)) {
+            throw new Exception("New password must contain at least one symbol (@, #, &, ?, *).");
+        }
+
 
         $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
 
@@ -433,3 +449,4 @@ class Student {
     }
 }
 ?>
+```

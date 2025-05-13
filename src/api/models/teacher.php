@@ -23,7 +23,9 @@ class Teacher {
     public $emergencyContactRelationship;
     public $emergencyContactPhone;
     public $emergencyContactAddress;
-    public $employmentType; // Added
+    public $employmentType; 
+    public $lastAccessed;
+
 
     // Constructor with DB connection
     public function __construct($db) {
@@ -34,7 +36,7 @@ class Teacher {
         $query = "SELECT
                     id,
                     teacher_id as teacherId,
-                    username, -- Added username
+                    username, 
                     first_name as firstName,
                     last_name as lastName,
                     middle_name as middleName,
@@ -44,11 +46,12 @@ class Teacher {
                     email,
                     phone,
                     birthday,
-                    employment_type as employmentType, -- Added employmentType
+                    employment_type as employmentType, 
                     emergency_contact_name as emergencyContactName,
                     emergency_contact_relationship as emergencyContactRelationship,
                     emergency_contact_phone as emergencyContactPhone,
-                    emergency_contact_address as emergencyContactAddress
+                    emergency_contact_address as emergencyContactAddress,
+                    last_accessed as lastAccessed
                   FROM
                     " . $this->table . "
                   ORDER BY
@@ -67,7 +70,7 @@ class Teacher {
         $query = "INSERT INTO " . $this->table . "
                     SET
                         teacher_id = :teacherId,
-                        username = :username, -- Added username
+                        username = :username, 
                         first_name = :firstName,
                         last_name = :lastName,
                         middle_name = :middleName,
@@ -77,12 +80,13 @@ class Teacher {
                         email = :email,
                         phone = :phone,
                         birthday = :birthday,
-                        employment_type = :employmentType, -- Added employmentType
+                        employment_type = :employmentType, 
                         password_hash = :passwordHash,
                         emergency_contact_name = :emergencyContactName,
                         emergency_contact_relationship = :emergencyContactRelationship,
                         emergency_contact_phone = :emergencyContactPhone,
-                        emergency_contact_address = :emergencyContactAddress";
+                        emergency_contact_address = :emergencyContactAddress,
+                        last_accessed = NULL";
 
         $stmt = $this->conn->prepare($query);
 
@@ -103,7 +107,7 @@ class Teacher {
 
 
         $stmt->bindParam(':teacherId', $this->teacherId);
-        $stmt->bindParam(':username', $this->username); // Bind username
+        $stmt->bindParam(':username', $this->username); 
         $stmt->bindParam(':firstName', $this->firstName);
         $stmt->bindParam(':lastName', $this->lastName);
         $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -113,7 +117,7 @@ class Teacher {
         $stmt->bindParam(':email', $this->email, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':phone', $this->phone, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':birthday', $this->birthday, PDO::PARAM_STR | PDO::PARAM_NULL);
-        $stmt->bindParam(':employmentType', $this->employmentType, PDO::PARAM_STR | PDO::PARAM_NULL); // Bind employmentType
+        $stmt->bindParam(':employmentType', $this->employmentType, PDO::PARAM_STR | PDO::PARAM_NULL); 
         $stmt->bindParam(':passwordHash', $this->passwordHash);
         $stmt->bindParam(':emergencyContactName', $this->emergencyContactName, PDO::PARAM_STR | PDO::PARAM_NULL);
         $stmt->bindParam(':emergencyContactRelationship', $this->emergencyContactRelationship, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -130,8 +134,6 @@ class Teacher {
     }
 
     public function update() {
-        // This method is for when a teacher updates their own profile.
-        // Admin updates (changing department, etc.) should use adminUpdate.
         $query = "UPDATE " . $this->table . " SET
                     first_name = :firstName,
                     last_name = :lastName,
@@ -148,7 +150,6 @@ class Teacher {
                   WHERE id = :id";
 
         $stmt = $this->conn->prepare($query);
-        // Sanitize inputs
         $this->firstName = htmlspecialchars(strip_tags($this->firstName));
         $this->lastName = htmlspecialchars(strip_tags($this->lastName));
         $this->middleName = !empty($this->middleName) ? htmlspecialchars(strip_tags($this->middleName)) : null;
@@ -162,8 +163,6 @@ class Teacher {
         $this->emergencyContactPhone = !empty($this->emergencyContactPhone) ? htmlspecialchars(strip_tags($this->emergencyContactPhone)) : null;
         $this->emergencyContactAddress = !empty($this->emergencyContactAddress) ? htmlspecialchars(strip_tags($this->emergencyContactAddress)) : null;
 
-
-        // Bind parameters
         $stmt->bindParam(':firstName', $this->firstName);
         $stmt->bindParam(':lastName', $this->lastName);
         $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -180,14 +179,13 @@ class Teacher {
 
 
         if ($stmt->execute()) {
-            return $this->readOne(); // Return updated data
+            return $this->readOne(); 
         }
         error_log("Teacher Profile Update Error: " . implode(" | ", $stmt->errorInfo()));
         return false;
     }
 
     public function adminUpdate() {
-        // This method is for admins updating faculty records.
         $query = "UPDATE " . $this->table . " SET
                     first_name = :firstName,
                     last_name = :lastName,
@@ -195,8 +193,8 @@ class Teacher {
                     suffix = :suffix,
                     birthday = :birthday,
                     address = :address,
-                    department = :department, -- Admin can change department
-                    employment_type = :employmentType, -- Admin can change employment type
+                    department = :department, 
+                    employment_type = :employmentType, 
                     email = :email,
                     phone = :phone,
                     emergency_contact_name = :emergencyContactName,
@@ -205,7 +203,6 @@ class Teacher {
                     emergency_contact_address = :emergencyContactAddress
                   WHERE id = :id";
         $stmt = $this->conn->prepare($query);
-        // Sanitize inputs
         $this->firstName = htmlspecialchars(strip_tags($this->firstName));
         $this->lastName = htmlspecialchars(strip_tags($this->lastName));
         $this->middleName = !empty($this->middleName) ? htmlspecialchars(strip_tags($this->middleName)) : null;
@@ -221,7 +218,6 @@ class Teacher {
         $this->emergencyContactPhone = !empty($this->emergencyContactPhone) ? htmlspecialchars(strip_tags($this->emergencyContactPhone)) : null;
         $this->emergencyContactAddress = !empty($this->emergencyContactAddress) ? htmlspecialchars(strip_tags($this->emergencyContactAddress)) : null;
 
-        // Bind parameters
         $stmt->bindParam(':firstName', $this->firstName);
         $stmt->bindParam(':lastName', $this->lastName);
         $stmt->bindParam(':middleName', $this->middleName, PDO::PARAM_STR | PDO::PARAM_NULL);
@@ -239,7 +235,7 @@ class Teacher {
         $stmt->bindParam(':emergencyContactAddress', $this->emergencyContactAddress, PDO::PARAM_STR | PDO::PARAM_NULL);
 
         if ($stmt->execute()) {
-            return $this->readOne(); // Return updated data
+            return $this->readOne();
         }
         error_log("Faculty Admin Update Error: " . implode(" | ", $stmt->errorInfo()));
         return false;
@@ -259,11 +255,11 @@ class Teacher {
     }
 
      public function readOne() {
-        // Fetches a single teacher's record by ID
         $query = "SELECT id, teacher_id as teacherId, username, first_name as firstName, last_name as lastName,
                          middle_name as middleName, suffix, address, department, email, phone, birthday, employment_type as employmentType,
                          emergency_contact_name as emergencyContactName, emergency_contact_relationship as emergencyContactRelationship,
-                         emergency_contact_phone as emergencyContactPhone, emergency_contact_address as emergencyContactAddress
+                         emergency_contact_phone as emergencyContactPhone, emergency_contact_address as emergencyContactAddress,
+                         last_accessed as lastAccessed
                   FROM " . $this->table . " WHERE id = :id LIMIT 1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $this->id);
@@ -271,7 +267,6 @@ class Teacher {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
-            // Assign properties from the fetched row
             $this->teacherId = $row['teacherId'];
             $this->username = $row['username'];
             $this->firstName = $row['firstName'];
@@ -288,7 +283,7 @@ class Teacher {
             $this->emergencyContactRelationship = $row['emergencyContactRelationship'];
             $this->emergencyContactPhone = $row['emergencyContactPhone'];
             $this->emergencyContactAddress = $row['emergencyContactAddress'];
-            // Return as an array, ensuring all expected fields are present
+            $this->lastAccessed = $row['lastAccessed'];
             return [
                 "id" => (int)$this->id,
                 "teacherId" => $this->teacherId,
@@ -307,6 +302,7 @@ class Teacher {
                 "emergencyContactRelationship" => $this->emergencyContactRelationship,
                 "emergencyContactPhone" => $this->emergencyContactPhone,
                 "emergencyContactAddress" => $this->emergencyContactAddress,
+                "lastAccessed" => $this->lastAccessed,
             ];
         }
         return null;
@@ -316,7 +312,6 @@ class Teacher {
         return sprintf('%04d', mt_rand(0, 9999));
     }
 
-    // Generates faculty ID: base "1000" + 4 random digits
     private function generateTeacherId(): string {
         $baseId = "1000";
         return $baseId . $this->generateFourRandomDigits();
@@ -324,14 +319,15 @@ class Teacher {
 
     private function generateUsername(string $teacherId, string $department): string {
         $prefix = (strtolower($department) === 'teaching') ? 't' : 'a';
-        return $prefix . $teacherId; // teacherId is now the full ID like "1000YYYY"
+        return $prefix . $teacherId; 
     }
 
     private function generateDefaultPassword($lastName) {
         if (empty($lastName) || strlen($lastName) < 2) {
-             $lastName = "user";
+             $lastName = "User"; // Fallback
         }
-        $defaultPassword = strtolower(substr($lastName, 0, 2)) . '1000';
+        // New format: @ + first 2 letters of lastname (capitalized) + 1001
+        $defaultPassword = '@' . strtoupper(substr($lastName, 0, 2)) . '1001';
         return password_hash($defaultPassword, PASSWORD_DEFAULT);
     }
 
@@ -361,6 +357,20 @@ class Teacher {
             throw new Exception("Incorrect current password.");
         }
 
+        // Validate new password strength (basic validation, enhance as needed)
+        if (strlen($newPassword) < 7) {
+            throw new Exception("New password must be at least 7 characters long.");
+        }
+        if (!preg_match('/[a-zA-Z]/', $newPassword)) {
+            throw new Exception("New password must contain at least one letter.");
+        }
+        if (!preg_match('/[0-9]/', $newPassword)) {
+            throw new Exception("New password must contain at least one number.");
+        }
+        if (!preg_match('/[@#&?*]/', $newPassword)) { // Updated symbols
+            throw new Exception("New password must contain at least one symbol (@, #, &, ?, *).");
+        }
+
         $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
 
         $updateQuery = "UPDATE " . $this->table . " SET password_hash = :newPasswordHash WHERE id = :id";
@@ -377,4 +387,4 @@ class Teacher {
     }
 }
 ?>
-
+```

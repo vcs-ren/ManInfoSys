@@ -33,6 +33,8 @@ import { fetchData, postData, deleteData, USE_MOCK_API, mockApiAdmins, mockFacul
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Link from "next/link";
+import { generateDefaultPasswordDisplay } from "@/lib/utils";
+
 
 const CURRENT_SUPER_ADMIN_ID = 0;
 
@@ -44,20 +46,18 @@ export default function ManageAdminsPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
 
-  // Placeholder: In a real app, fetch the current user's role/ID
-  const isCurrentUserSuperAdmin = true; // Assume current user is Super Admin for mock
-  const currentUserId = 0; // Assume current user is the Super Admin with ID 0
+  const isCurrentUserSuperAdmin = true; 
+  const currentUserId = 0; 
 
   React.useEffect(() => {
     const fetchAdminsData = async () => {
       setIsLoading(true);
       try {
         if (USE_MOCK_API) {
-            // Derive admins from mockFaculty (Administrative) and merge with explicit mockApiAdmins
             const facultyAdmins: AdminUser[] = mockFaculty
                 .filter(f => f.department === 'Administrative')
                 .map(f => ({
-                    id: f.id, // Use faculty ID as admin ID
+                    id: f.id, 
                     username: f.username,
                     firstName: f.firstName,
                     lastName: f.lastName,
@@ -66,8 +66,6 @@ export default function ManageAdminsPage() {
                     isSuperAdmin: false,
                 }));
 
-            // Combine super admin, faculty-derived admins, and other explicit sub-admins from mockApiAdmins
-            // Ensuring no duplicates and Super Admin ID 0 is always the primary.
             const superAdmin = mockApiAdmins.find(a => a.id === CURRENT_SUPER_ADMIN_ID && a.isSuperAdmin);
             const otherExplicitSubAdmins = mockApiAdmins.filter(a => a.id !== CURRENT_SUPER_ADMIN_ID && !facultyAdmins.some(fa => fa.id === a.id));
 
@@ -75,7 +73,6 @@ export default function ManageAdminsPage() {
             if (superAdmin) combinedAdmins.push(superAdmin);
             combinedAdmins = [...combinedAdmins, ...facultyAdmins, ...otherExplicitSubAdmins];
             
-            // Ensure uniqueness by ID
             const uniqueAdmins = Array.from(new Map(combinedAdmins.map(admin => [admin.id, admin])).values());
             setAdmins(uniqueAdmins);
 
@@ -105,9 +102,6 @@ export default function ManageAdminsPage() {
        }
       setIsSubmitting(true);
       try {
-          // The backend 'admins/delete.php/{adminId}' should handle:
-          // - If it's a faculty-derived admin, change their department (e.g., to 'Teaching' or a default).
-          // - If it's an explicit admin record (not tied to faculty), delete that record.
           await deleteData(`admins/delete.php/${adminId}`);
           setAdmins(prev => prev.filter(a => a.id !== adminId));
           toast({ title: "Admin Role Removed", description: `Admin role for ${adminUsername || `ID ${adminId}`} has been removed.` });
@@ -131,15 +125,12 @@ export default function ManageAdminsPage() {
       }
       setIsSubmitting(true);
       const adminToReset = admins.find(a => a.id === userId);
-      // For sub-admins (who might be faculty), use their actual last name for password reset.
-      // 'admin/reset_password.php' needs userType: 'admin' (or 'teacher' if it's a faculty record directly)
-      // and the lastName.
       const userTypeForReset = mockFaculty.some(f => f.id === userId && f.department === 'Administrative') ? 'teacher' : 'admin';
       const lastNameForPassword = adminToReset?.lastName || 'user';
 
       try {
            await postData('admin/reset_password.php', { userId, userType: userTypeForReset, lastName: lastNameForPassword });
-           const defaultPassword = `${lastNameForPassword.substring(0, 2).toLowerCase()}1000`;
+           const defaultPassword = generateDefaultPasswordDisplay(lastNameForPassword);
            toast({
                 title: "Password Reset Successful",
                 description: `Password for admin ${username || `ID ${userId}`} has been reset. Default password: ${defaultPassword}`,
@@ -222,7 +213,7 @@ export default function ManageAdminsPage() {
                  <AlertDialogHeader>
                      <AlertDialogTitle>Reset Password?</AlertDialogTitle>
                      <AlertDialogDescription>
-                          This will reset the password for admin {admin.username}. Are you sure? The default password will be the first two letters of their last name (if available, otherwise 'us') followed by '1000'.
+                          This will reset the password for admin {admin.username}. Default: {generateDefaultPasswordDisplay(admin.lastName || "user")}. Are you sure?
                      </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
@@ -335,3 +326,4 @@ export default function ManageAdminsPage() {
     </div>
   );
 }
+```

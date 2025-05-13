@@ -2,7 +2,7 @@
 import { z } from "zod";
 import type { EnrollmentType, EmploymentType, AdminRole, DepartmentType, CourseType, YearLevel } from "@/types"; // Import EnrollmentType
 
-const enrollmentTypeEnum: [EnrollmentType, ...EnrollmentType[]] = ['New', 'Transferee', 'Returnee']; // Renamed from studentStatusEnum
+const enrollmentTypeEnum: [EnrollmentType, ...EnrollmentType[]] = ['New', 'Transferee', 'Returnee'];
 const yearLevelEnum: [YearLevel, ...YearLevel[]] = ['1st Year', '2nd Year', '3rd Year', '4th Year'] as const;
 const genderEnum = ['Male', 'Female', 'Other'] as const;
 const employmentTypeEnum: [EmploymentType, ...EmploymentType[]] = ['Regular', 'Part Time'];
@@ -53,7 +53,7 @@ export const studentSchema = z.object({
   suffix: z.string().optional().or(z.literal('')),
   gender: z.enum(genderEnum).optional().or(z.literal('')),
   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)").optional().or(z.literal('')),
-  enrollmentType: z.enum(enrollmentTypeEnum, { required_error: "Enrollment type is required"}), // Changed from status
+  enrollmentType: z.enum(enrollmentTypeEnum, { required_error: "Enrollment type is required"}),
   year: z.enum(yearLevelEnum).optional(),
   program: z.string().min(1, "Program is required"),
   email: z.string().email("Invalid email address").optional().or(z.literal('')),
@@ -66,10 +66,10 @@ export const studentSchema = z.object({
   username: z.string().optional(),
   section: z.string().optional(),
 }).superRefine((data, ctx) => {
-    if (['Transferee', 'Returnee'].includes(data.enrollmentType) && !data.year) { // Changed from data.status
+    if (['Transferee', 'Returnee'].includes(data.enrollmentType) && !data.year) {
         ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Year level is required for this enrollment type.", // Updated message
+        message: "Year level is required for this enrollment type.",
         path: ["year"],
         });
     }
@@ -92,7 +92,7 @@ export const teacherSchema = z.object({
   emergencyContactRelationship: z.string().optional().or(z.literal('')),
   emergencyContactPhone: z.string().optional().or(z.literal('')),
   emergencyContactAddress: z.string().optional().or(z.literal('')),
-  facultyId: z.string().optional(), // Renamed from teacherId for consistency
+  facultyId: z.string().optional(),
   username: z.string().optional(),
 });
 
@@ -178,7 +178,11 @@ export const announcementSchema = z.object({
 
 export const passwordChangeSchema = z.object({
     currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z.string().min(6, "New password must be at least 6 characters"),
+    newPassword: z.string()
+        .min(7, "New password must be at least 7 characters long")
+        .regex(/[a-zA-Z]/, "Password must contain at least one letter")
+        .regex(/[0-9]/, "Password must contain at least one number")
+        .regex(/[@#&?*]/, "Password must contain at least one symbol (@, #, &, ?, *)"),
     confirmPassword: z.string().min(1, "Please confirm your new password"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
     message: "New passwords do not match",
@@ -187,7 +191,7 @@ export const passwordChangeSchema = z.object({
 
 export const assignSubjectSchema = z.object({
   subjectId: z.string().min(1, "Please select a course(subject)."),
-  teacherId: z.coerce.number({ invalid_type_error: "Please select a faculty member." }).min(1, "Please select a faculty member."),
+  teacherId: z.coerce.number({ invalid_type_error: "Please select a faculty member." }).min(0, "Please select a faculty member or unassign."), // Allow 0 for unassigning
 });
 
 export const loginSchema = z.object({
@@ -208,3 +212,5 @@ export const assignCoursesToProgramSchema = z.object({
   yearLevel: z.enum(yearLevelEnum, { required_error: "Year level selection is required." }),
   courseIds: z.array(z.string()).min(0),
 });
+
+```

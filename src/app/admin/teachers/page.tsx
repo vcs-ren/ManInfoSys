@@ -31,7 +31,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockFaculty, logActivity } from "@/lib/api";
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockFaculty, logActivity, mockApiAdmins } from "@/lib/api";
+import { generateDefaultPasswordDisplay } from "@/lib/utils";
+
 
 const departmentOptions: { value: DepartmentType; label: string }[] = [
     { value: "Teaching", label: "Teaching" },
@@ -61,10 +63,10 @@ const facultyFormFields: FormFieldConfig<Faculty>[] = [
   { name: "department", label: "Department", type: "select", options: departmentOptions, placeholder: "Select department", required: true, section: 'employee' },
   { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
   { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
-  { name: "emergencyContactName", label: "Contact Name", placeholder: "Parent/Guardian/Spouse Name (optional)", type: "text", section: 'emergency' },
+  { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian/Spouse Name (optional)", type: "text", section: 'emergency' },
   { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father, Spouse (optional)", type: "text", section: 'emergency' },
-  { name: "emergencyContactPhone", label: "Contact Phone", placeholder: "Contact Number (optional)", type: "tel", section: 'emergency' },
-  { name: "emergencyContactAddress", label: "Contact Address", placeholder: "Full Address (optional)", type: "textarea", section: 'emergency' },
+  { name: "emergencyContactPhone", label: "Emergency Contact Phone", placeholder: "Contact Number (optional)", type: "tel", section: 'emergency' },
+  { name: "emergencyContactAddress", label: "Emergency Contact Address", placeholder: "Full Address (optional)", type: "textarea", section: 'emergency' },
 ];
 
 
@@ -140,10 +142,10 @@ export default function ManageFacultyPage() {
              logActivity("Updated Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName}`, "Admin", savedFacultyResponse.id, "faculty");
          } else {
               savedFacultyResponse = await postData<Omit<typeof payload, 'id' | 'facultyId' | 'username' | 'lastAccessed'>, Faculty>('teachers/create.php', payload);
-             logActivity("Added Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} (${savedFacultyResponse.username})`, "Admin", savedFacultyResponse.id, "faculty", true, { ...savedFacultyResponse, passwordHash: "mock_hash" });
+             logActivity("Added Faculty", `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} (${savedFacultyResponse.username})`, "Admin", savedFacultyResponse.id, "faculty", true, { ...savedFacultyResponse, passwordHash: "mock_hash" }); // Original data for undo
          }
          
-         await fetchFacultyData(); // Reload data from source
+         await fetchFacultyData(); 
          toast({ title: isEditMode ? "Faculty Updated" : "Faculty Added", description: `${savedFacultyResponse.firstName} ${savedFacultyResponse.lastName} has been ${isEditMode ? 'updated' : 'added'}.` });
          closeModal();
      } catch (error: any) {
@@ -151,7 +153,6 @@ export default function ManageFacultyPage() {
              console.error(`Failed to ${isEditMode ? 'update' : 'add'} faculty:`, error);
              toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Faculty`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} faculty.` });
         }
-         // throw error; 
      } finally {
         setIsSubmitting(false);
      }
@@ -162,11 +163,10 @@ export default function ManageFacultyPage() {
       const facultyToDelete = faculty.find(f => f.id === facultyId);
       try {
              await deleteData(`teachers/delete.php/${facultyId}`);
-            // setFaculty(prev => prev.filter(t => t.id !== facultyId)); // Removed direct state update
-            await fetchFacultyData(); // Reload data from source
+            await fetchFacultyData(); 
             toast({ title: "Faculty Deleted", description: `Faculty record has been removed.` });
             if (facultyToDelete) {
-                logActivity("Deleted Faculty", `${facultyToDelete.firstName} ${facultyToDelete.lastName} (${facultyToDelete.username})`, "Admin", facultyId, "faculty", true, facultyToDelete);
+                logActivity("Deleted Faculty", `${facultyToDelete.firstName} ${facultyToDelete.lastName} (${facultyToDelete.username})`, "Admin", facultyId, "faculty", true, facultyToDelete); // Original data for undo
             }
       } catch (error: any) {
           console.error("Failed to delete faculty:", error);
@@ -180,7 +180,7 @@ export default function ManageFacultyPage() {
         setIsSubmitting(true);
         try {
              await postData('admin/reset_password.php', { userId, userType: 'teacher', lastName });
-             const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
+             const defaultPassword = generateDefaultPasswordDisplay(lastName);
              toast({
                   title: "Password Reset Successful",
                   description: `Password for faculty ID ${userId} has been reset. Default password: ${defaultPassword}`,
@@ -348,7 +348,7 @@ export default function ManageFacultyPage() {
                  <AlertDialogHeader>
                      <AlertDialogTitle>Reset Password?</AlertDialogTitle>
                      <AlertDialogDescription>
-                          This will reset the password for {facultyMember.firstName} {facultyMember.lastName} to the default format (first 2 letters of last name + 1000). Are you sure?
+                          This will reset the password for {facultyMember.firstName} {facultyMember.lastName}. Default: {generateDefaultPasswordDisplay(facultyMember.lastName)}. Are you sure?
                      </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
@@ -447,4 +447,3 @@ export default function ManageFacultyPage() {
     </div>
   );
 }
-

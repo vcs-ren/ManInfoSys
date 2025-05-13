@@ -28,13 +28,11 @@ $admin = new Admin($db);
 $data = json_decode(file_get_contents("php://input"));
 
 // *** IMPORTANT: Replace with actual authentication/session handling ***
-// Get the logged-in admin's ID (this is a placeholder)
-// In a real app, you'd verify a session token or similar
-$loggedInAdminId = 1; // Fetch this from session or token. Assuming Admin ID is always 1 for now.
+$loggedInAdminId = 1; 
 
 // Validate input data
 if (
-    empty($loggedInAdminId) || // Ensure we have a logged-in user context
+    empty($loggedInAdminId) || 
     empty($data->currentPassword) ||
     empty($data->newPassword)
 ) {
@@ -46,30 +44,47 @@ if (
 $currentPassword = $data->currentPassword;
 $newPassword = $data->newPassword;
 
+// Validate new password strength (server-side)
+if (strlen($newPassword) < 7) {
+    http_response_code(400);
+    echo json_encode(array("message" => "New password must be at least 7 characters long."));
+    exit();
+}
+if (!preg_match('/[a-zA-Z]/', $newPassword)) {
+    http_response_code(400);
+    echo json_encode(array("message" => "New password must contain at least one letter."));
+    exit();
+}
+if (!preg_match('/[0-9]/', $newPassword)) {
+    http_response_code(400);
+    echo json_encode(array("message" => "New password must contain at least one number."));
+    exit();
+}
+if (!preg_match('/[@#&?*]/', $newPassword)) { // Updated symbols
+    http_response_code(400);
+    echo json_encode(array("message" => "New password must contain at least one symbol (@, #, &, ?, *)."));
+    exit();
+}
+
+
 try {
-    // Attempt to change the password using the model's method
     if ($admin->changePassword($loggedInAdminId, $currentPassword, $newPassword)) {
-        // Set response code - 200 OK
         http_response_code(200);
-        // Send success response
         echo json_encode(array("message" => "Admin password updated successfully."));
     } else {
-         // This case might not be reached if the model throws exceptions for specific failures
-         // but could indicate a general DB update failure where 0 rows were affected.
          http_response_code(503);
          echo json_encode(array("message" => "Unable to update admin password. Operation may not have completed."));
     }
 } catch (Exception $e) {
-     // Handle specific exceptions from the model
      if ($e->getMessage() == "Incorrect current password.") {
-          http_response_code(401); // Unauthorized or Bad Request
+          http_response_code(401); 
           echo json_encode(array("message" => $e->getMessage()));
      } else {
-          // Log the generic error
           error_log("Error changing admin password: " . $e->getMessage());
-          http_response_code(503); // Service Unavailable for other errors
+          http_response_code(503); 
           echo json_encode(array("message" => "An error occurred while changing the password: " . $e->getMessage()));
      }
 }
 
 ?>
+```

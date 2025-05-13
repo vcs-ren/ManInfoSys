@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil } from "lucide-react"; // Added Pencil
+import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil, UserCheck, CheckSquare } from "lucide-react"; // Added Pencil
 import { format, formatDistanceToNow } from 'date-fns';
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -30,7 +30,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockStudents, logActivity } from "@/lib/api";
+import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockStudents, logActivity, mockSections } from "@/lib/api";
+import { generateDefaultPasswordDisplay } from "@/lib/utils";
+
 
 const enrollmentTypeOptions: { value: EnrollmentType; label: string }[] = [
     { value: "New", label: "New" },
@@ -55,31 +57,28 @@ const getStudentFormFields = (programs: Program[]): FormFieldConfig<Student>[] =
   const programOptions = programs.map(p => ({ value: p.id, label: p.name }));
 
   return [
-    // Personal Information Section
     { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
     { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
     { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
     { name: "suffix", label: "Suffix", placeholder: "e.g., Jr., Sr. (optional)", section: 'personal' },
     { name: "birthday", label: "Birthday", type: "date", placeholder: "YYYY-MM-DD (optional)", section: 'personal' },
     { name: "gender", label: "Gender", type: "select", options: genderOptions, placeholder: "Select gender (optional)", section: 'personal' },
-    // Enrollment Information Section
     { name: "enrollmentType", label: "Enrollment Type", type: "select", options: enrollmentTypeOptions, placeholder: "Select enrollment type", required: true, section: 'enrollment' },
     { name: "year", label: "Year Level", type: "select", options: yearLevelOptions, placeholder: "Select year level", required: false, section: 'enrollment', condition: (data) => data?.enrollmentType ? ['Transferee', 'Returnee'].includes(data.enrollmentType) : false },
     { name: "program", label: "Program", type: "select", options: programOptions, placeholder: "Select a program", required: true, section: 'enrollment' },
-    // Contact/Account Details Section
     { name: "email", label: "Email", placeholder: "Enter email (optional)", type: "email", section: 'contact' },
     { name: "phone", label: "Contact #", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
-    // Emergency Contact Section
-    { name: "emergencyContactName", label: "Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
+    { name: "emergencyContactName", label: "Emergency Contact Name", placeholder: "Parent/Guardian Name (optional)", type: "text", section: 'emergency' },
     { name: "emergencyContactRelationship", label: "Relationship", placeholder: "e.g., Mother, Father (optional)", type: "text", section: 'emergency' },
-    { name: "emergencyContactPhone", label: "Contact Number", placeholder: "Emergency contact number (optional)", type: "tel", section: 'emergency' },
-    { name: "emergencyContactAddress", label: "Address", placeholder: "Emergency contact address (optional)", type: "textarea", section: 'emergency' },
+    { name: "emergencyContactPhone", label: "Emergency Contact Phone", placeholder: "Emergency contact number (optional)", type: "tel", section: 'emergency' },
+    { name: "emergencyContactAddress", label: "Emergency Contact Address", placeholder: "Emergency contact address (optional)", type: "textarea", section: 'emergency' },
   ];
 };
 
 export default function ManageStudentsPage() {
   const [students, setStudents] = React.useState<Student[]>([]);
   const [programs, setPrograms] = React.useState<Program[]>([]);
+  const [sections, setSections] = React.useState<string[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -111,13 +110,17 @@ export default function ManageStudentsPage() {
         await new Promise(resolve => setTimeout(resolve, 300));
         setStudents(mockStudents);
         setPrograms(mockApiPrograms);
+        const distinctSections = [...new Set(mockSections.map(s => s.id).filter(Boolean))].sort();
+        setSections(distinctSections);
       } else {
-        const [studentsData, programsData] = await Promise.all([
+        const [studentsData, programsData, sectionsData] = await Promise.all([
           fetchData<Student[]>('students/read.php'),
-          fetchData<Program[]>('programs/read.php')
+          fetchData<Program[]>('programs/read.php'),
+          fetchData<string[]>('sections/list.php') // Assuming a simple endpoint to list section codes
         ]);
         setStudents(studentsData || []);
         setPrograms(programsData || []);
+        setSections(sectionsData || []);
       }
     } catch (error: any) {
       console.error("Failed to fetch initial data:", error);
@@ -169,10 +172,10 @@ export default function ManageStudentsPage() {
             logActivity("Updated Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName}`, "Admin", savedStudentResponse.id, "student");
         } else {
              savedStudentResponse = await postData<Omit<typeof payload, 'id' | 'studentId' | 'username' | 'section' | 'lastAccessed'>, Student>('students/create.php', payload);
-            logActivity("Added Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} (${savedStudentResponse.username})`, "Admin", savedStudentResponse.id, "student", true, { ...savedStudentResponse, passwordHash: "mock_hash" });
+            logActivity("Added Student", `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} (${savedStudentResponse.username})`, "Admin", savedStudentResponse.id, "student", true, { ...savedStudentResponse});
         }
         
-        await loadInitialData(); // Reload data from the source
+        await loadInitialData(); 
         toast({ title: isEditMode ? "Student Updated" : "Student Added", description: `${savedStudentResponse.firstName} ${savedStudentResponse.lastName} has been ${isEditMode ? 'updated' : 'added'}.` });
         closeModal();
     } catch (error: any) {
@@ -180,8 +183,6 @@ export default function ManageStudentsPage() {
             console.error(`Failed to ${isEditMode ? 'update' : 'add'} student:`, error);
             toast({ variant: "destructive", title: `Error ${isEditMode ? 'Updating' : 'Adding'} Student`, description: error.message || `Could not ${isEditMode ? 'update' : 'add'} student. Please try again.` });
         }
-         // Rethrow error if it's not handled by toast or if form needs to know about it
-         // throw error; 
     } finally {
         setIsSubmitting(false);
     }
@@ -192,8 +193,7 @@ export default function ManageStudentsPage() {
       const studentToDelete = students.find(s => s.id === studentId);
       try {
           await deleteData(`students/delete.php/${studentId}`);
-          // setStudents(prev => prev.filter(s => s.id !== studentId)); // Removed direct state update
-          await loadInitialData(); // Reload data from source
+          await loadInitialData(); 
           toast({ title: "Student Deleted", description: `Student record has been removed.` });
           if (studentToDelete) {
             logActivity("Deleted Student", `${studentToDelete.firstName} ${studentToDelete.lastName} (${studentToDelete.username})`, "Admin", studentId, "student", true, studentToDelete);
@@ -210,7 +210,7 @@ export default function ManageStudentsPage() {
       setIsSubmitting(true);
       try {
            await postData('admin/reset_password.php', { userId, userType: 'student', lastName });
-           const defaultPassword = `${lastName.substring(0, 2).toLowerCase()}1000`;
+           const defaultPassword = generateDefaultPasswordDisplay(lastName);
            toast({
                 title: "Password Reset Successful",
                 description: `Password for student ID ${userId} has been reset. Default password: ${defaultPassword}`,
@@ -227,6 +227,40 @@ export default function ManageStudentsPage() {
            setIsSubmitting(false);
       }
   };
+
+  const handlePromoteStudent = async (student: Student) => {
+    if (!student.year) {
+        toast({ variant: "destructive", title: "Promotion Error", description: "Student has no current year level." });
+        return;
+    }
+
+    const currentYearIndex = yearLevelOptions.findIndex(opt => opt.value === student.year);
+    if (currentYearIndex === -1 || currentYearIndex === yearLevelOptions.length - 1) {
+        toast({ variant: "destructive", title: "Promotion Error", description: "Student is already at the highest year level or year level is invalid." });
+        return;
+    }
+
+    const nextYearLevel = yearLevelOptions[currentYearIndex + 1].value;
+
+    setIsSubmitting(true);
+    try {
+        const payload = {
+            ...student,
+            enrollmentType: 'Returnee' as EnrollmentType, // Or "Continuing" if you add that type
+            year: nextYearLevel,
+        };
+        const updatedStudent = await putData<Student, Student>(`students/update.php/${student.id}`, payload);
+        await loadInitialData();
+        toast({ title: "Student Promoted", description: `${student.firstName} ${student.lastName} promoted to ${nextYearLevel}. Enrollment type set to Returnee.` });
+        logActivity("Promoted Student", `${student.firstName} ${student.lastName} to ${nextYearLevel}`, "Admin", student.id, "student");
+    } catch (error: any) {
+        console.error("Failed to promote student:", error);
+        toast({ variant: "destructive", title: "Promotion Failed", description: error.message || "Could not promote student." });
+    } finally {
+        setIsSubmitting(false);
+    }
+};
+
 
    const openAddModal = () => {
     setIsEditMode(false);
@@ -428,6 +462,38 @@ export default function ManageStudentsPage() {
             View / Edit Details
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        {student.year && student.year !== '4th Year' && ( // Only show if not 4th year
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-green-600 focus:text-green-600 focus:bg-green-100" disabled={isSubmitting}>
+                        <CheckSquare className="mr-2 h-4 w-4" />
+                        Promote Student
+                    </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Promote Student?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will promote {student.firstName} {student.lastName} to the next year level and set their enrollment type to 'Returnee'. Are you sure?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={async (e) => {
+                                e.stopPropagation();
+                                await handlePromoteStudent(student);
+                            }}
+                            className={cn(buttonVariants({ variant: "default" }), "bg-green-600 hover:bg-green-700 text-white")} // Custom styling for promote
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Yes, promote student
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        )}
          <AlertDialog>
              <AlertDialogTrigger asChild>
                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-orange-600 focus:text-orange-600 focus:bg-orange-100" disabled={isSubmitting}>
@@ -439,7 +505,7 @@ export default function ManageStudentsPage() {
                  <AlertDialogHeader>
                      <AlertDialogTitle>Reset Password?</AlertDialogTitle>
                      <AlertDialogDescription>
-                          This will reset the password for {student.firstName} {student.lastName} to the default format (first 2 letters of last name + 1000). Are you sure?
+                          This will reset the password for {student.firstName} {student.lastName}. Default: {generateDefaultPasswordDisplay(student.lastName)}. Are you sure?
                      </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
@@ -539,4 +605,4 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
-
+```
