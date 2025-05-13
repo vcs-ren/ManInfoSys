@@ -21,8 +21,8 @@ export default function ForgotPasswordPage() {
             <p className="font-medium">Contact Details:</p>
             <ul className="list-disc list-inside text-sm text-muted-foreground">
                {/* Add actual contact details here */}
-              <li>Email: <a href="mailto:admin@campusconnect.example.com" className="text-primary hover:underline">admin@campusconnect.example.com</a></li>
-              <li>Phone: <a href="tel:+1234567890" className="text-primary hover:underline">(123) 456-7890</a></li>
+              <li>Email: <a href="mailto:p4x.mnb@gmail.com" className="text-primary hover:underline">p4x.mnb@gmail.com</a></li>
+              <li>Phone: <a href="tel:+639467545332" className="text-primary hover:underline">(+63) 9467545332</a></li>
               <li>Office Hours: Mon-Fri, 8:00 AM - 4:00 PM</li>
             </ul>
           </div>
@@ -36,3 +36,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+
