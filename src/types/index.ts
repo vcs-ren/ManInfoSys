@@ -1,7 +1,6 @@
-
 // Shared types for the application
 
-export type EnrollmentType = 'New' | 'Transferee' | 'Returnee'; // Renamed from StudentStatus
+export type EnrollmentType = 'New' | 'Transferee' | 'Returnee';
 export type EmploymentType = 'Regular' | 'Part Time';
 export type AdminRole = 'Super Admin' | 'Sub Admin';
 export type DepartmentType = 'Teaching' | 'Administrative';
@@ -20,7 +19,7 @@ export interface Student {
   gender?: 'Male' | 'Female' | 'Other';
   birthday?: string; // YYYY-MM-DD format
   program: string; // References Program ID (UI Label: Program)
-  enrollmentType: EnrollmentType; // Changed from status
+  enrollmentType: EnrollmentType;
   year?: YearLevel;
   section: string; // e.g., "CS1A", "IT1B" - Auto-generated
   email?: string;
@@ -110,7 +109,7 @@ export interface Announcement {
     date: Date;
     targetAudience?: 'Student' | 'Faculty' | 'All';
     target: {
-        program?: string | 'all' | null;
+        programId?: string | 'all' | null; // Changed from program
         yearLevel?: string | 'all' | null;
         section?: string | 'all' | null;
     };
@@ -168,8 +167,8 @@ export interface AdminUser {
 
 export interface DashboardStats {
     totalStudents: number;
-    totalFaculty: number;
-    totalAdmins: number;
+    totalFacultyStaff: number; // Renamed from totalTeachers/totalFaculty
+    totalAdminUsers: number;  // Renamed from totalAdmins
     upcomingEvents: number;
 }
 

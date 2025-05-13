@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +7,7 @@ import {
     fetchData,
     postData,
     USE_MOCK_API,
-    mockDashboardStats,
+    // mockDashboardStats is now dynamically calculated
     mockActivityLog,
     logActivity,
     executeUndoAddStudent,
@@ -16,7 +15,8 @@ import {
     executeUndoAddFaculty,
     executeUndoDeleteFaculty,
     executeUndoRemoveAdminRole,
-    // mockApiAdmins // No longer directly modified here
+    recalculateDashboardStats, // Import recalculate function
+    mockDashboardStats // Import the stats object
 } from "@/lib/api";
 import type { DashboardStats, ActivityLogEntry, Student, Faculty, AdminUser, DepartmentType } from "@/types";
 import Link from "next/link";
@@ -45,13 +45,13 @@ export default function AdminDashboardPage() {
         let activityDataResult: ActivityLogEntry[] = [];
 
         if (USE_MOCK_API) {
-            // Assuming recalculateDashboardStats is now internal to api.ts or called by mutation functions
-            statsData = mockDashboardStats;
+            recalculateDashboardStats(); // Recalculate stats before fetching
+            statsData = { ...mockDashboardStats }; // Use the updated mockDashboardStats
             activityDataResult = [...mockActivityLog].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10);
         } else {
             const [fetchedStats, fetchedActivities] = await Promise.all([
               fetchData<DashboardStats>('admin/dashboard-stats.php'),
-              fetchData<ActivityLogEntry[]>('admin/activity-log/read.php') // Assuming this endpoint exists
+              fetchData<ActivityLogEntry[]>('admin/activity-log/read.php')
             ]);
             statsData = fetchedStats;
             activityDataResult = fetchedActivities || [];
@@ -59,6 +59,7 @@ export default function AdminDashboardPage() {
 
         setStats(statsData);
 
+        // De-duplicate activity log entries by ID
         const uniqueActivityDataById = activityDataResult
             ? Array.from(new Map(activityDataResult.map(log => [log.id, log])).values())
             : [];
@@ -89,95 +90,66 @@ export default function AdminDashboardPage() {
  const handleUndoActivity = async (logId: string) => {
     setIsActivityLoading(true);
     try {
-      if (USE_MOCK_API) {
-        const logEntryIndex = mockActivityLog.findIndex(l => l.id === logId);
+      const logEntry = USE_MOCK_API ? mockActivityLog.find(l => l.id === logId) : activityLog.find(l => l.id === logId);
 
-        if (logEntryIndex === -1) {
-            throw new Error("Log entry not found.");
-        }
-
-        const logEntry = mockActivityLog[logEntryIndex];
-
-        if (!logEntry.canUndo) {
-            throw new Error("This action cannot be undone.");
-        }
-
-        let undoSuccess = false;
-        let specificErrorMessage: string | null = null;
-
-        if (logEntry.action === "Added Student" && logEntry.targetType === "student") {
-            if (logEntry.originalData && logEntry.targetId) {
-                executeUndoAddStudent(logEntry.targetId as number, logEntry.originalData as Student);
-                undoSuccess = true;
-            } else {
-                specificErrorMessage = "Missing original data or target ID for undoing 'Added Student'.";
-            }
-        } else if (logEntry.action === "Deleted Student" && logEntry.targetType === "student") {
-            if (logEntry.originalData) {
-                executeUndoDeleteStudent(logEntry.originalData as Student);
-                undoSuccess = true;
-            } else {
-                specificErrorMessage = "Missing original data for undoing 'Deleted Student'.";
-            }
-        } else if (logEntry.action === "Added Faculty" && logEntry.targetType === "faculty") {
-             if (logEntry.originalData && logEntry.targetId) {
-                const facultyData = logEntry.originalData as Faculty;
-                executeUndoAddFaculty(logEntry.targetId as number, facultyData); // This function now handles mockApiAdmins update internally
-                undoSuccess = true;
-            } else {
-                specificErrorMessage = "Missing original data or target ID for undoing 'Added Faculty'.";
-            }
-        } else if (logEntry.action === "Deleted Faculty" && logEntry.targetType === "faculty") {
-            if (logEntry.originalData) {
-                executeUndoDeleteFaculty(logEntry.originalData as Faculty);
-                undoSuccess = true;
-            } else {
-                specificErrorMessage = "Missing original data for undoing 'Deleted Faculty'.";
-            }
-        } else if (logEntry.action === "Removed Admin Role" && logEntry.targetType === "admin") {
-            if (logEntry.originalData && logEntry.targetId) {
-                const adminData = logEntry.originalData as AdminUser & { originalDepartment?: DepartmentType };
-                const restored = executeUndoRemoveAdminRole(adminData);
-                if(restored) {
-                    undoSuccess = true;
-                } else {
-                     specificErrorMessage = "Could not undo 'Removed Admin Role': Corresponding faculty member not found for restoration, or it was not a faculty-derived admin handled by this logic.";
-                }
-            } else {
-                 specificErrorMessage = "Missing original data or target ID for undoing 'Removed Admin Role'.";
-            }
-        } else {
-            specificErrorMessage = `Mock: Undo for action type "${logEntry.action}" is not implemented.`;
-        }
-
-        if (undoSuccess) {
-            // Remove the original log entry from the local state, as it's "undone"
-            setActivityLog(prev => prev.filter(l => l.id !== logId));
-            // Optionally, remove from mockActivityLog directly if it's the source of truth for the next fetch
-            const mockLogIndex = mockActivityLog.findIndex(l => l.id === logId);
-            if (mockLogIndex > -1) {
-                mockActivityLog.splice(mockLogIndex, 1);
-            }
-            toast({ title: "Action Undone", description: "The selected action has been successfully reverted." });
-        } else {
-            throw new Error(specificErrorMessage || "Undo operation failed for an unknown reason.");
-        }
-      } else {
-        await postData('admin/activity-log/undo.php', { logId });
-        toast({ title: "Action Undone", description: "The selected action has been reverted (via API)." });
+      if (!logEntry) {
+          throw new Error("Log entry not found.");
       }
-      await fetchDashboardData();
+      if (!logEntry.canUndo) {
+          throw new Error("This action cannot be undone.");
+      }
+
+      let undoSuccess = false;
+      let specificErrorMessage: string | null = null;
+
+      if (USE_MOCK_API) {
+          if (logEntry.action === "Added Student" && logEntry.targetType === "student") {
+              if (logEntry.originalData && logEntry.targetId) {
+                  executeUndoAddStudent(logEntry.targetId as number, logEntry.originalData as Student);
+                  undoSuccess = true;
+              } else { specificErrorMessage = "Missing data for undoing 'Added Student'."; }
+          } else if (logEntry.action === "Deleted Student" && logEntry.targetType === "student") {
+              if (logEntry.originalData) {
+                  executeUndoDeleteStudent(logEntry.originalData as Student);
+                  undoSuccess = true;
+              } else { specificErrorMessage = "Missing data for undoing 'Deleted Student'."; }
+          } else if (logEntry.action === "Added Faculty" && logEntry.targetType === "faculty") {
+               if (logEntry.originalData && logEntry.targetId) {
+                  const facultyData = logEntry.originalData as Faculty;
+                  executeUndoAddFaculty(logEntry.targetId as number, facultyData);
+                  undoSuccess = true;
+              } else { specificErrorMessage = "Missing data for undoing 'Added Faculty'."; }
+          } else if (logEntry.action === "Deleted Faculty" && logEntry.targetType === "faculty") {
+              if (logEntry.originalData) {
+                  executeUndoDeleteFaculty(logEntry.originalData as Faculty);
+                  undoSuccess = true;
+              } else { specificErrorMessage = "Missing data for undoing 'Deleted Faculty'."; }
+          } else if (logEntry.action === "Removed Admin Role" && logEntry.targetType === "admin") {
+              if (logEntry.originalData && logEntry.targetId) {
+                  const adminData = logEntry.originalData as AdminUser & { originalDepartment?: DepartmentType };
+                  const restored = executeUndoRemoveAdminRole(adminData);
+                  if(restored) { undoSuccess = true; }
+                  else { specificErrorMessage = "Could not undo 'Removed Admin Role': Details in log."; }
+              } else { specificErrorMessage = "Missing data for undoing 'Removed Admin Role'."; }
+          } else {
+              specificErrorMessage = `Mock: Undo for action type "${logEntry.action}" is not implemented.`;
+          }
+      } else { // Real API call for undo
+          await postData('admin/activity-log/undo.php', { logId });
+          undoSuccess = true; // Assume success if API call doesn't throw
+      }
+
+      if (undoSuccess) {
+          toast({ title: "Action Undone", description: "The selected action has been successfully reverted." });
+          // Refresh data to reflect the undo, including activity log and stats
+          await fetchDashboardData();
+      } else {
+          throw new Error(specificErrorMessage || "Undo operation failed for an unknown reason.");
+      }
     } catch (err: any) {
       console.error("Failed to undo activity:", err);
       toast({ variant: "destructive", title: "Undo Failed", description: err.message || "Could not undo the action." });
-      // No need to set isLoading to false here, fetchDashboardData will handle it.
-    } finally {
-        // fetchDashboardData sets isLoading and isActivityLoading to false.
-        // If an error occurs before fetchDashboardData is called (e.g. in mock logic),
-        // ensure isActivityLoading is reset.
-        if (USE_MOCK_API) { // Only if mock, as real API call will refresh through fetchDashboardData
-            setIsActivityLoading(false);
-        }
+      setIsActivityLoading(false); // Ensure loading state is reset on error if fetchDashboardData isn't called
     }
   };
 
@@ -211,17 +183,17 @@ export default function AdminDashboardPage() {
               <Briefcase className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalFaculty}</div>
+              <div className="text-2xl font-bold">{stats.totalFacultyStaff}</div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow">
+          <Card onClick={() => handleCardClick('/admin/admins')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Administrative Accounts</CardTitle>
               <ShieldCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalAdmins}</div>
+              <div className="text-2xl font-bold">{stats.totalAdminUsers}</div>
             </CardContent>
           </Card>
         </div>
@@ -266,7 +238,7 @@ export default function AdminDashboardPage() {
                                 size="sm"
                                 onClick={() => handleUndoActivity(log.id)}
                                 className="text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-100"
-                                disabled={isActivityLoading}
+                                disabled={isActivityLoading} // Disable while any activity log operation is in progress
                                 aria-label={`Undo action: ${log.action} - ${log.description}`}
                             >
                                 <RotateCcw className="mr-1 h-3 w-3" /> Undo
