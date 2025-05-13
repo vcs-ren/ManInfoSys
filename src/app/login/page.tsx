@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -28,14 +27,15 @@ import { useToast } from "@/hooks/use-toast";
 import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import { loginSchema } from "@/lib/schemas";
 import Link from "next/link";
-// Removed postData import as we are using mock login
+import { postData, USE_MOCK_API, mockStudents, mockFaculty, mockApiAdmins, logActivity } from "@/lib/api"; // Import necessary mock data and helpers
+import type { AdminRole } from "@/types";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 interface LoginResponse {
     success: boolean;
     message: string;
-    role?: 'Admin' | 'Student' | 'Teacher';
+    role?: AdminRole | 'Student' | 'Teacher';
     redirectPath?: string;
     userId?: number;
 }
@@ -50,72 +50,85 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
-      password: "", // Password field is kept for UI consistency
+      password: "",
     },
   });
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
-    console.log("Login attempt (mock):", data.username);
+    
+    if (USE_MOCK_API) {
+        console.log("Mock Login attempt:", data.username);
+        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+        let response: LoginResponse = { success: false, message: "Invalid username or password." };
+        const defaultPasswordCheck = (lastName: string | undefined): boolean => {
+            if (!lastName) return false;
+            return data.password === `${lastName.substring(0, 2).toLowerCase()}1000`;
+        };
 
-    let response: LoginResponse = {
-      success: false,
-      message: "Invalid username.",
-    };
+        // Check Super Admin
+        const superAdmin = mockApiAdmins.find(a => a.username.toLowerCase() === data.username.toLowerCase() && a.isSuperAdmin);
+        if (superAdmin && data.password === "defadmin") { // Super admin specific password
+            response = { success: true, message: "Login successful.", role: "Super Admin", redirectPath: "/admin/dashboard", userId: superAdmin.id };
+        } else {
+            // Check Sub Admin (from mockApiAdmins, not derived from faculty here explicitly for login unless username matches)
+            const subAdmin = mockApiAdmins.find(a => a.username.toLowerCase() === data.username.toLowerCase() && !a.isSuperAdmin);
+            if (subAdmin && defaultPasswordCheck(subAdmin.lastName)) {
+                 // Also update lastAccessed if this sub-admin is in mockFaculty
+                const facultyRecord = mockFaculty.find(f => f.id === subAdmin.id && f.department === 'Administrative');
+                if (facultyRecord) facultyRecord.lastAccessed = new Date().toISOString();
+                response = { success: true, message: "Login successful.", role: "Sub Admin", redirectPath: "/admin/dashboard", userId: subAdmin.id };
+            } else {
+                // Check Student
+                const student = mockStudents.find(s => s.username.toLowerCase() === data.username.toLowerCase());
+                if (student && defaultPasswordCheck(student.lastName)) {
+                    student.lastAccessed = new Date().toISOString();
+                    response = { success: true, message: "Login successful.", role: "Student", redirectPath: "/student/dashboard", userId: student.id };
+                } else {
+                    // Check Faculty (Teacher)
+                    const facultyMember = mockFaculty.find(f => f.username.toLowerCase() === data.username.toLowerCase() && f.department === 'Teaching');
+                    if (facultyMember && defaultPasswordCheck(facultyMember.lastName)) {
+                        facultyMember.lastAccessed = new Date().toISOString();
+                        response = { success: true, message: "Login successful.", role: "Teacher", redirectPath: "/teacher/dashboard", userId: facultyMember.id };
+                    }
+                }
+            }
+        }
 
-    // Test users logic (no password check)
-    if (data.username.toLowerCase() === "admin") {
-      response = {
-        success: true,
-        message: "Login successful.",
-        role: "Admin",
-        redirectPath: "/admin/dashboard",
-        userId: 0, // Mock admin ID
-      };
-    } else if (data.username.toLowerCase() === "s1001") {
-      response = {
-        success: true,
-        message: "Login successful.",
-        role: "Student",
-        redirectPath: "/student/dashboard",
-        userId: 1, // Mock student ID
-      };
-    } else if (data.username.toLowerCase() === "t1001") {
-      response = {
-        success: true,
-        message: "Login successful.",
-        role: "Teacher",
-        redirectPath: "/teacher/dashboard",
-        userId: 1, // Mock teacher ID
-      };
-    } else {
-        // Fallback for actual login if needed in future, or just fail for others
-        response.message = "Invalid username or password for mock setup.";
-    }
+        setIsLoading(false);
+        if (response.success && response.role && response.redirectPath) {
+            toast({ title: "Login Successful", description: `Redirecting to ${response.role} dashboard...` });
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('userRole', response.role);
+                localStorage.setItem('userId', String(response.userId));
+            }
+             logActivity("User Login", `${data.username} logged in as ${response.role}.`, data.username, response.userId, response.role.toLowerCase().replace(' ', '_') as any);
+            router.push(response.redirectPath);
+        } else {
+            toast({ variant: "destructive", title: "Login Failed", description: response.message });
+        }
 
-
-    setIsLoading(false);
-
-    if (response.success && response.role && response.redirectPath) {
-      toast({
-        title: "Login Successful",
-        description: `Redirecting to ${response.role} dashboard...`,
-      });
-      // Optional: Store session/token here if needed
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('userRole', response.role);
-        localStorage.setItem('userId', String(response.userId));
-      }
-      router.push(response.redirectPath);
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: response.message,
-      });
+    } else { // Real API call
+        try {
+            const response = await postData<LoginFormValues, LoginResponse>('login.php', data);
+            setIsLoading(false);
+            if (response.success && response.role && response.redirectPath) {
+                toast({ title: "Login Successful", description: `Redirecting to ${response.role} dashboard...` });
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('userRole', response.role);
+                    localStorage.setItem('userId', String(response.userId));
+                }
+                logActivity("User Login", `${data.username} logged in as ${response.role}.`, data.username, response.userId, response.role.toLowerCase().replace(' ', '_') as any);
+                router.push(response.redirectPath);
+            } else {
+                toast({ variant: "destructive", title: "Login Failed", description: response.message });
+            }
+        } catch (error: any) {
+            setIsLoading(false);
+            console.error("Login API error:", error);
+            toast({ variant: "destructive", title: "Login Error", description: error.message || "An unexpected error occurred." });
+        }
     }
   };
 
@@ -136,7 +149,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter username (admin, s1001, t1001)" {...field} disabled={isLoading} />
+                      <Input placeholder="Enter username" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -152,7 +165,7 @@ export default function LoginPage() {
                         <FormControl>
                             <Input
                                 type={showPassword ? "text" : "password"}
-                                placeholder="Enter password (mock: any)"
+                                placeholder="Enter password"
                                 {...field}
                                 disabled={isLoading}
                                 className="pr-10"
@@ -193,3 +206,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
