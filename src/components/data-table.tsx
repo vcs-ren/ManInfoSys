@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -57,6 +56,7 @@ interface DataTableProps<TData, TValue> {
   columnVisibility?: VisibilityState; // Optional: Control visibility state externally
   setColumnVisibility?: React.Dispatch<React.SetStateAction<VisibilityState>>; // Optional: Setter for external control
   filterableColumnHeaders?: FilterableColumnHeaderProps[]; // Optional: Define filterable columns
+  initialColumnFilters?: ColumnFiltersState; // Prop to pass initial/updated filters
 }
 
 export function DataTable<TData, TValue>({
@@ -69,9 +69,11 @@ export function DataTable<TData, TValue>({
   columnVisibility: controlledColumnVisibility, // Rename for clarity
   setColumnVisibility: controlledSetColumnVisibility, // Rename for clarity
   filterableColumnHeaders = [], // Default to empty array
+  initialColumnFilters, // Receive this prop
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  // Initialize internal columnFilters state with initialColumnFilters
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(initialColumnFilters || []);
   const [internalColumnVisibility, setInternalColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
@@ -81,6 +83,16 @@ export function DataTable<TData, TValue>({
   // Use controlled state if provided, otherwise use internal state
   const columnVisibility = isVisibilityControlled ? controlledColumnVisibility : internalColumnVisibility;
   const setColumnVisibility = isVisibilityControlled ? controlledSetColumnVisibility : setInternalColumnVisibility;
+
+  // Effect to synchronize internal columnFilters state with the prop when it changes
+  React.useEffect(() => {
+    if (initialColumnFilters) {
+      setColumnFilters(initialColumnFilters);
+    } else {
+      // If initialColumnFilters becomes undefined or null (e.g., filter removed), clear internal filters
+      setColumnFilters([]);
+    }
+  }, [initialColumnFilters]);
 
 
   // Add action column if actionMenuItems are provided
@@ -107,14 +119,14 @@ export function DataTable<TData, TValue>({
       });
     }
     return cols;
-  }, [columns, actionMenuItems]); // Removed onRowClick from dependency array as it's not used here
+  }, [columns, actionMenuItems]);
 
 
   const table = useReactTable({
     data,
     columns: tableColumns, // Use potentially modified columns
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: setColumnFilters, // This updates the internal state
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -123,7 +135,7 @@ export function DataTable<TData, TValue>({
     onRowSelectionChange: setRowSelection,
     state: {
       sorting,
-      columnFilters,
+      columnFilters, // Use the internal state that's synced with the prop
       columnVisibility, // Use the determined visibility state
       rowSelection,
     },
@@ -403,3 +415,4 @@ export function DataTableFilterableColumnHeader<TData>({
     </div>
   );
 }
+
