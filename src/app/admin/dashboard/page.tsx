@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase, Megaphone, ShieldAlert } from "lucide-react"; // Added Megaphone, ShieldAlert
+import { Users, CalendarDays, Loader2, ListChecks, RotateCcw, Briefcase, Megaphone } from "lucide-react"; // Removed ShieldAlert
 import * as React from 'react';
 import {
     fetchData,
@@ -57,19 +57,18 @@ export default function AdminDashboardPage() {
         let activityDataResult: ActivityLogEntry[] = [];
 
         if (USE_MOCK_API) {
-            recalculateDashboardStats(); // Recalculate based on current mock data state
+            recalculateDashboardStats(); 
              statsData = {
                 totalStudents: mockStudents.length,
                 totalTeachingStaff: mockFaculty.filter(f => f.department === 'Teaching').length,
                 totalAdministrativeStaff: mockFaculty.filter(f => f.department === 'Administrative').length,
                 totalEventsAnnouncements: mockAnnouncements.length,
-                totalAdmins: mockApiAdmins.filter(a => !a.isSuperAdmin).length, // Count only Sub Admins for this card
+                totalAdmins: mockApiAdmins.filter(a => !a.isSuperAdmin).length,
             };
-            activityDataResult = mockActivityLog.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10);
+            activityDataResult = mockActivityLog.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10);
         } else {
             const [fetchedStats, fetchedActivities] = await Promise.all([
               fetchData<DashboardStats>('admin/dashboard-stats.php'),
-              // Only fetch activity log if super admin for real API
               isCurrentUserSuperAdmin ? fetchData<ActivityLogEntry[]>('admin/activity-log/read.php') : Promise.resolve([])
             ]);
             statsData = fetchedStats;
@@ -99,9 +98,13 @@ export default function AdminDashboardPage() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const handleCardClick = (path: string | null) => {
+  const handleCardClick = (path: string | null, departmentFilter?: DepartmentType) => {
     if (path) {
-        router.push(path);
+        if (departmentFilter) {
+            router.push(`${path}?department=${departmentFilter}`);
+        } else {
+            router.push(path);
+        }
     }
   };
 
@@ -162,14 +165,16 @@ export default function AdminDashboardPage() {
 
       if (undoSuccess) {
           toast({ title: "Action Undone", description: "The selected action has been successfully reverted." });
-          if (USE_MOCK_API) {
-                const indexInMockLog = mockActivityLog.findIndex(log => log.id === logId);
-                if (indexInMockLog > -1) {
-                    mockActivityLog.splice(indexInMockLog, 1);
-                }
-            }
+          
+          // Correctly remove the log entry from the local state and the mock source if applicable
           setActivityLog(prev => prev.filter(log => log.id !== logId));
-          await fetchDashboardData();
+          if (USE_MOCK_API) {
+              const indexInMockLog = mockActivityLog.findIndex(log => log.id === logId);
+              if (indexInMockLog > -1) {
+                  mockActivityLog.splice(indexInMockLog, 1);
+              }
+          }
+          await fetchDashboardData(); // Refresh dashboard, which includes activity log
       } else {
           throw new Error(specificErrorMessage || "Undo operation failed for an unknown reason.");
       }
@@ -194,7 +199,7 @@ export default function AdminDashboardPage() {
       {error && <p className="text-destructive text-center py-4">{error}</p>}
 
       {stats && !isLoading && !error && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"> {/* Changed to 4 columns */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"> {/* Adjusted to 3 columns */}
           <Card onClick={() => handleCardClick('/admin/students/population')} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Enrolled Students</CardTitle>
@@ -212,6 +217,9 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalTeachingStaff + stats.totalAdministrativeStaff}</div>
+              <p className="text-xs text-muted-foreground">
+                Teaching: {stats.totalTeachingStaff} | Administrative: {stats.totalAdministrativeStaff}
+              </p>
             </CardContent>
           </Card>
            
@@ -225,16 +233,7 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card onClick={() => isCurrentUserSuperAdmin ? handleCardClick('/admin/admins') : null} className={isCurrentUserSuperAdmin ? "cursor-pointer hover:shadow-md transition-shadow" : "cursor-not-allowed opacity-70"}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Administrative Accounts</CardTitle>
-              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalAdmins}</div>
-               {!isCurrentUserSuperAdmin && <p className="text-xs text-muted-foreground">View/Manage access restricted.</p>}
-            </CardContent>
-          </Card>
+          {/* Administrative Accounts card removed */}
         </div>
       )}
        {isCurrentUserSuperAdmin && (

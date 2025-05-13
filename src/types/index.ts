@@ -1,6 +1,6 @@
 // Shared types for the application
 
-export type EnrollmentType = 'New' | 'Transferee' | 'Returnee';
+export type EnrollmentType = 'New' | 'Transferee' | 'Returnee' | 'Continuing';
 export type EmploymentType = 'Regular' | 'Part Time';
 export type AdminRole = 'Super Admin' | 'Sub Admin';
 export type DepartmentType = 'Teaching' | 'Administrative';
@@ -171,7 +171,7 @@ export interface DashboardStats {
     totalTeachingStaff: number;
     totalAdministrativeStaff: number;
     totalEventsAnnouncements: number;
-    totalAdmins: number; // Total number of Sub Admins (excluding Super Admin)
+    totalAdmins: number; // Still calculated, but not displayed directly on a card
 }
 
 export interface UpcomingItem {
