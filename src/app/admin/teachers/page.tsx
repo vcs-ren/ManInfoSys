@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -486,11 +487,10 @@ export default function ManageFacultyPage() {
             <DataTable
                 columns={columns}
                 data={faculty}
-                searchPlaceholder="Search by name..."
-                searchColumnId="firstName"
-                 actionMenuItems={generateActionMenuItems}
-                 columnVisibility={columnVisibility}
-                 setColumnVisibility={setColumnVisibility}
+                searchPlaceholder="Search by ID, name, email..."
+                actionMenuItems={generateActionMenuItems}
+                columnVisibility={columnVisibility}
+                setColumnVisibility={setColumnVisibility}
                  filterableColumnHeaders={[
                     { columnId: "department", title: "Department", options: departmentOptions }
                 ]}

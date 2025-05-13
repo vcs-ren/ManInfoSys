@@ -343,7 +343,7 @@ export default function ProgramsCoursesPage() {
           <div className="border rounded-lg p-4">
             <h2 className="text-2xl font-semibold mb-4 flex items-center"><Library className="mr-2 h-6 w-6 text-primary" /> Academic Programs</h2>
             {programs.length > 0 ? (
-              <DataTable columns={programColumns} data={programs} searchColumnId="name" searchPlaceholder="Search programs..." />
+              <DataTable columns={programColumns} data={programs} searchPlaceholder="Search programs by ID or name..." />
             ) : (
               <p className="text-muted-foreground">No programs found. Add a program to get started.</p>
             )}
@@ -352,7 +352,7 @@ export default function ProgramsCoursesPage() {
           <div className="border rounded-lg p-4">
             <h2 className="text-2xl font-semibold mb-4 flex items-center"><BookOpen className="mr-2 h-6 w-6 text-primary" /> System Courses (Subjects)</h2>
             {allCourses.length > 0 ? (
-              <DataTable columns={courseColumns} data={allCourses} searchColumnId="name" searchPlaceholder="Search courses..." />
+              <DataTable columns={courseColumns} data={allCourses} searchPlaceholder="Search courses by ID or name..." />
             ) : (
               <p className="text-muted-foreground">No system courses found. Add courses to assign them to programs.</p>
             )}

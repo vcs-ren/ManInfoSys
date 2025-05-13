@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -307,8 +308,7 @@ export default function ManageAdminsPage() {
             <DataTable
                 columns={columns}
                 data={admins}
-                searchPlaceholder="Search by username or email..."
-                searchColumnId="username" // Or other relevant field like email
+                searchPlaceholder="Search by username, email..."
                  filterableColumnHeaders={[
                     { columnId: 'role', title: 'Role', options: [{value: 'Super Admin', label: 'Super Admin'}, {value: 'Sub Admin', label: 'Sub Admin'}] }
                  ]}

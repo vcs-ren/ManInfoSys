@@ -590,8 +590,7 @@ export default function ManageStudentsPage() {
             <DataTable
                 columns={columns}
                 data={students}
-                searchPlaceholder="Search by name..."
-                searchColumnId="firstName" 
+                searchPlaceholder="Search by ID, name, email..."
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}

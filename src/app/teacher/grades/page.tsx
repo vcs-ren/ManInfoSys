@@ -336,8 +336,7 @@ export default function SubmitGradesPage() {
                      <DataTable
                         columns={columns}
                         data={filteredAssignments}
-                        searchPlaceholder="Search by student name..."
-                        searchColumnId="studentName"
+                        searchPlaceholder="Search students by ID, name..."
                      />
                 ) : (
                     <p className="text-center text-muted-foreground py-10">No students found matching the selected filters.</p>

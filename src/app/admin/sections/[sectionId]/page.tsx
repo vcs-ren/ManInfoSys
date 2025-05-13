@@ -457,7 +457,7 @@ export default function SectionDetailsPage() {
         </CardHeader>
         <CardContent>
           {students.length > 0 ? (
-            <DataTable columns={studentColumns} data={students} searchPlaceholder="Search students..." searchColumnId="lastName"/>
+            <DataTable columns={studentColumns} data={students} searchPlaceholder="Search students..." />
           ) : (
             <p className="text-muted-foreground">No students currently enrolled in this section.</p>
           )}

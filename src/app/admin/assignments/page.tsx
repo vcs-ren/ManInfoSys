@@ -539,8 +539,7 @@ export default function ScheduleAnnouncementsPage() {
                     <DataTable
                         columns={sectionColumns}
                         data={sections}
-                        searchColumnId="sectionCode"
-                        searchPlaceholder="Search by section code..."
+                        searchPlaceholder="Search sections..."
                         filterableColumnHeaders={[
                              { columnId: 'programName', title: 'Program', options: programFilterOptions },
                              { columnId: 'yearLevel', title: 'Year Level', options: yearFilterOptions },
@@ -717,8 +716,7 @@ export default function ScheduleAnnouncementsPage() {
                     <DataTable
                         columns={announcementColumns}
                         data={announcements}
-                        searchColumnId="title"
-                        searchPlaceholder="Search by title..."
+                        searchPlaceholder="Search announcements..."
                         filterableColumnHeaders={[
                             { columnId: 'target', title: 'Audience Filter', options: [
                                 {value: 'All Users', label: 'All Users'},
