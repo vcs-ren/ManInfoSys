@@ -12,12 +12,11 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-   Column, // Import Column type
-   // GlobalFilterTableState, // For global filter // This was commented out
-} from "@tanstack/react-table"; // Corrected this line
-import { ArrowUpDown, ChevronDown, Filter, MoreHorizontal } from "lucide-react"; // Added Filter icon
+  Column,
+} from "@tanstack/react-table";
+import { ArrowUpDown, ChevronDown, Filter, MoreHorizontal } from "lucide-react";
 
-import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -37,9 +36,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils"; // Import cn utility
+import { cn } from "@/lib/utils";
 
-// Interface for defining filterable column headers
 interface FilterableColumnHeaderProps {
     columnId: string;
     title: string;
@@ -52,38 +50,35 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   searchPlaceholder?: string;
   onRowClick?: (row: TData) => void;
-  actionMenuItems?: (row: TData) => React.ReactNode; // Function to generate dropdown items
-  columnVisibility?: VisibilityState; // Optional: Control visibility state externally
-  setColumnVisibility?: React.Dispatch<React.SetStateAction<VisibilityState>>; // Optional: Setter for external control
-  filterableColumnHeaders?: FilterableColumnHeaderProps[]; // Optional: Define filterable columns
-  initialColumnFilters?: ColumnFiltersState; // Prop to pass initial/updated filters
+  actionMenuItems?: (row: TData) => React.ReactNode;
+  columnVisibility?: VisibilityState;
+  setColumnVisibility?: React.Dispatch<React.SetStateAction<VisibilityState>>;
+  filterableColumnHeaders?: FilterableColumnHeaderProps[];
+  initialColumnFilters?: ColumnFiltersState;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
-  searchPlaceholder = "Search all fields...", // Default placeholder for global search
+  searchPlaceholder = "Search by ID or Last Name...",
   onRowClick,
   actionMenuItems,
-  columnVisibility: controlledColumnVisibility, // Rename for clarity
-  setColumnVisibility: controlledSetColumnVisibility, // Rename for clarity
-  filterableColumnHeaders = [], // Default to empty array
-  initialColumnFilters, // Receive this prop
+  columnVisibility: controlledColumnVisibility,
+  setColumnVisibility: controlledSetColumnVisibility,
+  filterableColumnHeaders = [],
+  initialColumnFilters,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(initialColumnFilters || []);
   const [internalColumnVisibility, setInternalColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
-  const [globalFilter, setGlobalFilter] = React.useState(''); // State for global filter
+  const [globalFilter, setGlobalFilter] = React.useState('');
 
-  // Determine if visibility is controlled externally
   const isVisibilityControlled = controlledColumnVisibility !== undefined && controlledSetColumnVisibility !== undefined;
 
-  // Use controlled state if provided, otherwise use internal state
   const columnVisibility = isVisibilityControlled ? controlledColumnVisibility : internalColumnVisibility;
   const setColumnVisibility = isVisibilityControlled ? controlledSetColumnVisibility : setInternalColumnVisibility;
 
-  // Effect to synchronize internal columnFilters state with the prop when it changes
   React.useEffect(() => {
     if (initialColumnFilters) {
       setColumnFilters(initialColumnFilters);
@@ -93,7 +88,6 @@ export function DataTable<TData, TValue>({
   }, [initialColumnFilters]);
 
 
-  // Add action column if actionMenuItems are provided
    const tableColumns = React.useMemo(() => {
     const cols = [...columns];
     if (actionMenuItems) {
@@ -122,38 +116,37 @@ export function DataTable<TData, TValue>({
 
   const table = useReactTable({
     data,
-    columns: tableColumns, // Use potentially modified columns
+    columns: tableColumns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter, // Set global filter handler
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onGlobalFilterChange: setGlobalFilter, // For controlled global filter input
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
-      globalFilter, // Pass global filter state to the table
+      globalFilter, // Pass the global filter state to the table
     },
+    globalFilterFn: "auto", // TanStack Table can use 'auto' if you're providing the globalFilter state and onGlobalFilterChange
     filterFromLeafRows: true,
   });
 
   return (
     <div className="w-full space-y-4">
       <div className="flex items-center py-4 gap-2 flex-wrap">
-        {/* Global Search Input */}
         <Input
           placeholder={searchPlaceholder}
           value={globalFilter ?? ""}
-          onChange={(event) => setGlobalFilter(event.target.value)}
+          onChange={(event) => setGlobalFilter(String(event.target.value))}
           className="max-w-sm h-9"
         />
 
-         {/* Filter Dropdowns */}
         {filterableColumnHeaders.map(({ columnId, title, options }) => {
              const column = table.getColumn(columnId);
              if (!column) return null;
@@ -167,7 +160,6 @@ export function DataTable<TData, TValue>({
              );
         })}
 
-        {/* Column Visibility Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="ml-auto h-9">
@@ -231,7 +223,6 @@ export function DataTable<TData, TValue>({
                   data-state={row.getIsSelected() && "selected"}
                   onClick={(e) => {
                         const target = e.target as HTMLElement;
-                        // Prevent row click if clicking on interactive elements within the row
                         if (target.closest('[data-radix-dropdown-menu-content]') || target.closest('button') || target.closest('a')) {
                             return;
                         }
@@ -261,12 +252,11 @@ export function DataTable<TData, TValue>({
             )}
           </TableBody>
          <ScrollBar orientation="horizontal" />
+       </Table>
        </ScrollArea>
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground">
           {table.getFilteredRowModel().rows.length} row(s) found.
-          {/* {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected. */}
         </div>
         <div className="space-x-2">
           <Button
@@ -315,22 +305,21 @@ export const DataTableColumnHeader = <TData, TValue>({
       >
         <span>{title}</span>
         {column.getIsSorted() === "desc" ? (
-          <ArrowUpDown className="ml-2 h-4 w-4" /> // Could use ChevronDownIcon for desc
+          <ArrowUpDown className="ml-2 h-4 w-4" />
         ) : column.getIsSorted() === "asc" ? (
-          <ArrowUpDown className="ml-2 h-4 w-4" /> // Could use ChevronUpIcon for asc
+          <ArrowUpDown className="ml-2 h-4 w-4" />
         ) : (
-          <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" /> // Default sort icon
+          <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
         )}
       </Button>
     </div>
   );
 };
 
-// Filterable Column Header Component
 export function DataTableFilterableColumnHeader<TData>({
   column,
   title,
-  options, // { label: string; value: string }[]
+  options,
   className,
 }: {
   column: Column<TData, unknown>;
