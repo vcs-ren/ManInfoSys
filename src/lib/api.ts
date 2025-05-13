@@ -1,7 +1,7 @@
 // src/lib/api.ts
 'use client';
 
-import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry, EmploymentType, EnrollmentType } from '@/types';
+import type { Student, Faculty, Section, Course, Announcement, ScheduleEntry, StudentSubjectAssignmentWithGrades, StudentTermGrade, SectionSubjectAssignment, DashboardStats, AdminUser, UpcomingItem, Program, DepartmentType, AdminRole, CourseType, YearLevel, ActivityLogEntry, EmploymentType, EnrollmentType } from '@/types'; // Added EnrollmentType
 import { generateStudentUsername, generateTeacherId, generateSectionCode, generateAdminUsername, generateTeacherUsername, generateStudentId as generateFrontendStudentId } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -91,6 +91,11 @@ export const logActivity = (
     canUndo: boolean = false,
     originalData?: any
 ) => {
+     // Prevent logging "Added Student to section..."
+    if (action === "Added Student" && description.includes("to section")) {
+        return;
+    }
+
     const newLogEntry: ActivityLogEntry = {
         id: `log-${nextActivityLogId++}-${Date.now()}`,
         timestamp: new Date(),
@@ -102,28 +107,26 @@ export const logActivity = (
         canUndo,
         originalData
     };
-
+    
     // Check if a log entry with the exact same action, description, user, targetId, and targetType already exists
-    // This is a simple check to avoid exact duplicates if multiple calls happen very close together.
-    // A more robust de-duplication might involve checking timestamps or a more specific unique identifier for the event itself.
-    const isDuplicate = mockActivityLog.some(
+    // within a very short timeframe (e.g., 1 second) to prevent rapid, identical duplicates.
+    const isNearDuplicate = mockActivityLog.some(
         log => log.action === action &&
                log.description === description &&
                log.user === user &&
                log.targetId === targetId &&
                log.targetType === targetType &&
-               (new Date().getTime() - new Date(log.timestamp).getTime() < 5000) // Only consider recent duplicates (e.g., within 5 seconds)
+               (new Date().getTime() - new Date(log.timestamp).getTime() < 1000) // 1-second window
     );
 
-    if (!isDuplicate) {
+    if (!isNearDuplicate) {
         mockActivityLog.unshift(newLogEntry); // Add to the beginning
         if (mockActivityLog.length > 50) { // Keep the log to a manageable size
             mockActivityLog.pop();
         }
     } else {
-        console.warn("Duplicate log entry prevented:", newLogEntry);
+        console.warn("Near duplicate log entry prevented:", newLogEntry);
     }
-
 
     if (targetType === 'student' || targetType === 'faculty' || targetType === 'admin' || targetType === 'announcement') {
         recalculateDashboardStats();
@@ -153,7 +156,7 @@ export const recalculateDashboardStats = () => {
 };
 recalculateDashboardStats(); // Initial calculation
 
-export let mockTestUsers: { username: string; password?: string; role: AdminRole | 'Student' | 'Teacher'; userId: number; id: number; }[] = [
+export let mockTestUsers: { username: string; password?: string; role: AdminRole | 'Student' | 'Teacher' | 'Sub Admin'; userId: number; id: number; }[] = [
     { username: "admin", password: "defadmin", role: "Super Admin", userId: 0, id: 0 },
     { username: "s1001", password: "password", role: "Student", userId: 1, id: 1 }, // Corresponds to Alice Smith
     { username: "t1001", password: "password", role: "Teacher", userId: 1, id: 1 }, // Corresponds to David Lee
@@ -170,8 +173,8 @@ export function executeUndoAddStudent(studentId: number, originalStudentData: St
   if (studentIndex > -1) {
     mockStudents.splice(studentIndex, 1);
     recalculateMockSectionCounts();
-    recalculateDashboardStats();
     logActivity("Undone Action: Add Student", `Reverted addition of ${originalStudentData.firstName} ${originalStudentData.lastName}`, "System", studentId, "student");
+    recalculateDashboardStats();
   }
 }
 
@@ -179,8 +182,8 @@ export function executeUndoDeleteStudent(originalStudentData: Student) {
   if (!mockStudents.some(s => s.id === originalStudentData.id)) {
     mockStudents.push(originalStudentData);
     recalculateMockSectionCounts();
-    recalculateDashboardStats();
     logActivity("Undone Action: Delete Student", `Restored student ${originalStudentData.firstName} ${originalStudentData.lastName}`, "System", originalStudentData.id, "student");
+    recalculateDashboardStats();
   }
 }
 
@@ -194,8 +197,8 @@ export function executeUndoAddFaculty(facultyId: number, originalFacultyData: Fa
                 mockApiAdmins.splice(adminIndex, 1);
              }
         }
-        recalculateDashboardStats();
         logActivity("Undone Action: Add Faculty", `Reverted addition of ${originalFacultyData.firstName} ${originalFacultyData.lastName}`, "System", facultyId, "faculty");
+        recalculateDashboardStats();
     }
 }
 
@@ -211,8 +214,8 @@ export function executeUndoDeleteFaculty(originalFacultyData: Faculty) {
                 });
             }
         }
-        recalculateDashboardStats();
         logActivity("Undone Action: Delete Faculty", `Restored faculty ${originalFacultyData.firstName} ${originalFacultyData.lastName}`, "System", originalFacultyData.id, "faculty");
+        recalculateDashboardStats();
     }
 }
 
@@ -229,14 +232,14 @@ export function executeUndoRemoveAdminRole(adminData: AdminUser & { originalDepa
             const adminIndex = mockApiAdmins.findIndex(a => a.id === adminData.id && !a.isSuperAdmin);
             if(adminIndex > -1 && !adminData.isSuperAdmin) mockApiAdmins.splice(adminIndex, 1);
         }
-        recalculateDashboardStats();
         logActivity("Undone Action: Remove Admin Role", `Restored admin role (via faculty department) for ${adminData.username}`, "System", adminData.id, "admin");
+        recalculateDashboardStats();
         return true;
     }
     if (!facultyMember && !mockApiAdmins.some(a => a.id === adminData.id) && adminData.role !== 'Super Admin') {
         mockApiAdmins.push(adminData);
-        recalculateDashboardStats();
         logActivity("Undone Action: Remove Admin Role", `Restored explicit admin role for ${adminData.username}`, "System", adminData.id, "admin");
+        recalculateDashboardStats();
         return true;
     }
     console.warn("Could not fully undo admin role removal: No corresponding faculty or explicit admin found for ID:", adminData.id);
@@ -374,7 +377,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
             const teacherId = teacherUser?.userId;
             return mockAnnouncements.filter(ann =>
                 (ann.author_type === 'Admin' && (ann.targetAudience === 'All' || ann.targetAudience === 'Faculty')) ||
-                (ann.author_type === 'Teacher' && ann.author === String(teacherId))
+                (ann.author_type === 'Teacher' && ann.author === String(teacherId)) // TODO: Should use author_id from announcement for teacher
             ).sort((a, b) => b.date.getTime() - a.date.getTime()) as T;
         }
         if (phpPath === 'admin/dashboard-stats.php') {
@@ -433,7 +436,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
                              prelimGrade: existingGradeEntry?.prelimGrade ?? null,
                              prelimRemarks: existingGradeEntry?.prelimRemarks ?? "",
                              midtermGrade: existingGradeEntry?.midtermGrade ?? null,
-                             midtermRemarks: existingGradeEntry?.midtermRemarks ?? "",
+                             midtermRemarks: existingGradeEntry?.midtermRemarks ?? null,
                              finalGrade: existingGradeEntry?.finalGrade ?? null,
                              finalRemarks: existingGradeEntry?.finalRemarks ?? "",
                              status: existingGradeEntry?.status || 'Not Submitted',
@@ -565,7 +568,7 @@ const mockFetchData = async <T>(path: string): Promise<T> => {
         throw new Error(`Mock GET endpoint for ${phpPath} not implemented.`);
     } catch (error: any) {
         console.error(`Error in mock fetchData for ${phpPath}:`, error);
-        throw error;
+        throw error; // Re-throw to be caught by the caller
     }
 };
 
@@ -578,7 +581,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
              const { username, password } = data as any;
             let user = mockTestUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
             if (user && password === user.password) {
-                let roleToReturn: AdminRole | 'Student' | 'Teacher' = user.role;
+                let roleToReturn: AdminRole | 'Student' | 'Teacher' | 'Sub Admin' = user.role;
                 if (user.role === 'Super Admin' || user.role === 'Sub Admin') {
                     const adminUserDetails = mockApiAdmins.find(a => a.id === user.userId);
                     if (adminUserDetails) {
@@ -647,7 +650,6 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                         studentCount: 0,
                     };
                     mockSections.push(newSectionObject);
-                    // Removed: logActivity for "Auto-Added Section"
                 }
             }
             const nextId = mockStudents.reduce((max, s) => Math.max(max, s.id), 0) + 1;
@@ -667,7 +669,7 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
             if (sectionToUpdate) {
                 sectionToUpdate.studentCount = mockStudents.filter(s => s.section === assignedSectionCode).length;
             }
-            logActivity("Added Student", `${student.firstName} ${student.lastName} (${student.username}) to section ${student.section}`, "Admin", student.id, "student", true, { ...student, passwordHash: "mock_hash" });
+            logActivity("Added Student", `${student.firstName} ${student.lastName} (${student.username})`, "Admin", student.id, "student", true, { ...student, passwordHash: "mock_hash" });
             recalculateDashboardStats();
             return student as ResponseData;
         }
@@ -967,7 +969,6 @@ const mockPostData = async <Payload, ResponseData>(path: string, data: Payload):
                 studentCount: 0,
             };
             mockSections.push(newSection);
-            // Removed: logActivity for "Added Section"
             return newSection as ResponseData;
         }
         if (phpPath === 'teacher/teachable-courses/update.php') {

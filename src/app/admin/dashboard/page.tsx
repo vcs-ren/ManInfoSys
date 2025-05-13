@@ -1,4 +1,3 @@
-
 // src/app/admin/dashboard/page.tsx
 "use client";
 
@@ -50,15 +49,13 @@ export default function AdminDashboardPage() {
 
         if (USE_MOCK_API) {
             recalculateDashboardStats();
-            // Directly use the lengths of the mock arrays for stats
             statsData = {
                 totalStudents: mockStudents.length,
                 totalTeachingStaff: mockFaculty.filter(f => f.department === 'Teaching').length,
                 totalAdministrativeStaff: mockFaculty.filter(f => f.department === 'Administrative').length,
                 totalEventsAnnouncements: mockAnnouncements.length,
             };
-            const uniqueLogs = Array.from(new Map(mockActivityLog.map(log => [log.id, log])).values());
-            activityDataResult = uniqueLogs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10);
+            activityDataResult = mockActivityLog.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,10);
         } else {
             const [fetchedStats, fetchedActivities] = await Promise.all([
               fetchData<DashboardStats>('admin/dashboard-stats.php'),
@@ -69,7 +66,7 @@ export default function AdminDashboardPage() {
         }
 
         setStats(statsData);
-
+        
         const uniqueActivityDataById = activityDataResult
             ? Array.from(new Map(activityDataResult.map(log => [log.id, log])).values())
             : [];
@@ -151,8 +148,15 @@ export default function AdminDashboardPage() {
       if (undoSuccess) {
           toast({ title: "Action Undone", description: "The selected action has been successfully reverted." });
           // Remove the undone log entry from the local state to avoid re-display
+          // and also from mockActivityLog for mock consistency
+          if (USE_MOCK_API) {
+                const indexInMockLog = mockActivityLog.findIndex(log => log.id === logId);
+                if (indexInMockLog > -1) {
+                    mockActivityLog.splice(indexInMockLog, 1);
+                }
+            }
           setActivityLog(prev => prev.filter(log => log.id !== logId));
-          // Fetch fresh data to ensure UI consistency
+          // Fetch fresh data to ensure UI consistency for the "Undone Action: ..." log and stats
           await fetchDashboardData();
       } else {
           throw new Error(specificErrorMessage || "Undo operation failed for an unknown reason.");
