@@ -5,7 +5,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import { Loader2, LockKeyhole } from "lucide-react";
+import { Loader2, LockKeyhole, Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +26,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { passwordChangeSchema } from "@/lib/schemas";
-import { postData } from "@/lib/api"; // Import the centralized API helper
+import { postData, USE_MOCK_API } from "@/lib/api"; // Import USE_MOCK_API for conditional logic
 
 type PasswordFormValues = z.infer<typeof passwordChangeSchema>;
 
 export default function AdminSettingsPage() {
   const { toast } = useToast();
+  const [showCurrentPassword, setShowCurrentPassword] = React.useState(false);
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordChangeSchema),
@@ -52,8 +55,16 @@ export default function AdminSettingsPage() {
     };
 
     try {
-        // Use postData helper with the relative PHP endpoint path
-        await postData('/api/admin/change_password.php', payload);
+        if (USE_MOCK_API) {
+            // Mock success
+            await new Promise(resolve => setTimeout(resolve, 300));
+            if (values.currentPassword === "wrongcurrent") { // Simulate incorrect current password
+                 throw new Error("Incorrect current password.");
+            }
+            console.log("Mock Admin password changed:", payload);
+        } else {
+             await postData('admin/change_password.php', payload);
+        }
 
         toast({
             title: "Password Updated",
@@ -94,9 +105,25 @@ export default function AdminSettingsPage() {
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Current Password</FormLabel>
-                            <FormControl>
-                            <Input type="password" placeholder="Enter your current password" {...field} />
-                            </FormControl>
+                            <div className="relative">
+                                <FormControl>
+                                <Input type={showCurrentPassword ? "text" : "password"} placeholder="Enter your current password" {...field} />
+                                </FormControl>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-1 top-1/2 h-full -translate-y-1/2 px-3 py-2 hover:bg-transparent"
+                                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                                    aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showCurrentPassword ? (
+                                        <EyeOff className="h-4 w-4" aria-hidden="true" />
+                                    ) : (
+                                        <Eye className="h-4 w-4" aria-hidden="true" />
+                                    )}
+                                 </Button>
+                            </div>
                             <FormMessage />
                         </FormItem>
                         )}
@@ -107,10 +134,26 @@ export default function AdminSettingsPage() {
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>New Password</FormLabel>
-                            <FormControl>
-                            <Input type="password" placeholder="Enter your new password" {...field} />
-                            </FormControl>
-                             <p className="text-xs text-muted-foreground">Must be at least 6 characters long.</p>
+                             <div className="relative">
+                                <FormControl>
+                                <Input type={showNewPassword ? "text" : "password"} placeholder="Enter your new password" {...field} />
+                                </FormControl>
+                                 <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-1 top-1/2 h-full -translate-y-1/2 px-3 py-2 hover:bg-transparent"
+                                    onClick={() => setShowNewPassword((prev) => !prev)}
+                                    aria-label={showNewPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showNewPassword ? (
+                                        <EyeOff className="h-4 w-4" aria-hidden="true" />
+                                    ) : (
+                                        <Eye className="h-4 w-4" aria-hidden="true" />
+                                    )}
+                                 </Button>
+                            </div>
+                             <p className="text-xs text-muted-foreground">Must be at least 7 characters long, include a letter, a number, and a symbol (@, #, &amp;, ?, *).</p>
                             <FormMessage />
                         </FormItem>
                         )}
@@ -121,9 +164,25 @@ export default function AdminSettingsPage() {
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Confirm New Password</FormLabel>
-                            <FormControl>
-                            <Input type="password" placeholder="Confirm your new password" {...field} />
-                            </FormControl>
+                            <div className="relative">
+                                <FormControl>
+                                <Input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm your new password" {...field} />
+                                </FormControl>
+                                 <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-1 top-1/2 h-full -translate-y-1/2 px-3 py-2 hover:bg-transparent"
+                                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showConfirmPassword ? (
+                                        <EyeOff className="h-4 w-4" aria-hidden="true" />
+                                    ) : (
+                                        <Eye className="h-4 w-4" aria-hidden="true" />
+                                    )}
+                                 </Button>
+                            </div>
                             <FormMessage />
                         </FormItem>
                         )}
