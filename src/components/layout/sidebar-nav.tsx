@@ -20,6 +20,7 @@ import dynamic from 'next/dynamic'; // Import dynamic for icon loading
 import { LogOut, Settings, LayoutDashboard as DefaultIcon } from 'lucide-react'; // Keep static icons, add Settings
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import * as React from 'react'; // Import React
 
 interface NavItem {
   href: string;
@@ -55,11 +56,23 @@ const Icon = ({ name, ...props }: { name: IconName } & React.ComponentProps<any>
 export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [username, setUsername] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedUsername = localStorage.getItem('username');
+      setUsername(storedUsername);
+    }
+  }, []);
 
   const handleLogout = () => {
-    // Add logout logic here (e.g., clear session, redirect)
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('username');
+    }
     console.log("Logging out...");
-    router.push('/login'); // Redirect to login page after logout
+    router.push('/login');
   };
 
   // Filter the nav items based on the current user's role
@@ -77,6 +90,22 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
     return itemHref !== '/' && currentPathname.startsWith(itemHref);
     };
 
+  const getLoggedInAsText = () => {
+    if (currentUserRole === "Super Admin") {
+        return "System - Super Admin";
+    }
+    if (currentUserRole === "Sub Admin" && username) {
+        return `Sub Admin - ${username}`;
+    }
+    if (currentUserRole === "Teacher" && username) {
+        return `Teacher - ${username}`;
+    }
+    if (currentUserRole === "Student" && username) {
+        return `Student - ${username}`;
+    }
+    return currentUserRole; // Fallback
+  };
+
 
   return (
     <>
@@ -87,7 +116,7 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
             {/* Sidebar trigger is automatically handled for mobile */}
           </div>
             <div className="p-2 pt-0 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">
-                Logged in as: <strong>{currentUserRole}</strong>
+                Logged in as: <strong>{getLoggedInAsText()}</strong>
             </div>
         </SidebarHeader>
 
