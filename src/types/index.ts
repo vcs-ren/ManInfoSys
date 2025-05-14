@@ -6,6 +6,7 @@ export type AdminRole = 'Super Admin' | 'Sub Admin';
 export type DepartmentType = 'Teaching' | 'Administrative';
 export type CourseType = 'Major' | 'Minor';
 export type YearLevel = '1st Year' | '2nd Year' | '3rd Year' | '4th Year';
+export type AttendanceStatus = 'Present' | 'Absent' | 'Late' | 'Excused';
 
 
 export interface Student {
@@ -171,7 +172,7 @@ export interface DashboardStats {
     totalTeachingStaff: number;
     totalAdministrativeStaff: number;
     totalEventsAnnouncements: number;
-    totalAdmins: number; // Still calculated, but not displayed directly on a card
+    // totalAdmins field removed as it's no longer a separate card
 }
 
 export interface UpcomingItem {
@@ -191,4 +192,35 @@ export interface ActivityLogEntry {
   targetType?: 'student' | 'faculty' | 'program' | 'course' | 'section' | 'announcement' | 'admin' | 'grade' | 'assignment' | 'login' | 'logout' | 'password_change' | 'system';
   canUndo: boolean;
   originalData?: any; // To store data needed for undo operation
+}
+
+// --- Attendance Specific Types ---
+export interface AttendanceRecord {
+  id: string; // Unique ID for the attendance entry OR composite key like studentId-subjectId-date
+  studentId: number;
+  studentName?: string; // For display on teacher's side
+  subjectId: string;
+  subjectName?: string; // For display
+  sectionId?: string; // To identify the specific class instance
+  date: string; // ISO Date string YYYY-MM-DD
+  status: AttendanceStatus;
+  remarks?: string; // Optional remarks by teacher
+  teacherId?: number; // Who marked the attendance
+}
+
+export interface TeacherClassInfo { // Represents a class a teacher is assigned to
+  id: string; // Could be sectionSubjectAssignment.id
+  subjectName: string;
+  subjectId: string;
+  sectionCode: string;
+  sectionId: string;
+  yearLevel?: YearLevel;
+}
+
+// For the student attendance form in the teacher's view
+export interface StudentAttendanceData {
+  studentId: number;
+  studentName: string; // For display in table
+  status: AttendanceStatus;
+  remarks: string;
 }
