@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -31,7 +32,7 @@ const allNavItems: NavItemGroup[] = [
             { href: '/admin/students', label: 'Manage Students', icon: 'Users' },
             { href: '/admin/teachers', label: 'Manage Faculty', icon: 'UserCog' },
             { href: '/admin/programs', label: 'Programs & Courses', icon: 'Library' },
-            { href: '/admin/assignments', label: 'Schedule & Announcements', icon: 'ClipboardList' }, // Updated Label
+            { href: '/admin/assignments', label: 'Schedule & Announcements', icon: 'ClipboardList' },
             { href: '/admin/settings', label: 'Settings', icon: 'Settings' },
         ]
     },
@@ -40,6 +41,7 @@ const allNavItems: NavItemGroup[] = [
         items: [
             { href: '/teacher/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
             { href: '/teacher/profile', label: 'Profile', icon: 'UserCircle' },
+            { href: '/teacher/attendance', label: 'Attendance', icon: 'ClipboardList' },
             { href: '/teacher/grades', label: 'Submit Grades', icon: 'ClipboardCheck' },
             { href: '/teacher/schedule', label: 'View Schedule', icon: 'CalendarClock' },
             { href: '/teacher/settings', label: 'Settings', icon: 'Settings' },
@@ -50,6 +52,7 @@ const allNavItems: NavItemGroup[] = [
         items: [
             { href: '/student/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
             { href: '/student/profile', label: 'Profile', icon: 'UserCircle' },
+            { href: '/student/attendance', label: 'Attendance', icon: 'ClipboardList' },
             { href: '/student/grades', label: 'View Grades', icon: 'BookOpenCheck' },
             { href: '/student/schedule', label: 'Class Schedule', icon: 'CalendarDays' },
             { href: '/student/settings', label: 'Settings', icon: 'Settings' },
@@ -72,4 +75,3 @@ export function MainLayout({ children, userRole }: MainLayoutProps) {
     </SidebarProvider>
   );
 }
-
