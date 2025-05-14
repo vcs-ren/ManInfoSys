@@ -60,16 +60,17 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Retrieve username from localStorage when component mounts or currentUserRole changes
       const storedUsername = localStorage.getItem('username');
       setUsername(storedUsername);
     }
-  }, []);
+  }, [currentUserRole]); // Re-run if currentUserRole changes, though username is more static per session
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
         localStorage.removeItem('userRole');
         localStorage.removeItem('userId');
-        localStorage.removeItem('username');
+        localStorage.removeItem('username'); // Clear username on logout
     }
     console.log("Logging out...");
     router.push('/login');
@@ -103,7 +104,7 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
     if (currentUserRole === "Student" && username) {
         return `Student - ${username}`;
     }
-    return currentUserRole; // Fallback
+    return currentUserRole; // Fallback if username is not yet available or role is unexpected
   };
 
 
@@ -112,7 +113,7 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
       <Sidebar side="left" variant="sidebar" collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2 justify-between">
-            <h2 className="text-lg font-semibold text-primary group-data-[collapsible=icon]:hidden">Management Information System</h2> {/* Updated Title */}
+            <h2 className="text-lg font-semibold text-primary group-data-[collapsible=icon]:hidden">Management Information System</h2>
             {/* Sidebar trigger is automatically handled for mobile */}
           </div>
             <div className="p-2 pt-0 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">
@@ -188,4 +189,3 @@ export function SidebarNav({ navItemGroups, currentUserRole }: SidebarNavProps) 
     </>
   );
 }
-
