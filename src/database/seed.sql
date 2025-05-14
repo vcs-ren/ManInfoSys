@@ -1,89 +1,95 @@
 
--- Seed data for the MIS application
+-- CampusConnect MIS Seed Data
 
--- Default Super Admin (ID will be 1 due to AUTO_INCREMENT)
--- IMPORTANT: Replace 'hashed_defadmin_password' with the actual hash of 'defadmin'
--- Use PHP: echo password_hash('defadmin', PASSWORD_DEFAULT);
-INSERT INTO admins (username, password_hash)
-VALUES ('admin', '$2y$10$YOUR_GENERATED_HASH_FOR_DEFADMIN_HERE'); -- Replace with actual hash
+-- IMPORTANT: Before running this seed script, you MUST generate a secure password hash
+-- for the default admin user's password ('defadmin') and replace the placeholder below.
+--
+-- How to generate the hash in PHP:
+-- 1. Open a PHP interactive shell (php -a) or create a temporary PHP file.
+-- 2. Execute: echo password_hash('defadmin', PASSWORD_DEFAULT);
+-- 3. Copy the entire output string (it will look something like $2y$10$...)
+-- 4. Replace '!!!REPLACE_THIS_WITH_GENERATED_PASSWORD_HASH!!!' in the INSERT statement below with the copied hash.
+
+-- Default Super Admin User
+INSERT INTO `admins` (`username`, `password_hash`, `first_name`, `last_name`, `email`, `role`, `is_super_admin`)
+VALUES
+('admin', '!!!REPLACE_THIS_WITH_GENERATED_PASSWORD_HASH!!!', 'Super', 'Admin', 'superadmin@example.com', 'Super Admin', TRUE);
 
 -- Sample Programs
-INSERT INTO programs (id, name, description) VALUES
-('CS', 'Computer Science', 'Bachelor of Science in Computer Science program focusing on software development, algorithms, and data structures.'),
-('IT', 'Information Technology', 'Bachelor of Science in Information Technology program focusing on network administration, web technologies, and system management.'),
-('BSED-ENG', 'Secondary Education Major in English', 'Program for aspiring English teachers in secondary education.'),
-('BSBA-MM', 'Business Administration Major in Marketing', 'Program for business students specializing in marketing management.');
+INSERT INTO `programs` (`id`, `name`, `description`) VALUES
+('CS', 'Bachelor of Science in Computer Science', 'A comprehensive program covering various aspects of computer science, software development, and information technology.'),
+('IT', 'Bachelor of Science in Information Technology', 'Focuses on the practical application of technology to solve business and organizational problems.'),
+('BSED-ENG', 'Bachelor of Secondary Education major in English', 'Prepares students to become effective English language teachers for secondary education.'),
+('BSBM', 'Bachelor of Science in Business Management', 'Provides a broad understanding of business principles and management practices.');
 
 -- Sample Courses (Subjects)
-INSERT INTO courses (id, name, description, type) VALUES
-('CS101', 'Introduction to Programming', 'Fundamentals of programming logic and design.', 'Major'),
-('IT101', 'IT Fundamentals', 'Basic concepts of Information Technology.', 'Major'),
-('ENG101', 'Purposive Communication', 'Developing effective communication skills for various purposes.', 'Minor'),
-('MATH101', 'College Algebra', 'Fundamental concepts of algebra.', 'Minor'),
-('FIL101', 'Kontekstwalisadong Komunikasyon sa Filipino', 'Filipino language communication in various contexts.', 'Minor'),
-('CS201', 'Data Structures and Algorithms', 'Advanced data organization and algorithm design.', 'Major'),
-('MKTG101', 'Principles of Marketing', 'Introduction to marketing concepts and strategies.', 'Major');
+-- Minor Courses (General Education)
+INSERT INTO `courses` (`id`, `name`, `description`, `type`) VALUES
+('GEN001', 'Purposive Communication', 'Develops students communication skills for various purposes.', 'Minor'),
+('GEN002', 'Readings in Philippine History', 'A study of Philippine history from various perspectives.', 'Minor'),
+('GEN003', 'The Contemporary World', 'An overview of globalization and its impact on various aspects of society.', 'Minor'),
+('MATH001', 'Mathematics in the Modern World', 'Explores the nature of mathematics and its applications in everyday life.', 'Minor'),
+('PE001', 'Physical Education 1', 'Fundamentals of physical fitness and wellness.', 'Minor');
+
+-- Major Courses for Computer Science (CS)
+INSERT INTO `courses` (`id`, `name`, `description`, `type`) VALUES
+('CS101', 'Introduction to Programming', 'Fundamentals of programming using a high-level language.', 'Major'),
+('CS102', 'Data Structures and Algorithms', 'Study of fundamental data structures and algorithm design.', 'Major'),
+('CS201', 'Object-Oriented Programming', 'Principles and practices of object-oriented programming.', 'Major'),
+('CS202', 'Database Management Systems', 'Concepts and design of database systems.', 'Major');
+-- Assign CS Major courses to CS program
+INSERT INTO `course_program_assignments` (`course_id`, `program_id`) VALUES
+('CS101', 'CS'),
+('CS102', 'CS'),
+('CS201', 'CS'),
+('CS202', 'CS');
 
 
--- Assign some courses to programs and year levels
--- CS Program
-INSERT INTO program_courses (program_id, course_id, year_level) VALUES
+-- Major Courses for Information Technology (IT)
+INSERT INTO `courses` (`id`, `name`, `description`, `type`) VALUES
+('IT101', 'Fundamentals of Information Technology', 'Overview of IT concepts, hardware, software, and systems.', 'Major'),
+('IT102', 'Web Development Basics', 'Introduction to HTML, CSS, and JavaScript for web development.', 'Major'),
+('IT201', 'Networking Essentials', 'Basic concepts of computer networking and protocols.', 'Major'),
+('IT202', 'System Analysis and Design', 'Methodologies for analyzing and designing information systems.', 'Major');
+-- Assign IT Major courses to IT program
+INSERT INTO `course_program_assignments` (`course_id`, `program_id`) VALUES
+('IT101', 'IT'),
+('IT102', 'IT'),
+('IT201', 'IT'),
+('IT202', 'IT');
+
+
+-- Sample Curriculum (Program Courses)
+-- CS - 1st Year
+INSERT INTO `program_courses` (`program_id`, `course_id`, `year_level`) VALUES
+('CS', 'GEN001', '1st Year'),
+('CS', 'MATH001', '1st Year'),
 ('CS', 'CS101', '1st Year'),
-('CS', 'MATH101', '1st Year'),
-('CS', 'ENG101', '1st Year'),
-('CS', 'FIL101', '1st Year'),
+('CS', 'PE001', '1st Year');
+
+-- CS - 2nd Year
+INSERT INTO `program_courses` (`program_id`, `course_id`, `year_level`) VALUES
+('CS', 'GEN002', '2nd Year'),
+('CS', 'CS102', '2nd Year'),
 ('CS', 'CS201', '2nd Year');
 
--- IT Program
-INSERT INTO program_courses (program_id, course_id, year_level) VALUES
+-- IT - 1st Year
+INSERT INTO `program_courses` (`program_id`, `course_id`, `year_level`) VALUES
+('IT', 'GEN001', '1st Year'),
+('IT', 'MATH001', '1st Year'),
 ('IT', 'IT101', '1st Year'),
-('IT', 'MATH101', '1st Year'),
-('IT', 'ENG101', '1st Year');
-
--- Sample Faculty (Teaching and Administrative)
--- Passwords are 'lastname_initials' + '1000' hashed. e.g., 'smithj1000' for John Smith.
--- Replace hashes with actual generated hashes.
-INSERT INTO faculty (faculty_id, username, first_name, last_name, department, employment_type, email, password_hash) VALUES
-('10000001', 't10000001', 'John', 'Smith', 'Teaching', 'Regular', 'john.smith@example.com', '$2y$10$YOUR_HASH_FOR_smithj1000'),
-('10000002', 'a10000002', 'Alice', 'Wonderland', 'Administrative', 'Regular', 'alice.wonder@example.com', '$2y$10$YOUR_HASH_FOR_wondera1000'),
-('10000003', 't10000003', 'Robert', 'Doe', 'Teaching', 'Part Time', 'robert.doe@example.com', '$2y$10$YOUR_HASH_FOR_doer1000');
+('IT', 'PE001', '1st Year');
 
 
--- Sample Students
--- Passwords are 'lastname_initials' + '1000' hashed. e.g., 'brownc1000' for Charlie Brown.
--- Replace hashes with actual generated hashes.
-INSERT INTO students (student_id, username, first_name, last_name, program, enrollment_type, year, section, email, password_hash) VALUES
-('1000001', 's1000001', 'Charlie', 'Brown', 'CS', 'New', '1st Year', 'CS1A', 'charlie.brown@example.com', '$2y$10$YOUR_HASH_FOR_brownc1000'),
-('1000002', 's1000002', 'Lucy', 'VanPelt', 'IT', 'Transferee', '2nd Year', 'IT2A', 'lucy.vanpelt@example.com', '$2y$10$YOUR_HASH_FOR_vanpel1000');
+-- Initial Activity Log Entry
+INSERT INTO `activity_log` (`user_identifier`, `user_role`, `action`, `description`, `target_type`)
+VALUES
+('System', 'System', 'System Startup', 'System initialized successfully.', 'system');
 
+-- Note: No initial students, teachers (other than admin), or sections are added by default.
+-- These will be created through the application.
+-- Make sure to update this file if your application's auto-generation logic for IDs
+-- (student_id, teacher_id, section_id) needs specific starting points or might conflict.
+-- The current PHP models generate these IDs dynamically.
 
--- Sample Sections (Advisers can be assigned later)
--- Sections should ideally be created dynamically or by an admin based on enrollment.
--- These are just examples.
-INSERT INTO sections (id, section_code, program_id, year_level, adviser_id) VALUES
-('CS1A', 'CS1A', 'CS', '1st Year', 1), -- John Smith advises CS1A
-('IT2A', 'IT2A', 'IT', '2nd Year', NULL);
-
-
--- Sample Section-Subject-Assignments
-INSERT INTO section_subject_assignments (id, section_id, subject_id, teacher_id) VALUES
-('CS1A-CS101', 'CS1A', 'CS101', 1), -- John Smith teaches CS101 in CS1A
-('CS1A-MATH101', 'CS1A', 'MATH101', 3), -- Robert Doe teaches MATH101 in CS1A
-('IT2A-IT101', 'IT2A', 'IT101', 1); -- John Smith teaches IT101 in IT2A (assuming IT101 is also taught in 2nd year IT for this example)
-
-
--- Sample Announcements
-INSERT INTO announcements (title, content, author_type, author_id, target_audience, target_program) VALUES
-('Welcome Week Activities', 'Join us for a week of fun activities to kick off the new semester!', 'Admin', NULL, 'All', 'all'),
-('CS Department Meeting', 'All Computer Science students are invited to a department meeting on Friday.', 'Teacher', 1, 'Student', 'CS');
-
-
--- Initial System Activity Log (Optional)
-INSERT INTO activity_log (user_id, user_role, action, description) VALUES
-('system', 'System', 'Database Seeded', 'Initial data inserted into the database.');
-
--- Note: To generate password hashes in PHP:
--- php -r "echo password_hash('your_password_here', PASSWORD_DEFAULT);"
--- Example for 'defadmin': php -r "echo password_hash('defadmin', PASSWORD_DEFAULT);"
--- Example for 'smithj1000': php -r "echo password_hash('smithj1000', PASSWORD_DEFAULT);"
-
+-- End of seed.sql
