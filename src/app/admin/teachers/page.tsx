@@ -1,16 +1,17 @@
+
 "use client";
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState, ColumnFiltersState } from "@tanstack/react-table";
-import { PlusCircle, Trash2, Loader2, RotateCcw, Pencil, Edit3, UserCog, Users, Library, ClipboardList, Settings as SettingsIcon, LayoutDashboard } from "lucide-react"; // Added missing icons
+import { PlusCircle, Trash2, Loader2, RotateCcw, Pencil, Edit3, UserCog, Users, Library, ClipboardList, Settings as SettingsIcon, LayoutDashboard } from "lucide-react";
 import { format, formatDistanceToNow } from 'date-fns';
-import { useSearchParams } from 'next/navigation'; // Import useSearchParams
+import { useSearchParams } from 'next/navigation';
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
 import { UserForm, type FormFieldConfig } from "@/components/user-form";
 import { teacherSchema } from "@/lib/schemas";
-import type { Faculty, EmploymentType, DepartmentType, AdminUser, AdminRole } from "@/types"; // Added AdminRole
+import type { Faculty, EmploymentType, DepartmentType, AdminUser, AdminRole } from "@/types";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -27,8 +28,8 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
-    DropdownMenuTrigger, // Added DropdownMenuTrigger
-    DropdownMenuLabel, // Added DropdownMenuLabel
+    DropdownMenuTrigger,
+    DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,7 @@ import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockFaculty, lo
 import { generateDefaultPasswordDisplay } from "@/lib/utils";
 
 
-const departmentOptions: { value: DepartmentType; label: string }[] = [
+const baseDepartmentOptions: { value: DepartmentType; label: string }[] = [
     { value: "Teaching", label: "Teaching" },
     { value: "Administrative", label: "Administrative" },
 ];
@@ -52,7 +53,12 @@ const genderOptions = [
     { value: "Other", label: "Other" },
 ];
 
-const getFacultyFormFields = (isCurrentUserSuperAdmin: boolean): FormFieldConfig<Faculty>[] => [
+// This function will now generate the fields with dynamic options/disabled states
+const generateFacultyFormFields = (
+    isCurrentUserSuperAdmin: boolean,
+    isEditingMode: boolean,
+    initialDepartment?: DepartmentType
+): FormFieldConfig<Faculty>[] => [
   { name: "firstName", label: "First Name", placeholder: "Enter first name", required: true, section: 'personal' },
   { name: "lastName", label: "Last Name", placeholder: "Enter last name", required: true, section: 'personal' },
   { name: "middleName", label: "Middle Name", placeholder: "Enter middle name (optional)", section: 'personal' },
@@ -65,15 +71,32 @@ const getFacultyFormFields = (isCurrentUserSuperAdmin: boolean): FormFieldConfig
     name: "department",
     label: "Department",
     type: "select",
-    options: departmentOptions,
+    options: (() => {
+        if (!isCurrentUserSuperAdmin) {
+            if (!isEditingMode) { // Sub Admin adding new
+                return baseDepartmentOptions.filter(opt => opt.value === 'Teaching');
+            }
+            if (isEditingMode && initialDepartment === 'Teaching') { // Sub Admin editing Teaching staff
+                return baseDepartmentOptions.filter(opt => opt.value !== 'Administrative');
+            }
+            // If Sub Admin editing Administrative staff, field is disabled, show current value.
+            // So returning all options here is fine as the `disabled` logic handles it.
+            // Or better, just return the single current department if it's Administrative.
+            if (isEditingMode && initialDepartment === 'Administrative') {
+                 return baseDepartmentOptions.filter(opt => opt.value === 'Administrative');
+            }
+        }
+        return baseDepartmentOptions; // Super Admin can see all options
+    })(),
     placeholder: "Select department",
     required: true,
     section: 'employee',
-    disabled: (data, isSuperAdmin, isEditMode, initialDepartment) => {
-        if (!isSuperAdmin && isEditMode && initialDepartment === 'Administrative') {
-            return true;
+    disabled: (currentData, isSuperAdminFromUserForm, isEditingModeFromUserForm, initialDeptFromUserForm) => {
+        if (!isSuperAdminFromUserForm) {
+          if (!isEditingModeFromUserForm) return true; // Sub-admin adding new: disabled (forced to Teaching)
+          if (initialDeptFromUserForm === 'Administrative') return true; // Sub-admin editing Admin staff: disabled
         }
-        return false;
+        return false; // Super-admin can always edit, Sub-admin can edit Teaching staff's dept (but not to Admin)
     }
   },
   { name: "phone", label: "Contact Number", placeholder: "Enter contact number (optional)", type: "tel", section: 'contact' },
@@ -119,7 +142,7 @@ export default function ManageFacultyPage() {
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedUserId = localStorage.getItem('userId');
-      const storedUserRole = localStorage.getItem('userRole') as AdminRole | null; // Cast to AdminRole
+      const storedUserRole = localStorage.getItem('userRole') as AdminRole | null;
       const parsedUserId = storedUserId ? parseInt(storedUserId, 10) : null;
       setCurrentUserId(parsedUserId);
       setCurrentUserRole(storedUserRole);
@@ -127,7 +150,10 @@ export default function ManageFacultyPage() {
     }
   }, []);
 
-  const facultyFormFields = React.useMemo(() => getFacultyFormFields(isCurrentUserSuperAdmin), [isCurrentUserSuperAdmin]);
+  const facultyFormFields = React.useMemo(() => {
+    const initialDept = isEditMode && selectedFaculty ? selectedFaculty.department : undefined;
+    return generateFacultyFormFields(isCurrentUserSuperAdmin, isEditMode, initialDept);
+  }, [isCurrentUserSuperAdmin, isEditMode, selectedFaculty]);
 
 
     const fetchFacultyData = React.useCallback(async () => {
@@ -136,15 +162,14 @@ export default function ManageFacultyPage() {
         let data;
         if (USE_MOCK_API) {
             await new Promise(resolve => setTimeout(resolve, 300));
-            data = [...mockFaculty].sort((a,b) => b.id - a.id); // Sort by ID descending
+            data = [...mockFaculty].sort((a,b) => b.id - a.id);
         } else {
             const fetchedData = await fetchData<Faculty[]>('teachers/read.php');
-            data = (fetchedData || []).sort((a,b) => b.id - a.id); // Sort by ID descending
+            data = (fetchedData || []).sort((a,b) => b.id - a.id);
         }
 
         let facultyList = data || [];
-        // If current user is a Sub Admin, filter themselves out
-        if (currentUserRole === 'Sub Admin' && currentUserId !== null) {
+        if (currentUserRole === 'Sub Admin' && currentUserId !== null && !isCurrentUserSuperAdmin) { // Ensure super admin is not filtered out
             facultyList = facultyList.filter(f => f.id !== currentUserId);
         }
 
@@ -155,17 +180,13 @@ export default function ManageFacultyPage() {
       } finally {
         setIsLoading(false);
       }
-    }, [toast, currentUserRole, currentUserId]);
+    }, [toast, currentUserRole, currentUserId, isCurrentUserSuperAdmin]); // Added isCurrentUserSuperAdmin
 
   React.useEffect(() => {
-    // Fetch data only after user role and ID are determined
-    if (currentUserRole !== null && currentUserId !== null) {
-        fetchFacultyData();
-    } else if (currentUserRole === null && typeof window !== 'undefined' && !localStorage.getItem('userId')) {
-        // If role/id couldn't be determined (e.g., not logged in), still attempt fetch or show empty/error
+    if (currentUserId !== null) { // Only fetch if userId is determined
         fetchFacultyData();
     }
-  }, [fetchFacultyData, currentUserRole, currentUserId]);
+  }, [fetchFacultyData, currentUserId]);
 
 
   React.useEffect(() => {
@@ -179,12 +200,6 @@ export default function ManageFacultyPage() {
 
   const handleSaveFaculty = async (values: Faculty) => {
     setIsSubmitting(true);
-
-    if (values.department === 'Administrative' && !isCurrentUserSuperAdmin) {
-        toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admin can assign faculty to Administrative department."});
-        setIsSubmitting(false);
-        throw new Error("Unauthorized department change");
-    }
 
     const isDuplicate = faculty.some(
       (f) =>
@@ -200,6 +215,24 @@ export default function ManageFacultyPage() {
     }
 
      const payload = { ...values, id: isEditMode ? selectedFaculty?.id : undefined };
+
+     if (!isCurrentUserSuperAdmin) {
+        if (!isEditMode) { // Sub Admin adding new faculty
+            payload.department = 'Teaching';
+        } else if (isEditMode && selectedFaculty?.department === 'Teaching' && payload.department === 'Administrative') {
+            // Sub Admin trying to change Teaching to Administrative
+            toast({ variant: "destructive", title: "Unauthorized Action", description: "You cannot change department to Administrative."});
+            setIsSubmitting(false);
+            throw new Error("Unauthorized department change");
+        } else if (isEditMode && selectedFaculty?.department === 'Administrative' && payload.department !== 'Administrative') {
+            // Sub Admin trying to change Administrative staff to something else
+             toast({ variant: "destructive", title: "Unauthorized Action", description: "Department of Administrative staff cannot be changed by Sub Admins."});
+            setIsSubmitting(false);
+            throw new Error("Unauthorized department change");
+        }
+     }
+
+
      console.log(`Attempting to ${isEditMode ? 'edit' : 'add'} faculty:`, payload);
      try {
          let savedFacultyResponse: Faculty;
@@ -227,6 +260,11 @@ export default function ManageFacultyPage() {
   const handleDeleteFaculty = async (facultyId: number) => {
       setIsSubmitting(true);
       const facultyToDelete = faculty.find(f => f.id === facultyId);
+      if (facultyToDelete?.department === 'Administrative' && !isCurrentUserSuperAdmin) {
+          toast({ variant: "destructive", title: "Unauthorized", description: "Only Super Admins can delete Administrative staff."});
+          setIsSubmitting(false);
+          return;
+      }
       try {
              await deleteData(`teachers/delete.php/${facultyId}`);
             await fetchFacultyData();
@@ -284,7 +322,7 @@ export default function ManageFacultyPage() {
         }, 150);
    };
 
-    const currentDepartmentOptions = React.useMemo(() => departmentOptions, []);
+    const currentDepartmentFilterOptions = React.useMemo(() => baseDepartmentOptions, []);
 
     const columns: ColumnDef<Faculty>[] = React.useMemo(() => [
          {
@@ -329,7 +367,7 @@ export default function ManageFacultyPage() {
                  <DataTableFilterableColumnHeader
                      column={column}
                      title="Department"
-                     options={currentDepartmentOptions}
+                     options={currentDepartmentFilterOptions}
                  />
              ),
             cell: ({ row }) => <div>{row.getValue("department")}</div>,
@@ -394,7 +432,7 @@ export default function ManageFacultyPage() {
             },
             enableHiding: true,
         },
-    ], [currentDepartmentOptions]);
+    ], [currentDepartmentFilterOptions]);
 
     const generateActionMenuItems = (facultyMember: Faculty) => (
         <>
@@ -435,7 +473,11 @@ export default function ManageFacultyPage() {
          </AlertDialog>
          <AlertDialog>
              <AlertDialogTrigger asChild>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={isSubmitting}>
+                  <DropdownMenuItem
+                    onSelect={(e) => e.preventDefault()}
+                    className={cn("text-destructive focus:text-destructive focus:bg-destructive/10", facultyMember.department === 'Administrative' && !isCurrentUserSuperAdmin && "opacity-50 cursor-not-allowed")}
+                    disabled={isSubmitting || (facultyMember.department === 'Administrative' && !isCurrentUserSuperAdmin)}
+                  >
                      <Trash2 className="mr-2 h-4 w-4" />
                      Delete
                  </DropdownMenuItem>
@@ -492,7 +534,7 @@ export default function ManageFacultyPage() {
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
                  filterableColumnHeaders={[
-                    { columnId: "department", title: "Department", options: departmentOptions }
+                    { columnId: "department", title: "Department", options: baseDepartmentOptions }
                 ]}
                 initialColumnFilters={columnFilters}
             />
@@ -508,6 +550,7 @@ export default function ManageFacultyPage() {
           formFields={facultyFormFields}
           isEditMode={isEditMode}
           initialData={isEditMode ? selectedFaculty : undefined}
+          defaultValues={isEditMode ? undefined : (!isCurrentUserSuperAdmin ? { department: 'Teaching' } : { department: 'Teaching' })}
           startReadOnly={isEditMode}
           currentUserIsSuperAdmin={isCurrentUserSuperAdmin}
         />
@@ -515,3 +558,4 @@ export default function ManageFacultyPage() {
   );
 }
 
+    
