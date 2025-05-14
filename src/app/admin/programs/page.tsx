@@ -49,6 +49,7 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
     DropdownMenu,
@@ -64,7 +65,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
@@ -348,7 +349,7 @@ export default function ProgramsCoursesPage() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <AlertDialog>
-                    <DropdownMenuTrigger asChild>
+                    <AlertDialogTrigger asChild>
                         <DropdownMenuItem
                             onSelect={(e) => e.preventDefault()}
                             className="text-destructive focus:text-destructive focus:bg-destructive/10"
@@ -356,7 +357,7 @@ export default function ProgramsCoursesPage() {
                         >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete Program
                         </DropdownMenuItem>
-                    </DropdownMenuTrigger>
+                    </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Delete Program?</AlertDialogTitle>
@@ -387,7 +388,7 @@ export default function ProgramsCoursesPage() {
     { accessorKey: "programId", header: "Assigned Program(s) (Majors)", cell: ({ row }) => {
         if (row.original.type === 'Major') {
             if (row.original.programId && row.original.programId.length > 0) {
-                return row.original.programId.map(pid => programs.find(p => p.id === pid)?.name || pid).join(', ');
+                return row.original.programId.map(pid => programs.find(p => p.id === pid)?.id || pid).join(', ');
             }
             return <AlertCircle className="h-4 w-4 text-destructive" titleAccess="Major course needs program ID(s)" />;
         }
@@ -414,7 +415,7 @@ export default function ProgramsCoursesPage() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <AlertDialog>
-                        <DropdownMenuTrigger asChild>
+                        <AlertDialogTrigger asChild>
                              <DropdownMenuItem
                                 onSelect={(e) => e.preventDefault()}
                                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
@@ -422,7 +423,7 @@ export default function ProgramsCoursesPage() {
                             >
                                 <Trash2 className="mr-2 h-4 w-4" /> Delete Course
                             </DropdownMenuItem>
-                        </DropdownMenuTrigger>
+                        </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader><AlertDialogTitle>Delete Course?</AlertDialogTitle><AlertDialogDescription>This will delete "{course.name}" from the system and all program assignments. Are you sure?</AlertDialogDescription></AlertDialogHeader>
                             <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCourse(course.id)} disabled={isSubmitting} className={buttonVariants({variant: "destructive"})}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Delete</AlertDialogAction></AlertDialogFooter>
@@ -471,11 +472,11 @@ export default function ProgramsCoursesPage() {
                                     <Edit3 className="mr-1 h-3 w-3" /> Edit Program
                                 </Button>
                                 <AlertDialog>
-                                    <DropdownMenuTrigger asChild>
-                                         <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()} className="h-7 px-2 py-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">
+                                    <AlertDialogTrigger asChild>
+                                         <Button variant="ghost" size="sm" onClick={(e) => {e.stopPropagation();}} className="h-7 px-2 py-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">
                                             <Trash2 className="mr-1 h-3 w-3" /> Delete Program
                                         </Button>
-                                    </DropdownMenuTrigger>
+                                    </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>Delete Program "{program.name}"?</AlertDialogTitle>
@@ -750,4 +751,3 @@ export default function ProgramsCoursesPage() {
     </div>
   );
 }
-
