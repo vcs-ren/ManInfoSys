@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { UserCheck, Megaphone, BookOpen, Loader2, Eye, Settings2, Filter, Users, Briefcase, PlusCircle, Trash2, CalendarX, EyeIcon } from "lucide-react";
+import { UserCheck, Megaphone, BookOpen, Loader2, Eye, Settings2, Filter, Users, Briefcase, PlusCircle, Trash2, EyeIcon } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, DataTableColumnHeader, DataTableFilterableColumnHeader } from "@/components/data-table";
@@ -38,7 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { assignAdviserSchema, announcementSchema, assignCoursesToProgramSchema, sectionSchema } from "@/lib/schemas";
+import { assignAdviserSchema, announcementSchema, assignCoursesToProgramSchema } from "@/lib/schemas";
 import { format } from 'date-fns';
 import { z } from 'zod';
 import {
@@ -209,7 +209,7 @@ export default function ScheduleAnnouncementsPage() {
 
     try {
         const updatedSectionData = await postData<{ sectionId: string, adviserId: number | null }, Section>(
-            `sections/adviser/update.php`, 
+            `sections/adviser/update.php`,
             { sectionId: selectedSection.id, adviserId: adviserIdToAssign }
         );
 
@@ -237,8 +237,8 @@ export default function ScheduleAnnouncementsPage() {
       title: values.title,
       content: values.content,
       targetAudience: values.targetAudience,
-      target: { 
-        course: values.targetProgramId === 'all' ? null : values.targetProgramId, 
+      target: {
+        course: values.targetProgramId === 'all' ? null : values.targetProgramId,
         yearLevel: values.targetYearLevel === 'all' ? null : values.targetYearLevel,
         section: values.targetSection === 'all' ? null : values.targetSection,
       }
@@ -300,7 +300,7 @@ export default function ScheduleAnnouncementsPage() {
       toast({ title: "Courses Assigned", description: `Courses assigned to ${targetProgram.name} - ${values.yearLevel} successfully.` });
       logActivity("Assigned Courses to Program", `${targetProgram.name} - ${values.yearLevel}`, "Admin");
       setIsAssignProgramCoursesModalOpen(false);
-      await loadData(); 
+      await loadData();
     } catch (error: any) {
       console.error("Failed to assign courses:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "Failed to assign courses." });
@@ -400,7 +400,7 @@ export default function ScheduleAnnouncementsPage() {
             cell: ({ row }) => {
                  const target = row.original.target || {};
                  const audience = row.original.targetAudience || 'All';
-                 const { course: programId, yearLevel, section } = target; 
+                 const { course: programId, yearLevel, section } = target;
                  const programName = programsList.find(p => p.id === programId)?.name;
 
                  let targetParts = [`Audience: ${audience}`];
@@ -409,7 +409,7 @@ export default function ScheduleAnnouncementsPage() {
                     if (yearLevel && yearLevel !== 'all') targetParts.push(`Year: ${yearLevel}`);
                     if (section && section !== 'all') targetParts.push(`Section: ${section}`);
                  } else if (audience === 'Faculty') {
-                    
+                    // No specific sub-targets for Faculty in this setup
                  }
 
                  if (targetParts.length === 1 && audience === 'All' && (!programId || programId === 'all') && (!yearLevel || yearLevel === 'all') && (!section || section === 'all')) {
@@ -420,7 +420,7 @@ export default function ScheduleAnnouncementsPage() {
              filterFn: (row, id, value) => {
                 const target = row.original.target || {};
                 const audience = row.original.targetAudience || 'All';
-                const programId = target.course; 
+                const programId = target.course;
                 const yearLevel = target.yearLevel;
                 const section = target.section;
 
@@ -491,18 +491,18 @@ export default function ScheduleAnnouncementsPage() {
 
     return allCourses.filter(course => {
       if (course.type === 'Major' && !(course.programId?.includes(selectedProgramObject.id))) {
-          return false; 
+          return false; // Major course does not belong to selected program
       }
 
-      
+      // Check if already assigned to another year level *within this program*
       for (const [year, assignedCoursesInYear] of Object.entries(selectedProgramObject.courses || {})) {
-        if (year as YearLevel !== watchedYearLevelForCourseAssignment) { 
+        if (year as YearLevel !== watchedYearLevelForCourseAssignment) { // Don't check against the current year we are assigning TO
           if (assignedCoursesInYear.some(assignedCourse => assignedCourse.id === course.id)) {
-            return false; 
+            return false; // Already assigned to a different year in this program
           }
         }
       }
-      return true; 
+      return true; // Available for assignment
     });
   }, [watchedProgramIdForCourseAssignment, watchedYearLevelForCourseAssignment, allCourses, programsList]);
 
@@ -524,9 +524,6 @@ export default function ScheduleAnnouncementsPage() {
                         <Link href="/admin/teacher-course-assignments">
                             <PlusCircle className="mr-2 h-4 w-4" /> Assign Teachers
                         </Link>
-                    </Button>
-                    <Button onClick={() => setIsAssignProgramCoursesModalOpen(true)} variant="outline">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Assign Courses
                     </Button>
                 </div>
             </CardHeader>
@@ -734,7 +731,7 @@ export default function ScheduleAnnouncementsPage() {
             </CardContent>
         </Card>
 
-      
+
       <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -798,7 +795,7 @@ export default function ScheduleAnnouncementsPage() {
         </DialogContent>
       </Dialog>
 
-      
+
       <Dialog open={isAssignProgramCoursesModalOpen} onOpenChange={setIsAssignProgramCoursesModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -861,7 +858,7 @@ export default function ScheduleAnnouncementsPage() {
                                     <Checkbox
                                         checked={field.value?.includes(course.id)}
                                         onCheckedChange={(checked) => {
-                                            setTimeout(() => {
+                                            setTimeout(() => { // Ensure state updates before re-render issues
                                                 if (checked) {
                                                     field.onChange([...(field.value || []), course.id]);
                                                 } else {
@@ -906,7 +903,3 @@ export default function ScheduleAnnouncementsPage() {
     </div>
   );
 }
-
-    
-
-    
