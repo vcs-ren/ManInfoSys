@@ -1,9 +1,8 @@
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef, VisibilityState, ColumnFiltersState } from "@tanstack/react-table";
-import { PlusCircle, Trash2, Loader2, RotateCcw, Info, Pencil, Edit3, UserCog, Users, Library, ClipboardList, Settings as SettingsIcon, LayoutDashboard } from "lucide-react"; // Added missing icons
+import { PlusCircle, Trash2, Loader2, RotateCcw, Pencil, Edit3, UserCog, Users, Library, ClipboardList, Settings as SettingsIcon, LayoutDashboard } from "lucide-react"; // Added missing icons
 import { format, formatDistanceToNow } from 'date-fns';
 import { useSearchParams } from 'next/navigation'; // Import useSearchParams
 
@@ -137,9 +136,10 @@ export default function ManageFacultyPage() {
         let data;
         if (USE_MOCK_API) {
             await new Promise(resolve => setTimeout(resolve, 300));
-            data = mockFaculty;
+            data = [...mockFaculty].sort((a,b) => b.id - a.id); // Sort by ID descending
         } else {
-            data = await fetchData<Faculty[]>('teachers/read.php');
+            const fetchedData = await fetchData<Faculty[]>('teachers/read.php');
+            data = (fetchedData || []).sort((a,b) => b.id - a.id); // Sort by ID descending
         }
 
         let facultyList = data || [];
@@ -487,7 +487,7 @@ export default function ManageFacultyPage() {
             <DataTable
                 columns={columns}
                 data={faculty}
-                searchPlaceholder="Search by ID, name, email..."
+                searchPlaceholder="Search by ID or Last Name..."
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
@@ -514,3 +514,4 @@ export default function ManageFacultyPage() {
     </div>
   );
 }
+

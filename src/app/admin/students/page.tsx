@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -112,7 +111,8 @@ export default function ManageStudentsPage() {
     try {
       if (USE_MOCK_API) {
         await new Promise(resolve => setTimeout(resolve, 300));
-        setStudents(mockStudents);
+        const sortedStudents = [...mockStudents].sort((a, b) => b.id - a.id); // Sort by ID descending
+        setStudents(sortedStudents);
         setPrograms(mockApiPrograms);
         const distinctSections = [...new Set(mockSections.map(s => s.id).filter(Boolean))].sort();
         setSections(distinctSections);
@@ -122,7 +122,9 @@ export default function ManageStudentsPage() {
           fetchData<Program[]>('programs/read.php'),
           fetchData<SectionType[]>('sections/read.php') 
         ]);
-        setStudents(studentsData || []);
+        const fetchedStudents = studentsData || [];
+        const sortedStudents = [...fetchedStudents].sort((a, b) => b.id - a.id); // Sort by ID descending
+        setStudents(sortedStudents);
         setPrograms(programsData || []);
         setSections((sectionsDataResult || []).map(s => s.id).sort());
       }
@@ -343,7 +345,7 @@ export default function ManageStudentsPage() {
             accessorKey: "suffix",
             header: ({ column }) => <DataTableColumnHeader column={column} title="Suffix" />,
             cell: ({ row }) => <div className="capitalize">{row.original.suffix || '-'}</div>,
-            enableHiding: true,
+             enableHiding: true,
         },
         {
             accessorKey: "gender",
@@ -519,7 +521,7 @@ export default function ManageStudentsPage() {
                  <AlertDialogHeader>
                      <AlertDialogTitle>Reset Password?</AlertDialogTitle>
                      <AlertDialogDescription>
-                          This will reset the password for {student.firstName} ${student.lastName}. Default: {generateDefaultPasswordDisplay(student.lastName)}. Are you sure?
+                          This will reset the password for {student.firstName} {student.lastName}. Default: {generateDefaultPasswordDisplay(student.lastName)}. Are you sure?
                      </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
@@ -590,7 +592,7 @@ export default function ManageStudentsPage() {
             <DataTable
                 columns={columns}
                 data={students}
-                searchPlaceholder="Search by ID, name, email..."
+                searchPlaceholder="Search by ID or Last Name..."
                 actionMenuItems={generateActionMenuItems}
                 columnVisibility={columnVisibility}
                 setColumnVisibility={setColumnVisibility}
@@ -619,3 +621,4 @@ export default function ManageStudentsPage() {
     </div>
   );
 }
+
