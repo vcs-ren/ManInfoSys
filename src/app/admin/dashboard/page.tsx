@@ -1,3 +1,4 @@
+
 // src/app/admin/dashboard/page.tsx
 "use client";
 
@@ -8,19 +9,8 @@ import {
     fetchData,
     postData,
     USE_MOCK_API,
-    mockActivityLog,
     logActivity,
-    executeUndoAddStudent,
-    executeUndoDeleteStudent,
-    executeUndoAddFaculty,
-    executeUndoDeleteFaculty,
-    executeUndoRemoveAdminRole,
-    recalculateDashboardStats,
-    mockDashboardStats,
-    mockStudents, 
-    mockFaculty, 
-    mockAnnouncements,
-    mockApiAdmins, 
+    // Removed mock data imports, will rely on backend
 } from "@/lib/api";
 import type { DashboardStats, ActivityLogEntry, Student, Faculty, AdminUser, DepartmentType } from "@/types";
 import Link from "next/link";
@@ -56,24 +46,14 @@ export default function AdminDashboardPage() {
         let statsData: DashboardStats | null = null;
         let activityDataResult: ActivityLogEntry[] = [];
 
-        if (USE_MOCK_API) {
-            recalculateDashboardStats(); 
-             statsData = {
-                totalStudents: mockStudents.length,
-                totalTeachingStaff: mockFaculty.filter(f => f.department === 'Teaching').length,
-                totalAdministrativeStaff: mockFaculty.filter(f => f.department === 'Administrative').length,
-                totalEventsAnnouncements: mockAnnouncements.length,
-            };
-            activityDataResult = mockActivityLog.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10);
-        } else {
-            const [fetchedStats, fetchedActivities] = await Promise.all([
-              fetchData<DashboardStats>('admin/dashboard-stats.php'),
-              isCurrentUserSuperAdmin ? fetchData<ActivityLogEntry[]>('admin/activity-log/read.php') : Promise.resolve([])
-            ]);
-            statsData = fetchedStats;
-            activityDataResult = fetchedActivities || [];
-        }
-
+        // Always fetch from backend now
+        const [fetchedStats, fetchedActivities] = await Promise.all([
+          fetchData<DashboardStats>('admin/dashboard-stats.php'),
+          isCurrentUserSuperAdmin ? fetchData<ActivityLogEntry[]>('admin/activity-log/read.php') : Promise.resolve([])
+        ]);
+        statsData = fetchedStats;
+        activityDataResult = fetchedActivities || [];
+        
         setStats(statsData);
         
         const uniqueActivityDataById = activityDataResult
@@ -114,68 +94,18 @@ export default function AdminDashboardPage() {
     }
     setIsActivityLoading(true);
     try {
-      const logEntry = USE_MOCK_API ? mockActivityLog.find(l => l.id === logId) : activityLog.find(l => l.id === logId);
+      // The backend 'admin/activity-log/undo.php' is responsible for the actual undo logic.
+      // The frontend just calls this endpoint.
+      await postData('admin/activity-log/undo.php', { logId });
+      
+      toast({ title: "Undo Action Initiated", description: "The request to undo the action has been sent." });
+      
+      // Refresh data to reflect changes
+      await fetchDashboardData(); 
 
-      if (!logEntry) {
-          throw new Error("Log entry not found.");
-      }
-      if (!logEntry.canUndo) {
-          throw new Error("This action cannot be undone.");
-      }
-
-      let undoSuccess = false;
-      let specificErrorMessage: string | null = null;
-
-      if (USE_MOCK_API) {
-          if (logEntry.action === "Added Student" && logEntry.targetType === "student") {
-              if (logEntry.originalData && logEntry.targetId) {
-                  executeUndoAddStudent(logEntry.targetId as number, logEntry.originalData as Student);
-                  undoSuccess = true;
-              } else { specificErrorMessage = "Missing data for undoing 'Added Student'."; }
-          } else if (logEntry.action === "Deleted Student" && logEntry.targetType === "student") {
-              if (logEntry.originalData) {
-                  executeUndoDeleteStudent(logEntry.originalData as Student);
-                  undoSuccess = true;
-              } else { specificErrorMessage = "Missing data for undoing 'Deleted Student'."; }
-          } else if (logEntry.action === "Added Faculty" && logEntry.targetType === "faculty") {
-               if (logEntry.originalData && logEntry.targetId) {
-                  const facultyData = logEntry.originalData as Faculty;
-                  executeUndoAddFaculty(logEntry.targetId as number, facultyData);
-                  undoSuccess = true;
-              } else { specificErrorMessage = "Missing data for undoing 'Added Faculty'."; }
-          } else if (logEntry.action === "Deleted Faculty" && logEntry.targetType === "faculty") {
-              if (logEntry.originalData) {
-                  executeUndoDeleteFaculty(logEntry.originalData as Faculty);
-                  undoSuccess = true;
-              } else { specificErrorMessage = "Missing data for undoing 'Deleted Faculty'."; }
-          } else if (logEntry.action === "Removed Admin Role" && logEntry.targetType === "admin") {
-                if (logEntry.originalData && logEntry.targetId) {
-                  const adminData = logEntry.originalData as AdminUser & { originalDepartment?: DepartmentType };
-                  undoSuccess = executeUndoRemoveAdminRole(adminData);
-                   if(!undoSuccess) { specificErrorMessage = "Could not undo 'Removed Admin Role': Details in log."; }
-              } else { specificErrorMessage = "Missing data for undoing 'Removed Admin Role'."; }
-          } else {
-              specificErrorMessage = `Mock: Undo for action type "${logEntry.action}" is not implemented.`;
-          }
-      } else {
-          await postData('admin/activity-log/undo.php', { logId });
-          undoSuccess = true;
-      }
-
-      if (undoSuccess) {
-          toast({ title: "Action Undone", description: "The selected action has been successfully reverted." });
-          
-          setActivityLog(prev => prev.filter(log => log.id !== logId));
-          if (USE_MOCK_API) {
-              // The actual removal from mockActivityLog happens inside the undo functions in api.ts
-          }
-          await fetchDashboardData(); 
-      } else {
-          throw new Error(specificErrorMessage || "Undo operation failed for an unknown reason.");
-      }
     } catch (err: any) {
       console.error("Failed to undo activity:", err);
-      toast({ variant: "destructive", title: "Undo Failed", description: err.message || "Could not undo the action." });
+      toast({ variant: "destructive", title: "Undo Failed", description: err.message || "Could not undo the action. The backend might not support this action or an error occurred." });
     } finally {
         setIsActivityLoading(false); 
     }
@@ -212,7 +142,6 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalTeachingStaff + stats.totalAdministrativeStaff}</div>
-              {/* Removed the p tag that showed breakdown by department */}
             </CardContent>
           </Card>
            
@@ -279,7 +208,7 @@ export default function AdminDashboardPage() {
                         </ul>
                     </ScrollArea>
                 ) : (
-                    <p className="text-sm text-muted-foreground text-center py-10">No recent activities found.</p>
+                    <p className="text-sm text-muted-foreground text-center py-10">No recent activities found or unable to load activity log.</p>
                 )}
             </CardContent>
         </Card>
@@ -287,3 +216,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+

@@ -28,9 +28,8 @@ import { useToast } from "@/hooks/use-toast";
 import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 import { loginSchema } from "@/lib/schemas";
 import Link from "next/link";
-import { postData, USE_MOCK_API, mockStudents, mockFaculty, mockApiAdmins, logActivity } from "@/lib/api"; 
+import { postData, logActivity } from "@/lib/api"; 
 import type { AdminRole } from "@/types";
-import { generateDefaultPasswordDisplay } from "@/lib/utils";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
@@ -39,7 +38,7 @@ interface LoginResponse {
     message: string;
     role?: AdminRole | 'Student' | 'Teacher';
     redirectPath?: string;
-    userId?: number;
+    userId?: number; // Added userId to LoginResponse
 }
 
 export default function LoginPage() {
@@ -59,93 +58,26 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     
-    if (USE_MOCK_API) {
-        console.log("Mock Login attempt:", data.username);
-        await new Promise(resolve => setTimeout(resolve, 300)); 
-
-        let response: LoginResponse = { success: false, message: "Invalid username or password." };
-        
-        const checkMockPassword = (lastName: string | undefined, inputPassword: string): boolean => {
-            if (!lastName) return false;
-            const expectedPassword = generateDefaultPasswordDisplay(lastName); // Uses @ + first 2 letters (UPPER) + 1001
-            return inputPassword === expectedPassword;
-        };
-
-        // Check Super Admin
-        const superAdmin = mockApiAdmins.find(a => a.username.toLowerCase() === data.username.toLowerCase() && a.isSuperAdmin);
-        if (superAdmin && data.password === "defadmin") { 
-            response = { success: true, message: "Login successful.", role: "Super Admin", redirectPath: "/admin/dashboard", userId: superAdmin.id };
-        } else {
-            // Check Student
-            const student = mockStudents.find(s => s.username.toLowerCase() === data.username.toLowerCase());
-            if (student && checkMockPassword(student.lastName, data.password)) {
-                student.lastAccessed = new Date().toISOString();
-                response = { success: true, message: "Login successful.", role: "Student", redirectPath: "/student/dashboard", userId: student.id };
-            } else {
-                // Check Faculty (Teacher or Administrative Staff acting as Sub Admin)
-                const facultyMember = mockFaculty.find(f => f.username.toLowerCase() === data.username.toLowerCase());
-                if (facultyMember && checkMockPassword(facultyMember.lastName, data.password)) {
-                    facultyMember.lastAccessed = new Date().toISOString();
-                    if (facultyMember.department === 'Administrative') {
-                        // Ensure this faculty member is also in mockApiAdmins as a Sub Admin for consistency
-                        if (!mockApiAdmins.some(a => a.id === facultyMember.id && a.role === 'Sub Admin')) {
-                             mockApiAdmins.push({
-                                id: facultyMember.id,
-                                username: facultyMember.username,
-                                firstName: facultyMember.firstName,
-                                lastName: facultyMember.lastName,
-                                email: facultyMember.email,
-                                role: 'Sub Admin',
-                                isSuperAdmin: false
-                            });
-                        }
-                        response = { success: true, message: "Login successful.", role: "Sub Admin", redirectPath: "/admin/dashboard", userId: facultyMember.id };
-                    } else { // Teaching staff
-                        response = { success: true, message: "Login successful.", role: "Teacher", redirectPath: "/teacher/dashboard", userId: facultyMember.id };
-                    }
-                } else {
-                    // Check explicit Sub Admins from mockApiAdmins (not derived from faculty)
-                    const explicitSubAdmin = mockApiAdmins.find(a => a.username.toLowerCase() === data.username.toLowerCase() && !a.isSuperAdmin && !mockFaculty.some(f => f.id === a.id));
-                    if (explicitSubAdmin && checkMockPassword(explicitSubAdmin.lastName, data.password)) {
-                        response = { success: true, message: "Login successful.", role: "Sub Admin", redirectPath: "/admin/dashboard", userId: explicitSubAdmin.id };
-                    }
-                }
-            }
-        }
-
+    try {
+        const response = await postData<LoginFormValues, LoginResponse>('login.php', data);
         setIsLoading(false);
         if (response.success && response.role && response.redirectPath) {
             toast({ title: "Login Successful", description: `Redirecting to ${response.role} dashboard...` });
             if (typeof window !== 'undefined') {
                 localStorage.setItem('userRole', response.role);
-                localStorage.setItem('userId', String(response.userId));
+                localStorage.setItem('userId', String(response.userId)); // Store userId
+                localStorage.setItem('username', data.username); // Store username
             }
-             logActivity("User Login", `${data.username} logged in as ${response.role}.`, data.username, response.userId, response.role.toLowerCase().replace(' ', '_') as any);
+            // Log activity (no-op if backend logging not implemented)
+            logActivity("User Login", `${data.username} logged in as ${response.role}.`, data.username, response.userId, response.role.toLowerCase().replace(' ', '_') as any);
             router.push(response.redirectPath);
         } else {
             toast({ variant: "destructive", title: "Login Failed", description: response.message });
         }
-
-    } else { // Real API call
-        try {
-            const response = await postData<LoginFormValues, LoginResponse>('login.php', data);
-            setIsLoading(false);
-            if (response.success && response.role && response.redirectPath) {
-                toast({ title: "Login Successful", description: `Redirecting to ${response.role} dashboard...` });
-                if (typeof window !== 'undefined') {
-                    localStorage.setItem('userRole', response.role);
-                    localStorage.setItem('userId', String(response.userId));
-                }
-                logActivity("User Login", `${data.username} logged in as ${response.role}.`, data.username, response.userId, response.role.toLowerCase().replace(' ', '_') as any);
-                router.push(response.redirectPath);
-            } else {
-                toast({ variant: "destructive", title: "Login Failed", description: response.message });
-            }
-        } catch (error: any) {
-            setIsLoading(false);
-            console.error("Login API error:", error);
-            toast({ variant: "destructive", title: "Login Error", description: error.message || "An unexpected error occurred." });
-        }
+    } catch (error: any) {
+        setIsLoading(false);
+        console.error("Login API error:", error);
+        toast({ variant: "destructive", title: "Login Error", description: error.message || "An unexpected error occurred." });
     }
   };
 
@@ -185,7 +117,7 @@ export default function LoginPage() {
                                 placeholder="Enter password"
                                 {...field}
                                 disabled={isLoading}
-                                className="pr-10"
+                                className="pr-10" // Add padding for the icon button
                             />
                         </FormControl>
                         <Button
