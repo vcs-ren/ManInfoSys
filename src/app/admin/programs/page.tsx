@@ -1,9 +1,8 @@
-
 "use client";
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PlusCircle, Edit, Trash2, Loader2, BookOpen, Library, PackagePlus, XCircle, Edit3, AlertCircle, MoreHorizontal, Settings, CheckSquare } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, BookOpen, Library, PackagePlus, XCircle, Edit3, AlertCircle, Settings, CheckSquare, MoreHorizontal } from "lucide-react";
 import { z } from "zod";
 import { Controller, useForm } from "react-hook-form";
 
@@ -61,12 +60,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { fetchData, postData, putData, deleteData, USE_MOCK_API, mockApiPrograms, mockCourses, logActivity } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 type ProgramFormValues = z.infer<typeof programSchema>;
@@ -159,7 +158,7 @@ export default function ProgramsCoursesPage() {
         id: program.id,
         name: program.name,
         description: program.description || "",
-        courses: program.courses,
+        courses: program.courses, // Keep existing courses when editing
       });
     } else {
       setSelectedProgramForEdit(null);
@@ -177,12 +176,16 @@ export default function ProgramsCoursesPage() {
     setIsSubmitting(true);
     try {
       let savedProgram: Program;
+      // Preserve existing courses if editing, unless explicitly changed by another mechanism (like assign courses modal)
+      const payload = { ...values, courses: isEditProgramMode && selectedProgramForEdit ? selectedProgramForEdit.courses : values.courses };
+
       if (isEditProgramMode && selectedProgramForEdit) {
-        savedProgram = await putData<ProgramFormValues, Program>(`programs/update.php/${selectedProgramForEdit.id}`, values);
+        savedProgram = await putData<ProgramFormValues, Program>(`programs/update.php/${selectedProgramForEdit.id}`, payload);
         toast({ title: "Program Updated", description: `${values.name} updated successfully.` });
         logActivity("Updated Program", values.name, "Admin", values.id, "program");
       } else {
-        savedProgram = await postData<ProgramFormValues, Program>('programs/create.php', values);
+        // For new programs, courses might be empty or handled via assign courses later
+        savedProgram = await postData<ProgramFormValues, Program>('programs/create.php', payload);
         toast({ title: "Program Added", description: `${savedProgram.name} added successfully.` });
         logActivity("Added Program", savedProgram.name, "Admin", savedProgram.id, "program");
       }
@@ -378,7 +381,7 @@ export default function ProgramsCoursesPage() {
         ) : <span className="text-xs text-muted-foreground italic">N/A</span>;
       },
     },
-  ], [isSubmitting, programs, isCurrentUserSuperAdmin]);
+  ], [isSubmitting, programs, isCurrentUserSuperAdmin, handleOpenProgramModal, handleDeleteProgram]);
 
 
   const courseColumns: ColumnDef<Course>[] = React.useMemo(() => [
@@ -388,7 +391,7 @@ export default function ProgramsCoursesPage() {
     { accessorKey: "programId", header: "Assigned Program(s) (Majors)", cell: ({ row }) => {
         if (row.original.type === 'Major') {
             if (row.original.programId && row.original.programId.length > 0) {
-                return row.original.programId.map(pid => programs.find(p => p.id === pid)?.id || pid).join(', ');
+                return row.original.programId.map(pid => programs.find(p => p.id === pid)?.name || pid).join(', ');
             }
             return <AlertCircle className="h-4 w-4 text-destructive" titleAccess="Major course needs program ID(s)" />;
         }
@@ -434,7 +437,7 @@ export default function ProgramsCoursesPage() {
         ) : <span className="text-xs text-muted-foreground italic">N/A</span>;
       },
     },
-  ], [isSubmitting, programs, isCurrentUserSuperAdmin]);
+  ], [isSubmitting, programs, isCurrentUserSuperAdmin, handleOpenCourseModal, handleDeleteCourse]);
 
 
   return (
@@ -453,29 +456,38 @@ export default function ProgramsCoursesPage() {
         <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : (
         <div className="space-y-8">
+          {/* Programs List in Accordion */}
           <Card>
             <CardHeader>
                 <CardTitle className="text-2xl font-semibold flex items-center"><Library className="mr-3 h-6 w-6 text-primary" /> Academic Programs</CardTitle>
-                 <CardDescription>Manage academic programs offered. Courses are assigned per year level.</CardDescription>
+                <CardDescription>Manage academic programs offered. Courses are assigned per year level.</CardDescription>
             </CardHeader>
             <CardContent>
               {programs.length > 0 ? (
                 <Accordion type="multiple" className="w-full space-y-3">
                   {programs.map(program => (
                     <AccordionItem value={program.id} key={program.id} className="border rounded-lg shadow-sm">
-                      <AccordionTrigger className="text-xl font-semibold hover:bg-accent/50 p-4 rounded-t-md">
+                      <AccordionTrigger className="text-xl font-semibold hover:bg-accent/50 p-3 rounded-t-md">
                         <div className="flex items-center justify-between w-full">
                           <span>{program.name} ({program.id})</span>
                            {isCurrentUserSuperAdmin && (
                             <div className="flex gap-2 items-center">
-                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenProgramModal(program); }} className="h-7 px-2 py-1 text-xs hover:bg-primary/10">
+                                <Button asChild variant="ghost" size="sm" className="h-7 px-2 py-1 text-xs hover:bg-primary/10">
+                                  <div role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); handleOpenProgramModal(program); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') {e.stopPropagation(); handleOpenProgramModal(program); }}}>
                                     <Edit3 className="mr-1 h-3 w-3" /> Edit Program
+                                  </div>
                                 </Button>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                         <Button variant="ghost" size="sm" onClick={(e) => {e.stopPropagation();}} className="h-7 px-2 py-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive">
+                                         <div
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={(e) => {e.stopPropagation();}} // Radix handles dialog opening
+                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); /* Radix handles dialog open */ } }}
+                                            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2 py-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer")}
+                                          >
                                             <Trash2 className="mr-1 h-3 w-3" /> Delete Program
-                                        </Button>
+                                          </div>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
@@ -534,6 +546,7 @@ export default function ProgramsCoursesPage() {
             </CardContent>
           </Card>
 
+          {/* System Courses Table */}
           <Card>
             <CardHeader>
                 <CardTitle className="text-2xl font-semibold flex items-center"><BookOpen className="mr-3 h-6 w-6 text-primary" /> System Courses (Subjects)</CardTitle>
