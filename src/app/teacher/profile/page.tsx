@@ -25,27 +25,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { Teacher } from "@/types";
-import { profileSchema } from "@/lib/schemas"; // Using profileSchema, assuming it covers editable fields
-import { Loader2, Pencil } from "lucide-react"; // Added Pencil
-import { fetchData, putData } from "@/lib/api"; // Import API helpers
-import { Textarea } from "@/components/ui/textarea"; // Import Textarea for address
-import { Separator } from "@/components/ui/separator"; // Import Separator
+import { teacherProfileSchema } from "@/lib/schemas"; // Corrected import
+import { Loader2, Pencil } from "lucide-react"; 
+import { fetchData, putData, USE_MOCK_API, mockFaculty } from "@/lib/api"; 
+import { Textarea } from "@/components/ui/textarea"; 
+import { Separator } from "@/components/ui/separator"; 
 
 
 // Use a relevant subset or the full profile schema if applicable
-const teacherEditableFieldsSchema = profileSchema.pick({
+const teacherEditableFieldsSchema = teacherProfileSchema.pick({ 
     id: true,
     firstName: true,
     lastName: true,
     email: true,
     phone: true,
-    // Teacher specific editable fields (if any beyond basic profileSchema)
-    // Assuming emergency contacts are editable for teachers too
     emergencyContactName: true,
     emergencyContactRelationship: true,
     emergencyContactPhone: true,
     emergencyContactAddress: true,
-    // Teacher *might* be able to edit these, depending on policy
     middleName: true,
     suffix: true,
     birthday: true,
@@ -57,11 +54,11 @@ type ProfileFormValues = z.infer<typeof teacherEditableFieldsSchema>;
 export default function TeacherProfilePage() {
   const [teacherData, setTeacherData] = React.useState<Teacher | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isEditing, setIsEditing] = React.useState(false); // State to toggle edit mode
+  const [isEditing, setIsEditing] = React.useState(false); 
   const { toast } = useToast();
 
   const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(teacherEditableFieldsSchema),
+    resolver: zodResolver(teacherEditableFieldsSchema), 
     defaultValues: {
         id: undefined,
         firstName: "",
@@ -83,23 +80,37 @@ export default function TeacherProfilePage() {
     const loadProfile = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchData<Teacher>('/api/teacher/profile/read.php');
-        setTeacherData(data);
-        form.reset({
-            id: data.id,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            middleName: data.middleName || "",
-            suffix: data.suffix || "",
-            birthday: data.birthday || "",
-            address: data.address || "",
-            email: data.email || "",
-            phone: data.phone || "",
-            emergencyContactName: data.emergencyContactName || "",
-            emergencyContactRelationship: data.emergencyContactRelationship || "",
-            emergencyContactPhone: data.emergencyContactPhone || "",
-            emergencyContactAddress: data.emergencyContactAddress || "",
-        });
+        let data: Teacher | null = null;
+        if (USE_MOCK_API) {
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            const loggedInTeacherId = Number(localStorage.getItem('userId')) || 1;
+            data = mockFaculty.find(t => t.id === loggedInTeacherId) || null;
+        } else {
+            data = await fetchData<Teacher>('teacher/profile/read.php');
+        }
+
+        if (data) {
+            setTeacherData(data);
+            form.reset({
+                id: data.id,
+                firstName: data.firstName,
+                lastName: data.lastName,
+                middleName: data.middleName || "",
+                suffix: data.suffix || "",
+                birthday: data.birthday || "",
+                address: data.address || "",
+                email: data.email || "",
+                phone: data.phone || "",
+                emergencyContactName: data.emergencyContactName || "",
+                emergencyContactRelationship: data.emergencyContactRelationship || "",
+                emergencyContactPhone: data.emergencyContactPhone || "",
+                emergencyContactAddress: data.emergencyContactAddress || "",
+            });
+        } else {
+             throw new Error("Teacher profile not found.");
+        }
       } catch (error: any) {
         console.error("Failed to fetch profile:", error);
         toast({ variant: "destructive", title: "Error", description: error.message || "Could not load profile data." });
@@ -109,30 +120,48 @@ export default function TeacherProfilePage() {
     };
     loadProfile();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Fetch only once
+  }, []); 
 
-  // Update Profile Function
+  
   const onSubmit = async (values: ProfileFormValues) => {
      if (!teacherData) return;
 
-     // Ensure all fields from Teacher type are included if needed by backend
-     const payload = {
-         ...teacherData, // Start with existing data to preserve non-editable fields
-         ...values // Overwrite with edited values
+     const payload: Teacher = { 
+         ...teacherData, 
+         ...values,
+         
+         facultyId: teacherData.facultyId,
+         username: teacherData.username,
+         department: teacherData.department,
+         employmentType: teacherData.employmentType,
+         
+         gender: teacherData.gender, 
      };
      console.log("Updating teacher profile:", payload);
 
      try {
-        // Use the specific teacher profile update endpoint
-        const updatedProfile = await putData<typeof payload, Teacher>('/api/teacher/profile/update.php', payload);
+        let updatedProfile: Teacher;
+        if (USE_MOCK_API) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            const index = mockFaculty.findIndex(t => t.id === teacherData.id);
+            if (index > -1) {
+                mockFaculty[index] = { ...mockFaculty[index], ...payload };
+                updatedProfile = mockFaculty[index];
+            } else {
+                throw new Error("Mock teacher not found for update.");
+            }
+        } else {
+            updatedProfile = await putData<Teacher, Teacher>('teacher/profile/update.php', payload);
+        }
+        
 
-        setTeacherData(prev => ({ ...prev, ...updatedProfile }));
+        setTeacherData(prev => ({ ...prev, ...updatedProfile })); 
         toast({
             title: "Profile Updated",
             description: "Your profile information has been saved.",
         });
-        form.reset(updatedProfile); // Reset form with the latest saved data
-        setIsEditing(false); // Exit edit mode
+        form.reset(updatedProfile); 
+        setIsEditing(false); 
      } catch (error: any) {
         console.error("Failed to update profile:", error);
         toast({
@@ -145,9 +174,8 @@ export default function TeacherProfilePage() {
 
     const handleCancelEdit = () => {
         setIsEditing(false);
-        // Reset form to original fetched data
         if (teacherData) {
-             form.reset({
+             form.reset({ 
                 id: teacherData.id,
                 firstName: teacherData.firstName,
                 lastName: teacherData.lastName,
@@ -192,12 +220,12 @@ export default function TeacherProfilePage() {
        <Card>
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
-            <CardDescription>View {isEditing ? 'and update ' : ''}your personal details. Username ({teacherData.teacherId}) and Department are managed by the admin.</CardDescription>
+            <CardDescription>View {isEditing ? 'and update ' : ''}your personal details. Username ({teacherData.username}) and Department are managed by the admin.</CardDescription>
           </CardHeader>
           <CardContent>
              <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    {/* Work Info (Read Only) */}
+                    
                     <div className="space-y-4">
                         <h3 className="text-lg font-medium text-muted-foreground">Work Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -208,9 +236,21 @@ export default function TeacherProfilePage() {
                                 </FormControl>
                             </FormItem>
                             <FormItem>
-                                <FormLabel>Teacher ID</FormLabel>
+                                <FormLabel>Faculty ID</FormLabel>
                                 <FormControl>
-                                    <Input value={teacherData.teacherId} disabled readOnly className="bg-muted"/>
+                                    <Input value={teacherData.facultyId} disabled readOnly className="bg-muted"/>
+                                </FormControl>
+                            </FormItem>
+                             <FormItem>
+                                <FormLabel>Username</FormLabel>
+                                <FormControl>
+                                    <Input value={teacherData.username} disabled readOnly className="bg-muted"/>
+                                </FormControl>
+                            </FormItem>
+                             <FormItem>
+                                <FormLabel>Employment Type</FormLabel>
+                                <FormControl>
+                                    <Input value={teacherData.employmentType} disabled readOnly className="bg-muted"/>
                                 </FormControl>
                             </FormItem>
                         </div>
@@ -218,7 +258,7 @@ export default function TeacherProfilePage() {
 
                     <Separator className="my-6" />
 
-                    {/* Personal Details (Editable) */}
+                    
                     <div className="space-y-4">
                          <h3 className="text-lg font-medium text-foreground">Personal Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -333,7 +373,7 @@ export default function TeacherProfilePage() {
 
                     <Separator className="my-6" />
 
-                    {/* Emergency Contact (Editable) */}
+                    
                     <div className="space-y-4">
                         <h3 className="text-lg font-medium text-foreground">Emergency Contact Information</h3>
                         <FormField
